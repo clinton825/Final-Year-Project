@@ -1,70 +1,92 @@
-# Getting Started with Create React App
+# Project Information Finder
+# BY Clinton Bempah (20097793)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Overview
+The **Project Information Finder** is a React-based web application that allows users to search for project details using a Planning ID. The application fetches project data from a backend API and displays relevant details such as title, category, stage, value, location, and description.
 
-## Available Scripts
+## Features
+- Input field to enter a Planning ID
+- Fetches project details from an API endpoint
+- Displays project information in a structured format
+- Error handling for API requests
+- Loading state indicator while fetching data
 
-In the project directory, you can run:
+## Technologies Used
+- React.js (Functional Components, Hooks)
+- Fetch API for making HTTP requests
+- JavaScript (ES6+)
+- HTML & CSS for styling
 
-### `npm start`
+## Installation & Setup
+### Prerequisites
+Ensure you have the following installed:
+- [Node.js](https://nodejs.org/) (v14+ recommended)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Steps
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/your-username/project-info-finder.git
+   ```
+2. Navigate to the project directory:
+   ```sh
+   cd project-info-finder
+   ```
+3. Install dependencies:
+   ```sh
+   npm install
+   ```
+4. Start the development server:
+   ```sh
+   npm start
+   ```
+   The application will be available at `http://localhost:3000/`.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## API Endpoint
+The application fetches data from the following API endpoint:
+```
+http://localhost:3001/api/project/{projectId}
+```
+### Expected API Response Format
+```json
+{
+  "status": "success",
+  "project": {
+    "data": {
+      "rows": [
+        {
+          "planning_title": "Project Name",
+          "planning_category": "Category",
+          "planning_stage": "Stage",
+          "planning_value": "1000000",
+          "planning_county": "County",
+          "planning_region": "Region",
+          "planning_description": "Project details here...",
+          "planning_url": "https://example.com"
+        }
+      ]
+    }
+  }
+}
+```
 
-### `npm test`
+## Usage
+1. Enter a Planning ID in the input field.
+2. Click the **Search Project** button.
+3. The application will fetch and display project details.
+4. If an error occurs, an error message will be displayed.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Troubleshooting
+- **API Not Working?** Ensure the backend server is running at `http://localhost:3001/`.
+- **No Project Found?** Double-check the Planning ID entered.
+- **CORS Issues?** If calling an external API, enable CORS in the backend.
 
-### `npm run build`
+## License
+This project is licensed under the [MIT License](LICENSE).
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Contributing
+Feel free to open issues and submit pull requests to improve this project!
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
+Developed with ❤️ using React.js.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
