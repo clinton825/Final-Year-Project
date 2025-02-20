@@ -1,7 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { getProjectInfoByPlanningID, getAllProjects, getAllProjectsWithPagination, getProjectsByCategory, getProjectCategories } = require("./api/building_api");
+const { 
+  getProjectInfoByPlanningID, 
+  getAllProjects, 
+  getProjectsByCategory, 
+  getProjectCategories,
+  getProjectsByFilters
+} = require('./api/building_api');
 
 const app = express();
 const PORT = 3001; // Set fixed port for development
@@ -18,6 +24,23 @@ app.use(express.json());
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Project Info API' });
+});
+
+// Get all projects
+app.get("/api/projects", async (req, res) => {
+  try {
+    console.log('Fetching all projects');
+    const projects = await getAllProjects();
+    res.json({ status: "success", projects });
+  } catch (error) {
+    console.error("Error in /api/projects:", error);
+    const errorMessage = error.message || "Internal Server Error";
+    res.status(500).json({ 
+      status: "error", 
+      message: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
 });
 
 // Get project by planning ID
@@ -52,8 +75,8 @@ app.get("/api/project/:planning_id", async (req, res) => {
   }
 });
 
-// Get all projects
-app.get("/api/projects", async (req, res) => {
+// Get all projects with pagination
+app.get("/api/projects/paginated", async (req, res) => {
   try {
     const { page, limit } = req.query;
     
@@ -78,7 +101,7 @@ app.get("/api/projects", async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Error in /api/projects:", error);
+    console.error("Error in /api/projects/paginated:", error);
     res.status(500).json({ 
       status: "error", 
       message: error.message || "Internal Server Error",
@@ -87,17 +110,47 @@ app.get("/api/projects", async (req, res) => {
   }
 });
 
-// Get all project categories
+// Get available categories
 app.get("/api/categories", async (req, res) => {
   try {
-    const result = await getProjectCategories();
-    res.json(result);
+    // Define categories as we want to show them to users
+    const categories = [
+      'Residential',
+      'Commercial & Retail',
+      'Industrial',
+      'Education',
+      'Medical',
+      'Civil',
+      'Social',
+      'Agriculture',
+      'Supply & Services',
+      'Self Build'
+    ];
+
+    // Define subcategories mapping using our user-friendly category names
+    const subcategories = {
+      'Residential': ['Houses', 'Apartments', 'Mixed Development'],
+      'Commercial & Retail': ['Retail', 'Office', 'Service Station', 'Car Showroom', 'Hotel & Guesthouse', 'Bar & Restaurant'],
+      'Industrial': ['Factory', 'Warehouse', 'Light Industrial'],
+      'Education': ['School', 'University', 'Pre School'],
+      'Medical': ['Hospital', 'Care Home', 'Medical Centre'],
+      'Civil': ['Roads & Bridges', 'Water & Sewerage', 'Transport', 'Carpark', 'Power Generation', 'Quarry'],
+      'Social': ['Sport & Leisure', 'Church & Community', 'Public Building'],
+      'Agriculture': ['Agricultural Building'],
+      'Supply & Services': ['Professional Services', 'Construction Supplies'],
+      'Self Build': ['House', 'Extension', 'Alteration']
+    };
+
+    res.json({
+      status: "success",
+      categories: categories,
+      subcategories: subcategories
+    });
   } catch (error) {
     console.error("Error in /api/categories:", error);
-    res.status(500).json({ 
-      status: "error", 
-      message: error.message || "Failed to fetch categories",
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to fetch categories"
     });
   }
 });
@@ -105,9 +158,9 @@ app.get("/api/categories", async (req, res) => {
 // Get projects by category
 app.get("/api/projects/category/:category", async (req, res) => {
   try {
-    const { category } = req.params;
-    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
-
+    const category = decodeURIComponent(req.params.category);
+    const subcategory = req.query.subcategory ? decodeURIComponent(req.query.subcategory) : null;
+    
     if (!category) {
       return res.status(400).json({ 
         status: "error", 
@@ -115,14 +168,76 @@ app.get("/api/projects/category/:category", async (req, res) => {
       });
     }
 
-    const result = await getProjectsByCategory(category, limit);
-    res.json(result);
+    console.log(`Fetching projects for category: ${category}${subcategory ? `, subcategory: ${subcategory}` : ''}`);
+    
+    const projects = await getProjectsByCategory(category);
+    console.log('Projects response:', JSON.stringify(projects, null, 2));
+
+    if (!projects || !projects.projects) {
+      return res.status(500).json({
+        status: "error",
+        message: "Invalid response from API"
+      });
+    }
+
+    res.json(projects);
   } catch (error) {
     console.error("Error in /api/projects/category/:category:", error);
+    const errorMessage = error.message || "Internal Server Error";
     res.status(500).json({ 
       status: "error", 
-      message: error.message || "Failed to fetch projects by category",
+      message: errorMessage,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Get projects by category
+app.get("/api/categories/:category", async (req, res) => {
+  try {
+    const { category } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 10; // Default limit of 10 projects
+
+    console.log(`Fetching projects for category: ${category}`);
+    const projects = await getProjectsByCategory(category, limit);
+    
+    if (!projects || projects.length === 0) {
+      return res.status(404).json({ 
+        status: "error", 
+        message: `No projects found for category: ${category}` 
+      });
+    }
+
+    res.json({ 
+      status: "success", 
+      category,
+      count: projects.length,
+      projects 
+    });
+  } catch (error) {
+    console.error("Error in /api/categories/:category:", error);
+    const errorMessage = error.message || "Internal Server Error";
+    res.status(500).json({ 
+      status: "error", 
+      message: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Get projects with multiple filters
+app.get("/api/projects/filter", async (req, res) => {
+  try {
+    const filters = req.query;
+    console.log('Received filters:', filters);
+    
+    const result = await getProjectsByFilters(filters);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /api/projects/filter endpoint:', error);
+    res.status(500).json({
+      status: "error",
+      message: error.message
     });
   }
 });
