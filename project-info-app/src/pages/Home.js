@@ -11,6 +11,7 @@ const Home = () => {
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [subcategories, setSubcategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [valueRange, setValueRange] = useState({ min: '', max: '' });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,25 +19,33 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredProjects(projects);
-      return;
+    let filtered = [...projects];
+
+    if (searchTerm.trim()) {
+      const searchTermLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(project => {
+        return (
+          project.planning_id?.toString().includes(searchTermLower) ||
+          project.planning_title?.toLowerCase().includes(searchTermLower) ||
+          project.planning_county?.toLowerCase().includes(searchTermLower) ||
+          project.planning_region?.toLowerCase().includes(searchTermLower) ||
+          project.planning_category?.toLowerCase().includes(searchTermLower) ||
+          project.planning_subcategory?.toLowerCase().includes(searchTermLower)
+        );
+      });
     }
 
-    const searchTermLower = searchTerm.toLowerCase();
-    const filtered = projects.filter(project => {
-      return (
-        project.planning_id?.toString().includes(searchTermLower) ||
-        project.planning_title?.toLowerCase().includes(searchTermLower) ||
-        project.planning_county?.toLowerCase().includes(searchTermLower) ||
-        project.planning_region?.toLowerCase().includes(searchTermLower) ||
-        project.planning_category?.toLowerCase().includes(searchTermLower) ||
-        project.planning_subcategory?.toLowerCase().includes(searchTermLower)
-      );
-    });
+    if (valueRange.min !== '' || valueRange.max !== '') {
+      filtered = filtered.filter(project => {
+        const projectValue = parseFloat(project.planning_value?.replace(/[^0-9.-]+/g, '')) || 0;
+        const minValue = valueRange.min === '' ? Number.MIN_SAFE_INTEGER : parseFloat(valueRange.min);
+        const maxValue = valueRange.max === '' ? Number.MAX_SAFE_INTEGER : parseFloat(valueRange.max);
+        return projectValue >= minValue && projectValue <= maxValue;
+      });
+    }
 
     setFilteredProjects(filtered);
-  }, [searchTerm, projects]);
+  }, [searchTerm, projects, valueRange]);
 
   useEffect(() => {
     if (selectedCategory) {
@@ -106,6 +115,16 @@ const Home = () => {
     setSelectedSubcategory('');
   };
 
+  const handleValueRangeChange = (type) => (e) => {
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setValueRange(prev => ({
+        ...prev,
+        [type]: value
+      }));
+    }
+  };
+
   const handleProjectClick = (planningId) => {
     navigate(`/project/${planningId}`);
   };
@@ -131,6 +150,14 @@ const Home = () => {
     }
   };
 
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('');
+    setSelectedSubcategory('');
+    setValueRange({ min: '', max: '' });
+    fetchProjects();
+  };
+
   const categories = [...new Set(projects.map(project => project.planning_category))].filter(Boolean).sort();
 
   return (
@@ -138,43 +165,71 @@ const Home = () => {
       <h1>PROJECT INFORMATION</h1>
       {error && <div className="error">{error}</div>}
 
-      <div className="search-container">
-        <input
-          type="text"
-          placeholder="Search by ID, title, location, or category..."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="search-input"
-        />
-      </div>
+      <div className="filters-section">
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Search by ID, title, location, or category..."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="search-input"
+          />
+        </div>
 
-      <div className="filter-container">
-        <select
-          value={selectedCategory}
-          onChange={(e) => handleCategoryChange(e.target.value)}
-          disabled={searchTerm !== ''}
-        >
-          <option value="">Select Category</option>
-          {categories.map((category, index) => (
-            <option key={index} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
+        <div className="value-range-container">
+          <div className="value-input-group">
+            <input
+              type="text"
+              placeholder="Min Value (€)"
+              value={valueRange.min}
+              onChange={handleValueRangeChange('min')}
+              className="value-input"
+            />
+            <span className="value-separator">to</span>
+            <input
+              type="text"
+              placeholder="Max Value (€)"
+              value={valueRange.max}
+              onChange={handleValueRangeChange('max')}
+              className="value-input"
+            />
+          </div>
+        </div>
 
-        {selectedCategory && subcategories.length > 0 && (
+        <div className="filter-container">
           <select
-            value={selectedSubcategory}
-            onChange={(e) => handleSubcategoryChange(e.target.value)}
+            value={selectedCategory}
+            onChange={(e) => handleCategoryChange(e.target.value)}
             disabled={searchTerm !== ''}
           >
-            <option value="">Select Subcategory</option>
-            {subcategories.map((subcategory, index) => (
-              <option key={index} value={subcategory}>
-                {subcategory}
+            <option value="">Select Category</option>
+            {categories.map((category, index) => (
+              <option key={index} value={category}>
+                {category}
               </option>
             ))}
           </select>
+
+          {selectedCategory && subcategories.length > 0 && (
+            <select
+              value={selectedSubcategory}
+              onChange={(e) => handleSubcategoryChange(e.target.value)}
+              disabled={searchTerm !== ''}
+            >
+              <option value="">Select Subcategory</option>
+              {subcategories.map((subcategory, index) => (
+                <option key={index} value={subcategory}>
+                  {subcategory}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {(searchTerm || valueRange.min || valueRange.max || selectedCategory || selectedSubcategory) && (
+          <button onClick={clearFilters} className="clear-filters-btn">
+            Clear All Filters
+          </button>
         )}
       </div>
 
@@ -193,7 +248,7 @@ const Home = () => {
             {project.planning_subcategory && (
               <p><strong>Subcategory:</strong> {project.planning_subcategory}</p>
             )}
-            <p><strong>Value:</strong> {project.planning_value}</p>
+            <p><strong>Value:</strong> €{project.planning_value?.replace('£', '')}</p>
             <p><strong>Location:</strong> {project.planning_county}, {project.planning_region}</p>
           </div>
         ))}

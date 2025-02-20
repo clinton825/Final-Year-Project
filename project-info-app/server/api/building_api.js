@@ -19,6 +19,26 @@ async function fetchWithRetry(url, options, maxRetries = 3, delay = 1000) {
   }
 }
 
+// Convert pound values to euro values (assuming a fixed exchange rate for simplicity)
+const convertToEuros = (poundValue) => {
+  if (!poundValue) return null;
+  // Remove the pound symbol and any commas
+  const numericValue = parseFloat(poundValue.replace(/[£,]/g, ''));
+  if (isNaN(numericValue)) return null;
+  
+  // Use current exchange rate (this is simplified, you might want to use a real exchange rate API)
+  const exchangeRate = 1.17; // Example rate: 1 GBP = 1.17 EUR
+  const euroValue = numericValue * exchangeRate;
+  
+  // Format with euro symbol and thousands separators
+  return euroValue.toLocaleString('en-IE', { 
+    style: 'currency', 
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+};
+
 const getProjectInfoByPlanningID = async (planning_id) => {
   try {
     const response = await fetchWithRetry(`https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${process.env.BUILDING_INFO_API_KEY}&ukey=${process.env.BUILDING_INFO_USER_KEY}&planning_id=${planning_id}`, {
@@ -79,17 +99,23 @@ const getAllProjects = async () => {
     const data = await response.json();
     console.log('Raw API Response:', JSON.stringify(data, null, 2));
 
+    // Convert all pound values to euros
+    const projectsWithEuros = data.map(project => ({
+      ...project,
+      planning_value: convertToEuros(project.planning_value)
+    }));
+
     // Check if data is an array
-    if (Array.isArray(data)) {
-      return data;
+    if (Array.isArray(projectsWithEuros)) {
+      return projectsWithEuros;
     } 
     // Check if data has rows property
-    else if (data && data.data && Array.isArray(data.data.rows)) {
-      return data.data.rows;
+    else if (projectsWithEuros && projectsWithEuros.data && Array.isArray(projectsWithEuros.data.rows)) {
+      return projectsWithEuros.data.rows;
     }
     // If data is a single object
-    else if (data && typeof data === 'object') {
-      return [data];
+    else if (projectsWithEuros && typeof projectsWithEuros === 'object') {
+      return [projectsWithEuros];
     } else {
       throw new Error('Unexpected API response format');
     }

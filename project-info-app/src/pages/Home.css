@@ -1,13 +1,7 @@
-.home-container {
-  padding: 20px;
+.filters-section {
   max-width: 1200px;
   margin: 0 auto;
-}
-
-.home-container h1 {
-  text-align: center;
-  color: #2c3e50;
-  margin-bottom: 30px;
+  padding: 20px;
 }
 
 .search-container {
@@ -52,6 +46,39 @@
   background-color: #2980b9;
 }
 
+.value-range-container {
+  margin: 20px 0;
+  width: 100%;
+  max-width: 600px;
+  margin: 20px auto;
+}
+
+.value-input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.value-input {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 16px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  transition: border-color 0.3s ease;
+}
+
+.value-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.2);
+}
+
+.value-separator {
+  color: #666;
+  font-weight: 500;
+}
+
 .filter-container {
   display: flex;
   gap: 10px;
@@ -76,26 +103,59 @@
   cursor: not-allowed;
 }
 
-.project-card {
-  background-color: #ffffff;
+.clear-filters-btn {
+  display: block;
+  margin: 20px auto;
+  padding: 10px 20px;
+  font-size: 16px;
+  color: #fff;
+  background-color: #dc3545;
+  border: none;
   border-radius: 8px;
-  padding: 20px;
-  margin: 15px 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
   cursor: pointer;
-  border-left: 4px solid #3498db;
+  transition: background-color 0.3s ease;
+}
+
+.clear-filters-btn:hover {
+  background-color: #c82333;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.project-card {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
 }
 
 .project-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  border-left-color: #2980b9;
+  transform: translateY(-5px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-.project-card:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.project-card h3 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.2em;
+}
+
+.project-card p {
+  margin: 10px 0;
+  color: #666;
+}
+
+.project-card strong {
+  color: #333;
 }
 
 .project-info {
