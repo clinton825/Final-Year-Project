@@ -31,14 +31,20 @@ app.get("/api/projects", async (req, res) => {
   try {
     console.log('Fetching all projects');
     const projects = await getAllProjects();
-    res.json({ status: "success", projects });
+    
+    if (!projects) {
+      throw new Error('No projects found');
+    }
+
+    res.json({
+      status: "success",
+      projects: Array.isArray(projects) ? projects : [projects]
+    });
   } catch (error) {
     console.error("Error in /api/projects:", error);
-    const errorMessage = error.message || "Internal Server Error";
     res.status(500).json({ 
       status: "error", 
-      message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message || "Failed to fetch projects"
     });
   }
 });
@@ -48,29 +54,33 @@ app.get("/api/project/:planning_id", async (req, res) => {
   try {
     const { planning_id } = req.params;
     
-    // Input validation
-    if (!planning_id || !/^\d+$/.test(planning_id)) {
+    if (!planning_id) {
       return res.status(400).json({ 
         status: "error", 
-        message: "Invalid planning ID format. Must be a numeric value." 
+        message: "Planning ID is required" 
       });
     }
 
-    console.log(`Fetching project info for planning_id: ${planning_id}`);
-    const project = await getProjectInfoByPlanningID(planning_id);
-
-    if (project) {
-      res.json({ status: "success", project });
-    } else {
-      res.status(404).json({ status: "error", message: "Project not found" });
+    console.log(`Fetching project details for planning ID: ${planning_id}`);
+    
+    const projectInfo = await getProjectInfoByPlanningID(planning_id);
+    
+    if (!projectInfo) {
+      return res.status(404).json({
+        status: "error",
+        message: "Project not found"
+      });
     }
+
+    res.json({
+      status: "success",
+      project: projectInfo
+    });
   } catch (error) {
-    console.error("Error in /api/project/:planning_id:", error);
-    const errorMessage = error.message || "Internal Server Error";
+    console.error("Error fetching project details:", error);
     res.status(500).json({ 
       status: "error", 
-      message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message || "Failed to fetch project details"
     });
   }
 });
@@ -155,39 +165,67 @@ app.get("/api/categories", async (req, res) => {
   }
 });
 
-// Get projects by category
+// Get projects by category with optional subcategory
 app.get("/api/projects/category/:category", async (req, res) => {
   try {
     const category = decodeURIComponent(req.params.category);
     const subcategory = req.query.subcategory ? decodeURIComponent(req.query.subcategory) : null;
     
-    if (!category) {
-      return res.status(400).json({ 
-        status: "error", 
-        message: "Category parameter is required" 
-      });
-    }
-
-    console.log(`Fetching projects for category: ${category}${subcategory ? `, subcategory: ${subcategory}` : ''}`);
+    console.log(`Fetching projects for category: ${category}, subcategory: ${subcategory}`);
     
-    const projects = await getProjectsByCategory(category);
-    console.log('Projects response:', JSON.stringify(projects, null, 2));
+    const projects = await getAllProjects();
+    
+    let filteredProjects = projects.filter(project => project.planning_category === category);
+    
+    if (subcategory) {
+      filteredProjects = filteredProjects.filter(project => project.planning_subcategory === subcategory);
+    }
 
-    if (!projects || !projects.projects) {
-      return res.status(500).json({
+    if (!filteredProjects.length) {
+      return res.status(404).json({
         status: "error",
-        message: "Invalid response from API"
+        message: subcategory 
+          ? `No projects found for category ${category} and subcategory ${subcategory}`
+          : `No projects found for category ${category}`
       });
     }
 
-    res.json(projects);
+    res.json({
+      status: "success",
+      projects: filteredProjects
+    });
   } catch (error) {
-    console.error("Error in /api/projects/category/:category:", error);
-    const errorMessage = error.message || "Internal Server Error";
+    console.error("Error fetching projects by category:", error);
     res.status(500).json({ 
       status: "error", 
-      message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message || "Failed to fetch projects"
+    });
+  }
+});
+
+// Get subcategories for a category
+app.get("/api/subcategories/:category", async (req, res) => {
+  try {
+    const category = decodeURIComponent(req.params.category);
+    console.log(`Fetching subcategories for category: ${category}`);
+    
+    const projects = await getAllProjects();
+    
+    const subcategories = [...new Set(
+      projects
+        .filter(project => project.planning_category === category)
+        .map(project => project.planning_subcategory)
+    )].filter(Boolean).sort();
+
+    res.json({
+      status: "success",
+      subcategories
+    });
+  } catch (error) {
+    console.error("Error fetching subcategories:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: error.message || "Failed to fetch subcategories"
     });
   }
 });
@@ -238,6 +276,42 @@ app.get("/api/projects/filter", async (req, res) => {
     res.status(500).json({
       status: "error",
       message: error.message
+    });
+  }
+});
+
+// Get project by planning ID
+app.get("/api/projects/:planningId", async (req, res) => {
+  try {
+    const planningId = req.params.planningId;
+    
+    if (!planningId) {
+      return res.status(400).json({ 
+        status: "error", 
+        message: "Planning ID is required" 
+      });
+    }
+
+    console.log(`Fetching project details for planning ID: ${planningId}`);
+    
+    const projectInfo = await getProjectInfoByPlanningID(planningId);
+    
+    if (!projectInfo) {
+      return res.status(404).json({
+        status: "error",
+        message: "Project not found"
+      });
+    }
+
+    res.json({
+      status: "success",
+      project: projectInfo
+    });
+  } catch (error) {
+    console.error("Error fetching project details:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: error.message || "Failed to fetch project details" 
     });
   }
 });

@@ -26,45 +26,40 @@ const getProjectInfoByPlanningID = async (planning_id) => {
       headers: {
         'Accept': 'application/json'
       },
-      timeout: 10000 // 10 second timeout
+      timeout: 10000
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    
-    // Log the exact structure of the response
-    console.log('Raw API Response for planning_id:', planning_id);
-    console.log(JSON.stringify(data, null, 2));
+    console.log('API Response:', data);
 
-    // Handle different possible response structures
+    // If data is an array, find the matching project
     if (Array.isArray(data)) {
-      const project = data.find(project => project.planning_id === planning_id);
-      console.log('Found project:', project);
-      return project || null;
-    } else if (data && typeof data === 'object') {
-      console.log('Single project data:', data);
+      return data[0];
+    }
+    
+    // If data is an object with a data property containing rows
+    if (data && data.data && Array.isArray(data.data.rows)) {
+      return data.data.rows[0];
+    }
+    
+    // If data is a single object
+    if (data && typeof data === 'object') {
       return data;
-    } else {
-      throw new Error('Unexpected API response format');
     }
+
+    throw new Error('No project data found');
   } catch (error) {
-    console.error("Detailed error fetching project info:", {
-      message: error.message,
-      planningId: planning_id
-    });
-    if (error.code === 'ETIMEDOUT') {
-      throw new Error("The request timed out. Please try again.");
-    }
+    console.error('Error fetching project:', error);
     throw error;
   }
 };
 
 const getAllProjects = async () => {
   try {
-    // Remove the limit to get all projects
     const url = `https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${process.env.BUILDING_INFO_API_KEY}&ukey=${process.env.BUILDING_INFO_USER_KEY}`;
     
     console.log('Making API request for all projects');
@@ -74,7 +69,7 @@ const getAllProjects = async () => {
       headers: {
         'Accept': 'application/json'
       },
-      timeout: 10000 // 10 second timeout
+      timeout: 10000
     });
 
     if (!response.ok) {
@@ -82,22 +77,24 @@ const getAllProjects = async () => {
     }
 
     const data = await response.json();
-    console.log(`Received ${data.data?.count || 0} total projects`);
-    
-    if (data.status === "OK" && data.data && data.data.rows) {
-      return {
-        status: "success",
-        total: data.data.count,
-        projects: data.data.rows
-      };
+    console.log('Raw API Response:', JSON.stringify(data, null, 2));
+
+    // Check if data is an array
+    if (Array.isArray(data)) {
+      return data;
+    } 
+    // Check if data has rows property
+    else if (data && data.data && Array.isArray(data.data.rows)) {
+      return data.data.rows;
+    }
+    // If data is a single object
+    else if (data && typeof data === 'object') {
+      return [data];
     } else {
-      throw new Error("Invalid API response structure");
+      throw new Error('Unexpected API response format');
     }
   } catch (error) {
     console.error('Error fetching all projects:', error);
-    if (error.code === 'ETIMEDOUT') {
-      throw new Error("The request timed out. Please try again.");
-    }
     throw error;
   }
 };
