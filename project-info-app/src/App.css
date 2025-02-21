@@ -1,10 +1,10 @@
 /* Global styles */
 :root {
-  --primary-gradient: linear-gradient(135deg, #f0f2f5 0%, #e2e8f0 100%);
+  --primary-gradient: linear-gradient(135deg, #f6f8fb 0%, #f0f4f8 100%);
   --accent-color: #4f46e5;
-  --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-  --text-primary: #1a202c;
-  --text-secondary: #4a5568;
+  --accent-gradient: linear-gradient(to right, #4f46e5, #6366f1);
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
 }
 
 body {
@@ -83,6 +83,31 @@ body {
 
 .nav-links a:hover {
   color: var(--accent-color);
+}
+
+.nav-button {
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.nav-button i {
+  font-size: 1rem;
 }
 
 @media (max-width: 768px) {
