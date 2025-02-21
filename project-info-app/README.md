@@ -13,15 +13,22 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
   - Expandable descriptions for better readability
   - "Read More/Show Less" functionality
   - Key project information at a glance
-- Detailed project information display including:
-  - Project Title
-  - Category and Subcategory
-  - Value
-  - Location (County and Region)
-  - Comprehensive Description
-  - Project URL
+- Comprehensive project details page featuring:
+  - Project overview (title, ID, category, type, stage)
+  - Formatted project value in euros
+  - Detailed location information
+  - Site specifications (area and building size)
+  - Important dates (application, decision, start, completion)
+  - Project description
+  - Interactive project tags
+  - External resource links
+- Detailed stakeholder information:
+  - Company profiles by type (Architect, Contractor, etc.)
+  - Complete contact information
+  - Interactive website links
 - Modern, responsive design features:
-  - Grid layout for project cards
+  - Card-based layout with consistent spacing
+  - Grid system for responsive design
   - Smooth transitions and animations
   - Mobile-friendly interface
 - Real-time API integration
