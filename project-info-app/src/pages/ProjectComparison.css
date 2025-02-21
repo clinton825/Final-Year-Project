@@ -1,16 +1,15 @@
 .comparison-container {
   padding: 2rem;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
 .comparison-container h2 {
-  color: #333;
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: #333;
+  margin-bottom: 0.5rem;
 }
 
 .subtitle {
@@ -27,8 +26,8 @@
 .project-selection {
   background: white;
   padding: 1.5rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .selected-projects {
@@ -39,7 +38,7 @@
 }
 
 .selected-project {
-  background: #f0f2ff;
+  background: #f0f0f0;
   padding: 0.5rem 1rem;
   border-radius: 20px;
   display: flex;
@@ -53,79 +52,132 @@
   border: none;
   color: #666;
   cursor: pointer;
+  padding: 0 0.25rem;
   font-size: 1.2rem;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .remove-btn:hover {
-  color: #ff4444;
+  color: #dc3545;
+}
+
+.comparison-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0 1rem;
+}
+
+.comparison-tabs button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.comparison-tabs button:hover {
+  background: #e9ecef;
+}
+
+.comparison-tabs button.active {
+  background: #007bff;
+  color: white;
 }
 
 .charts-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  gap: 2rem;
-  margin: 2rem 0;
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .chart {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
 }
 
 .chart h4 {
-  color: #333;
-  margin-bottom: 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: #333;
 }
 
-.available-projects {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+.timeline-container {
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
 }
 
-.project-card {
+.timeline-item {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.timeline-item h5 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.timeline-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.available-projects {
   background: white;
   padding: 1.5rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.project-card {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .project-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .project-card.selected {
-  border: 2px solid #4a90e2;
-  background: #f8faff;
+  border: 2px solid #007bff;
+  background: #f8f9fa;
 }
 
 .project-card h3 {
+  margin: 0 0 1rem 0;
   color: #333;
-  margin-bottom: 1rem;
   font-size: 1.1rem;
 }
 
 .project-details {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 0.5rem;
+  color: #666;
+  font-size: 0.9rem;
 }
 
 .project-details p {
-  color: #666;
-  font-size: 0.9rem;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -135,16 +187,33 @@
   font-size: 1.2rem;
 }
 
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #dc3545;
+}
+
 @media (max-width: 768px) {
   .comparison-container {
     padding: 1rem;
   }
 
+  .comparison-tabs {
+    flex-wrap: wrap;
+  }
+
   .charts-container {
-    grid-template-columns: 1fr;
+    padding: 1rem;
+    overflow-x: auto;
   }
 
   .chart {
-    overflow-x: auto;
+    min-width: 100%;
   }
 }
