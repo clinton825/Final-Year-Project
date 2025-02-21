@@ -1,25 +1,34 @@
-# Project Information Finder
+# Infrastructure Project Tracking Web Application
 # BY Clinton Bempah (20097793)
 
 ## Overview
-The **Project Information Finder** is a React-based web application that allows users to search for project details using a Planning ID. The application fetches project data from a backend API and displays relevant details such as title, category, stage, value, location, and description.
+The **Infrastructure Project Tracking Web Application** is a React-based web application that allows users to explore and search for infrastructure project details. The application fetches project data from a backend API and displays comprehensive information about various infrastructure projects, including their planning details, categories, values, and locations.
 
 ## Features
-- Search functionality using Planning ID
+- Advanced search and filtering capabilities:
+  - Search by Planning ID, title, location, or category
+  - Filter by project category and subcategory
+  - Filter by project value range
+- Interactive project cards with:
+  - Expandable descriptions for better readability
+  - "Read More/Show Less" functionality
+  - Key project information at a glance
 - Detailed project information display including:
   - Project Title
-  - Category
-  - Stage
+  - Category and Subcategory
   - Value
   - Location (County and Region)
-  - Description
+  - Comprehensive Description
   - Project URL
-- Responsive design for mobile and desktop devices
+- Modern, responsive design features:
+  - Grid layout for project cards
+  - Smooth transitions and animations
+  - Mobile-friendly interface
 - Real-time API integration
 - Error handling and validation
 - Loading states for better user experience
 - Navigation between project details and home page
-- Clean and modern user interface
+- Clean and intuitive user interface
 
 ## Technologies Used
 - React.js (Functional Components, Hooks)
@@ -29,6 +38,9 @@ The **Project Information Finder** is a React-based web application that allows 
 - Node.js runtime
 - Environment variables support with dotenv
 - Modern CSS with responsive design
+  - CSS Grid for layout
+  - Flexbox for component structure
+  - CSS transitions for smooth animations
 - CORS support for API security
 - Fetch API for making HTTP requests
 - JavaScript (ES6+)
@@ -70,50 +82,64 @@ Ensure you have the following installed:
    ```
    The frontend will be available at `http://localhost:3000/` and the backend at `http://localhost:3001/`.
 
-## API Endpoint
-The application fetches data from the following API endpoint:
+## API Endpoints
+The application uses the following API endpoints:
+
+### Get Project by ID
 ```
-http://localhost:3001/api/project/{projectId}
+GET http://localhost:3001/api/project/{projectId}
 ```
+
+### Get All Projects
+```
+GET http://localhost:3001/api/projects
+```
+
+### Get Subcategories by Category
+```
+GET http://localhost:3001/api/subcategories/{category}
+```
+
+### Get Projects by Category
+```
+GET http://localhost:3001/api/projects/category/{category}
+```
+
+### Get Projects by Category and Subcategory
+```
+GET http://localhost:3001/api/projects/category/{category}?subcategory={subcategory}
+```
+
 ### Expected API Response Format
 ```json
 {
   "status": "success",
-  "project": {
-    "data": {
-      "rows": [
-        {
-          "planning_title": "Project Name",
-          "planning_category": "Category",
-          "planning_stage": "Stage",
-          "planning_value": "1000000",
-          "planning_county": "County",
-          "planning_region": "Region",
-          "planning_description": "Project details here...",
-          "planning_url": "https://example.com"
-        }
-      ]
+  "projects": [
+    {
+      "planning_id": "123",
+      "planning_title": "Project Name",
+      "planning_category": "Category",
+      "planning_subcategory": "Subcategory",
+      "planning_value": "1000000",
+      "planning_county": "County",
+      "planning_region": "Region",
+      "planning_description": "Project details here...",
+      "planning_url": "https://example.com"
     }
-  }
+  ]
 }
 ```
 
 ## Usage
-1. Enter a Planning ID in the input field.
-2. Click the **Search Project** button.
-3. The application will fetch and display project details.
-4. If an error occurs, an error message will be displayed.
-
-## Troubleshooting
-- **API Not Working?** Ensure the backend server is running at `http://localhost:3001/`.
-- **No Project Found?** Double-check the Planning ID entered.
-- **CORS Issues?** If calling an external API, enable CORS in the backend.
-
-## License
-This project is licensed under the [MIT License](LICENSE).
+1. Browse projects on the home page using the grid layout
+2. Use the search bar to find specific projects by ID, title, location, or category
+3. Filter projects by:
+   - Selecting a category from the dropdown
+   - Choosing a subcategory (if available)
+   - Setting a value range
+4. Click "Read More" on any project card to view its full description
+5. Click on a project card to view detailed information
+6. Use the "Clear All Filters" button to reset your search and filters
 
 ## Contributing
-Feel free to open issues and submit pull requests to improve this project!
-
----
-Developed with ❤️ using React.js.
+Contributions are welcome! Please feel free to submit a Pull Request.
