@@ -148,5 +148,11 @@ GET http://localhost:3001/api/projects/category/{category}?subcategory={subcateg
 5. Click on a project card to view detailed information
 6. Use the "Clear All Filters" button to reset your search and filters
 
+## License
+This project is licensed under the [MIT License](LICENSE).
+
 ## Contributing
-Contributions are welcome! Please feel free to submit a Pull Request.
+Feel free to open issues and submit pull requests to improve this project!
+
+---
+Developed with ❤️ using React.js.
