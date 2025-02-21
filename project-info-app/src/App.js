@@ -3,6 +3,7 @@ import { Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
 import ProjectComparison from './pages/ProjectComparison';
 import ProjectDetails from './pages/ProjectDetails';
+import Dashboard from './pages/Dashboard';
 import './App.css';
 
 function App() {
@@ -14,12 +15,14 @@ function App() {
         </div>
         <div className="nav-links">
           <Link to="/">Home</Link>
+          <Link to="/dashboard">Dashboard</Link>
           <Link to="/compare">Compare Projects</Link>
         </div>
       </nav>
 
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/compare" element={<ProjectComparison />} />
         <Route path="/project/:planning_id" element={<ProjectDetails />} />
       </Routes>

@@ -1,4 +1,9 @@
-const fetch = require('node-fetch');
+// Import fetch dynamically
+let fetch;
+(async () => {
+  const nodeFetch = await import('node-fetch');
+  fetch = nodeFetch.default;
+})();
 
 // Utility function to retry failed requests
 async function fetchWithRetry(url, options, maxRetries = 3, delay = 1000) {

@@ -59,7 +59,7 @@ const Home = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/projects');
+      const response = await fetch('http://localhost:8080/api/projects');
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
@@ -75,7 +75,7 @@ const Home = () => {
 
   const fetchSubcategories = async (category) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/subcategories/${encodeURIComponent(category)}`);
+      const response = await fetch(`http://localhost:8080/api/subcategories/${encodeURIComponent(category)}`);
       if (!response.ok) {
         throw new Error('Failed to fetch subcategories');
       }
@@ -91,7 +91,7 @@ const Home = () => {
     setLoading(true);
     setError(null);
     try {
-      let url = `http://localhost:3001/api/projects/category/${encodeURIComponent(category)}`;
+      let url = `http://localhost:8080/api/projects/category/${encodeURIComponent(category)}`;
       if (subcategory) {
         url += `?subcategory=${encodeURIComponent(subcategory)}`;
       }

@@ -9,12 +9,21 @@ const {
   getProjectsByFilters
 } = require('./api/building_api');
 
+const {
+  trackProject,
+  untrackProject,
+  getTrackedProjects,
+  addNotification,
+  getNotifications,
+  clearNotifications
+} = require('./api/user_tracking');
+
 const app = express();
-const PORT = 3001; // Set fixed port for development
+const PORT = 8080;
 
 // Configure CORS
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3002'], // Allow both ports
+  origin: ['http://localhost:3000', 'http://localhost:8080'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -460,6 +469,119 @@ app.get("/api/test-categories", async (req, res) => {
       status: "error", 
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// User tracking endpoints
+app.post("/api/projects/track", async (req, res) => {
+  try {
+    const { userId, projectId } = req.body;
+    
+    if (!userId || !projectId) {
+      return res.status(400).json({
+        status: "error",
+        message: "User ID and Project ID are required"
+      });
+    }
+
+    const result = await trackProject(userId, projectId);
+    res.json({
+      status: "success",
+      data: result
+    });
+  } catch (error) {
+    console.error("Error tracking project:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to track project"
+    });
+  }
+});
+
+app.post("/api/projects/untrack", async (req, res) => {
+  try {
+    const { userId, projectId } = req.body;
+    
+    if (!userId || !projectId) {
+      return res.status(400).json({
+        status: "error",
+        message: "User ID and Project ID are required"
+      });
+    }
+
+    const result = await untrackProject(userId, projectId);
+    res.json({
+      status: "success",
+      data: result
+    });
+  } catch (error) {
+    console.error("Error untracking project:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to untrack project"
+    });
+  }
+});
+
+app.get("/api/users/:userId/tracked-projects", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const projectIds = await getTrackedProjects(userId);
+    
+    // Fetch full project details for each tracked project
+    const trackedProjects = await Promise.all(
+      projectIds.map(async (id) => {
+        const project = await getProjectInfoByPlanningID(id);
+        return project;
+      })
+    );
+
+    res.json({
+      status: "success",
+      projects: trackedProjects.filter(p => p !== null)
+    });
+  } catch (error) {
+    console.error("Error getting tracked projects:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get tracked projects"
+    });
+  }
+});
+
+app.get("/api/users/:userId/notifications", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userNotifications = await getNotifications(userId);
+    
+    res.json({
+      status: "success",
+      notifications: userNotifications
+    });
+  } catch (error) {
+    console.error("Error getting notifications:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get notifications"
+    });
+  }
+});
+
+app.post("/api/users/:userId/notifications/clear", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await clearNotifications(userId);
+    
+    res.json({
+      status: "success",
+      data: result
+    });
+  } catch (error) {
+    console.error("Error clearing notifications:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to clear notifications"
     });
   }
 });

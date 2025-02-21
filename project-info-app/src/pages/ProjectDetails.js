@@ -9,37 +9,80 @@ const ProjectDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isTracked, setIsTracked] = useState(false);
+
+  // TODO: Replace with actual user authentication
+  const mockUserId = '123';
 
   useEffect(() => {
-    const fetchProjectDetails = async () => {
-      try {
-        console.log('Fetching project details for ID:', planning_id);
-        const response = await fetch(`http://localhost:3001/api/project/${planning_id}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch project details');
-        }
-
-        const data = await response.json();
-        console.log('Received project data:', data);
-
-        if (data.status === "success" && data.project) {
-          setProject(data.project);
-        } else {
-          throw new Error('Project not found');
-        }
-      } catch (err) {
-        console.error('Error fetching project:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (planning_id) {
       fetchProjectDetails();
+      checkIfTracked();
     }
   }, [planning_id]);
+
+  const fetchProjectDetails = async () => {
+    try {
+      console.log('Fetching project details for ID:', planning_id);
+      const response = await fetch(`http://localhost:8080/api/project/${planning_id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch project details');
+      }
+
+      const data = await response.json();
+      console.log('Received project data:', data);
+
+      if (data.status === "success" && data.project) {
+        setProject(data.project);
+      } else {
+        throw new Error('Project not found');
+      }
+    } catch (err) {
+      console.error('Error fetching project:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkIfTracked = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/users/${mockUserId}/tracked-projects`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch tracked projects');
+      }
+      const data = await response.json();
+      setIsTracked(data.projects.some(p => p.planning_id === planning_id));
+    } catch (error) {
+      console.error('Error checking if project is tracked:', error);
+    }
+  };
+
+  const handleTrackToggle = async () => {
+    try {
+      const endpoint = isTracked ? 'untrack' : 'track';
+      const response = await fetch(`http://localhost:8080/api/projects/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: mockUserId,
+          projectId: planning_id
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${endpoint} project`);
+      }
+
+      setIsTracked(!isTracked);
+    } catch (error) {
+      console.error(`Error ${isTracked ? 'untracking' : 'tracking'} project:`, error);
+      setError(error.message);
+    }
+  };
 
   const handleBack = () => {
     navigate('/');
@@ -215,12 +258,20 @@ const ProjectDetails = () => {
 
   return (
     <div className="project-details">
-      <button onClick={handleBack} className="back-button">
+      <button className="back-button" onClick={handleBack}>
         Back to Projects
       </button>
-      
-      <h1>{project.planning_title}</h1>
-      
+
+      <div className="project-header">
+        <h1>{project.planning_title}</h1>
+        <button 
+          className={`track-button ${isTracked ? 'tracked' : ''}`}
+          onClick={handleTrackToggle}
+        >
+          {isTracked ? 'Untrack Project' : 'Track Project'}
+        </button>
+      </div>
+
       <div className="tabs">
         <button 
           className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}

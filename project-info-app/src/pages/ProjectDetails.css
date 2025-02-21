@@ -1,24 +1,77 @@
 .project-details {
-  padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  padding: 2rem;
+}
+
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.project-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #333;
 }
 
 .back-button {
-  background-color: #f0f0f0;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-bottom: 1rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  transition: background-color 0.2s;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
 }
 
 .back-button:hover {
-  background-color: #e0e0e0;
+  color: #333;
+}
+
+.back-button::before {
+  content: '←';
+  font-size: 1.2em;
+}
+
+.track-button {
+  background: #0066cc;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.track-button:hover {
+  background: #0052a3;
+}
+
+.track-button.tracked {
+  background: #ff4444;
+}
+
+.track-button.tracked:hover {
+  background: #cc3333;
+}
+
+.track-button::before {
+  content: '⭐';
+  font-size: 1.2em;
+}
+
+.track-button.tracked::before {
+  content: '✕';
 }
 
 .details-grid {
