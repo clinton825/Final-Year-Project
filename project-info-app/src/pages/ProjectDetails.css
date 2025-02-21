@@ -5,59 +5,182 @@
 }
 
 .back-button {
-  background-color: #007bff;
-  color: white;
+  background-color: #f0f0f0;
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 4px;
   cursor: pointer;
   margin-bottom: 1rem;
-  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
 }
 
 .back-button:hover {
-  background-color: #0056b3;
-}
-
-h1 {
-  color: #333;
-  margin-bottom: 2rem;
-  font-size: 2rem;
+  background-color: #e0e0e0;
 }
 
 .details-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
-  background-color: #f8f9fa;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
 }
 
 .detail-item {
-  background-color: white;
+  background: #ffffff;
   padding: 1.5rem;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.detail-item.full-width {
-  grid-column: 1 / -1;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .detail-item h3 {
-  color: #666;
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
 }
 
 .detail-item p {
-  color: #333;
+  color: #666;
   margin: 0;
+  font-size: 1rem;
+}
+
+.dates-section {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.dates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.date-item {
+  padding: 0.5rem;
+  border-left: 3px solid #007bff;
+}
+
+.date-item span {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.date-item p {
+  margin: 0.25rem 0 0 0;
+  color: #666;
+}
+
+.description-section {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.description-section h3 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.description-section p {
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.tags-section {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.tag {
+  background: #e9ecef;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.stakeholders-section {
+  display: grid;
+  gap: 2rem;
+}
+
+.stakeholder-group {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stakeholder-card {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.stakeholder-header {
+  margin-bottom: 1rem;
+}
+
+.stakeholder-header h4 {
+  margin: 0;
+  color: #333;
   font-size: 1.1rem;
-  word-break: break-word;
+}
+
+.company-details {
+  color: #666;
+}
+
+.company-details p {
+  margin: 0.5rem 0;
+}
+
+.company-details strong {
+  color: #495057;
+}
+
+.url-section {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.url-section a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.url-section a:hover {
+  text-decoration: underline;
+}
+
+.no-data {
+  color: #6c757d;
+  font-style: italic;
 }
 
 .loading {
@@ -70,20 +193,53 @@ h1 {
 .error-container {
   text-align: center;
   padding: 2rem;
-  background-color: #fff3f3;
-  border-radius: 8px;
-  margin: 2rem auto;
-  max-width: 600px;
 }
 
 .error {
   color: #dc3545;
   margin-bottom: 1rem;
+}
+
+/* New styles for tabs */
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin: 2rem 0;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 0.5rem;
+}
+
+.tab-button {
+  background: none;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  border-radius: 4px 4px 0 0;
+}
+
+.tab-button:hover {
+  background-color: #f0f0f0;
+}
+
+.tab-button.active {
+  color: #007bff;
+  border-bottom: 2px solid #007bff;
+  margin-bottom: -2px;
+}
+
+.tab-button .icon {
   font-size: 1.2rem;
 }
 
-@media (max-width: 768px) {
-  .details-grid {
-    grid-template-columns: 1fr;
-  }
+/* Stakeholders section styles */
+.stakeholders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
 }

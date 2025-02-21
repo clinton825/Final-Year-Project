@@ -127,7 +127,7 @@ const Home = () => {
   };
 
   const handleProjectClick = (planningId) => {
-    navigate(`/project/${planningId}`);
+    navigate(`/project/${encodeURIComponent(planningId)}`);
   };
 
   const handleCategoryChange = async (category) => {
