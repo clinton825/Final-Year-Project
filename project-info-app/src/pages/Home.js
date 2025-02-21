@@ -12,6 +12,7 @@ const Home = () => {
   const [subcategories, setSubcategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [valueRange, setValueRange] = useState({ min: '', max: '' });
+  const [expandedCards, setExpandedCards] = useState(new Set());
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -158,12 +159,37 @@ const Home = () => {
     fetchProjects();
   };
 
+  const toggleDescription = (projectId, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId);
+      } else {
+        newSet.add(projectId);
+      }
+      return newSet;
+    });
+  };
+
+  const truncateDescription = (description, maxLength = 150) => {
+    if (!description) return '';
+    if (description.length <= maxLength) return description;
+    return `${description.substring(0, maxLength)}...`;
+  };
+
   const categories = [...new Set(projects.map(project => project.planning_category))].filter(Boolean).sort();
+
+  if (loading) return <div className="loading">Loading projects...</div>;
+  if (error) return <div className="error">{error}</div>;
 
   return (
     <div className="home-container">
-      <h1>PROJECT INFORMATION</h1>
-      {error && <div className="error">{error}</div>}
+      <div className="header">
+        <h1>Infrastructure Project Tracking Web Application</h1>
+        <p>Transparent Insights into Local Infrastructure Development</p>
+      </div>
 
       <div className="filters-section">
         <div className="search-container">
@@ -174,6 +200,11 @@ const Home = () => {
             onChange={handleSearch}
             className="search-input"
           />
+          <button className="location-button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="white"/>
+            </svg>
+          </button>
         </div>
 
         <div className="value-range-container">
@@ -196,8 +227,9 @@ const Home = () => {
           </div>
         </div>
 
-        <div className="filter-container">
+        <div className="filters-row">
           <select
+            className="filter-select"
             value={selectedCategory}
             onChange={(e) => handleCategoryChange(e.target.value)}
             disabled={searchTerm !== ''}
@@ -212,6 +244,7 @@ const Home = () => {
 
           {selectedCategory && subcategories.length > 0 && (
             <select
+              className="filter-select"
               value={selectedSubcategory}
               onChange={(e) => handleSubcategoryChange(e.target.value)}
               disabled={searchTerm !== ''}
@@ -233,23 +266,45 @@ const Home = () => {
         )}
       </div>
 
-      {loading && <div className="loading">Loading projects...</div>}
-
-      <div className="project-grid">
+      <div className="projects-grid">
         {filteredProjects.map((project) => (
           <div
             key={project.planning_id}
-            className="project-card"
-            onClick={() => handleProjectClick(project.planning_id)}
+            className={`project-card ${expandedCards.has(project.planning_id) ? 'expanded' : ''}`}
+            onClick={(e) => handleProjectClick(project.planning_id)}
           >
             <h3>{project.planning_title}</h3>
-            <p><strong>Planning ID:</strong> {project.planning_id}</p>
-            <p><strong>Category:</strong> {project.planning_category}</p>
-            {project.planning_subcategory && (
-              <p><strong>Subcategory:</strong> {project.planning_subcategory}</p>
-            )}
-            <p><strong>Value:</strong> €{project.planning_value?.replace('£', '')}</p>
-            <p><strong>Location:</strong> {project.planning_county}, {project.planning_region}</p>
+            <div className="project-brief">
+              <p className={expandedCards.has(project.planning_id) ? 'expanded' : ''}>
+                {expandedCards.has(project.planning_id) 
+                  ? project.planning_description
+                  : truncateDescription(project.planning_description)
+                }
+              </p>
+              {project.planning_description?.length > 150 && (
+                <button 
+                  className="read-more-btn"
+                  onClick={(e) => toggleDescription(project.planning_id, e)}
+                >
+                  {expandedCards.has(project.planning_id) ? 'Show Less' : 'Read More'}
+                </button>
+              )}
+            </div>
+            <div className="project-meta">
+              <div className="meta-row">
+                <span><strong>Planning ID:</strong> {project.planning_id}</span>
+                <span><strong>Category:</strong> {project.planning_category}</span>
+              </div>
+              {project.planning_subcategory && (
+                <div className="meta-row">
+                  <span><strong>Subcategory:</strong> {project.planning_subcategory}</span>
+                </div>
+              )}
+              <div className="meta-row">
+                <span><strong>Value:</strong> €{project.planning_value?.replace('£', '')}</span>
+                <span><strong>Location:</strong> {project.planning_county}, {project.planning_region}</span>
+              </div>
+            </div>
           </div>
         ))}
       </div>
