@@ -99,26 +99,27 @@ const getAllProjects = async () => {
     const data = await response.json();
     console.log('Raw API Response:', JSON.stringify(data, null, 2));
 
+    // Check if data has the expected structure
+    let projectsArray;
+    if (Array.isArray(data)) {
+      projectsArray = data;
+    } else if (data && data.data && Array.isArray(data.data)) {
+      projectsArray = data.data;
+    } else if (data && data.data && data.data.rows && Array.isArray(data.data.rows)) {
+      projectsArray = data.data.rows;
+    } else if (data && typeof data === 'object') {
+      projectsArray = [data];
+    } else {
+      throw new Error('Unexpected API response format');
+    }
+
     // Convert all pound values to euros
-    const projectsWithEuros = data.map(project => ({
+    const projectsWithEuros = projectsArray.map(project => ({
       ...project,
       planning_value: convertToEuros(project.planning_value)
     }));
 
-    // Check if data is an array
-    if (Array.isArray(projectsWithEuros)) {
-      return projectsWithEuros;
-    } 
-    // Check if data has rows property
-    else if (projectsWithEuros && projectsWithEuros.data && Array.isArray(projectsWithEuros.data.rows)) {
-      return projectsWithEuros.data.rows;
-    }
-    // If data is a single object
-    else if (projectsWithEuros && typeof projectsWithEuros === 'object') {
-      return [projectsWithEuros];
-    } else {
-      throw new Error('Unexpected API response format');
-    }
+    return projectsWithEuros;
   } catch (error) {
     console.error('Error fetching all projects:', error);
     throw error;

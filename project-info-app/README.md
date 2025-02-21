@@ -5,14 +5,31 @@
 The **Project Information Finder** is a React-based web application that allows users to search for project details using a Planning ID. The application fetches project data from a backend API and displays relevant details such as title, category, stage, value, location, and description.
 
 ## Features
-- Input field to enter a Planning ID
-- Fetches project details from an API endpoint
-- Displays project information in a structured format
-- Error handling for API requests
-- Loading state indicator while fetching data
+- Search functionality using Planning ID
+- Detailed project information display including:
+  - Project Title
+  - Category
+  - Stage
+  - Value
+  - Location (County and Region)
+  - Description
+  - Project URL
+- Responsive design for mobile and desktop devices
+- Real-time API integration
+- Error handling and validation
+- Loading states for better user experience
+- Navigation between project details and home page
+- Clean and modern user interface
 
 ## Technologies Used
 - React.js (Functional Components, Hooks)
+- React Router for navigation
+- Axios for API requests
+- Express.js backend server
+- Node.js runtime
+- Environment variables support with dotenv
+- Modern CSS with responsive design
+- CORS support for API security
 - Fetch API for making HTTP requests
 - JavaScript (ES6+)
 - HTML & CSS for styling
@@ -26,21 +43,32 @@ Ensure you have the following installed:
 ### Steps
 1. Clone the repository:
    ```sh
-   git clone https://github.com/your-username/project-info-finder.git
+   git clone https://github.com/clinton825/Final-Year-Project.git
    ```
 2. Navigate to the project directory:
    ```sh
-   cd project-info-finder
+   cd Final-Year-Project/project-info-app
    ```
-3. Install dependencies:
+3. Install dependencies for both client and server:
    ```sh
    npm install
+   cd server && npm install
    ```
-4. Start the development server:
+4. Create a .env file in the server directory with your environment variables:
+   ```
+   PORT=3001
+   # Add any other environment variables
+   ```
+5. Start the development servers:
+   In the project-info-app directory:
    ```sh
    npm start
    ```
-   The application will be available at `http://localhost:3000/`.
+   In a new terminal, navigate to the server directory and start the backend:
+   ```sh
+   cd server && npm start
+   ```
+   The frontend will be available at `http://localhost:3000/` and the backend at `http://localhost:3001/`.
 
 ## API Endpoint
 The application fetches data from the following API endpoint:
@@ -89,4 +117,3 @@ Feel free to open issues and submit pull requests to improve this project!
 
 ---
 Developed with ❤️ using React.js.
-
