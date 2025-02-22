@@ -9,8 +9,8 @@ import {
   signInWithPopup,
   sendPasswordResetEmail,
   updateProfile
-} from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+} from '@firebase/auth';
+import { doc, setDoc } from '@firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();

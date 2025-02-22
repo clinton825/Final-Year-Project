@@ -4,8 +4,11 @@
   "private": true,
   "proxy": "http://localhost:8080",
   "dependencies": {
+    "@firebase/auth": "^1.9.0",
+    "@firebase/firestore": "^4.7.8",
     "axios": "^1.7.9",
     "chart.js": "^4.4.8",
+    "core-js-pure": "^3.40.0",
     "cors": "^2.8.5",
     "cra-template": "1.2.0",
     "date-fns": "^4.1.0",
