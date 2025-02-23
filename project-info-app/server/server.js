@@ -1,6 +1,15 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const admin = require('firebase-admin');
+const userRoutes = require('./routes/users');
+const path = require('path');
+
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.applicationDefault()
+});
+
 const { 
   getProjectInfoByPlanningID, 
   getAllProjects, 
@@ -22,13 +31,12 @@ const app = express();
 const PORT = 8080;
 
 // Configure CORS
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:8080'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors());
 
 app.use(express.json());
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Root route handler
 app.get('/', (req, res) => {
@@ -585,6 +593,8 @@ app.post("/api/users/:userId/notifications/clear", async (req, res) => {
     });
   }
 });
+
+app.use('/api', userRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

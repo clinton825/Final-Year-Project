@@ -1,158 +1,134 @@
-# Infrastructure Project Tracking Web Application
-# BY Clinton Bempah (20097793)
+# Infrastructure Project Tracker
 
-## Overview
-The **Infrastructure Project Tracking Web Application** is a React-based web application that allows users to explore and search for infrastructure project details. The application fetches project data from a backend API and displays comprehensive information about various infrastructure projects, including their planning details, categories, values, and locations.
+A modern web application for tracking and comparing infrastructure projects. Built with React, Firebase Authentication, and PostgreSQL.
 
 ## Features
-- Advanced search and filtering capabilities:
-  - Search by Planning ID, title, location, or category
-  - Filter by project category and subcategory
-  - Filter by project value range
-- Interactive project cards with:
-  - Expandable descriptions for better readability
-  - "Read More/Show Less" functionality
-  - Key project information at a glance
-- Comprehensive project details page featuring:
-  - Project overview (title, ID, category, type, stage)
-  - Formatted project value in euros
-  - Detailed location information
-  - Site specifications (area and building size)
-  - Important dates (application, decision, start, completion)
-  - Project description
-  - Interactive project tags
-  - External resource links
-- Detailed stakeholder information:
-  - Company profiles by type (Architect, Contractor, etc.)
-  - Complete contact information
-  - Interactive website links
-- Modern, responsive design features:
-  - Card-based layout with consistent spacing
-  - Grid system for responsive design
-  - Smooth transitions and animations
-  - Mobile-friendly interface
-- Real-time API integration
-- Error handling and validation
-- Loading states for better user experience
-- Navigation between project details and home page
-- Clean and intuitive user interface
 
-## Technologies Used
-- React.js (Functional Components, Hooks)
-- React Router for navigation
-- Axios for API requests
-- Express.js backend server
-- Node.js runtime
-- Environment variables support with dotenv
-- Modern CSS with responsive design
-  - CSS Grid for layout
-  - Flexbox for component structure
-  - CSS transitions for smooth animations
-- CORS support for API security
-- Fetch API for making HTTP requests
-- JavaScript (ES6+)
-- HTML & CSS for styling
+- **User Authentication**
+  - Email/Password login and registration
+  - Google Sign-in integration
+  - Secure authentication powered by Firebase
 
-## Installation & Setup
-### Prerequisites
-Ensure you have the following installed:
-- [Node.js](https://nodejs.org/) (v14+ recommended)
-- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- **Project Management**
+  - View infrastructure projects
+  - Compare different projects
+  - Detailed project information
 
-### Steps
+- **Modern UI/UX**
+  - Responsive design
+  - Clean and professional interface
+  - Consistent design system
+  - Loading states and transitions
+  - Mobile-friendly navigation
+
+## Tech Stack
+
+- **Frontend**
+  - React 18
+  - React Router v6
+  - Firebase Authentication
+  - Font Awesome icons
+  - Inter font family
+  - CSS Variables for theming
+
+- **Backend**
+  - Node.js
+  - Express.js
+  - PostgreSQL
+  - Firebase Admin SDK
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+- Node.js (v14 or higher)
+- PostgreSQL
+- npm or yarn
+
+## Environment Setup
+
+1. Create a `.env` file in the server directory with the following variables:
+```env
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=project_info_db
+```
+
+2. Create a `.env` file in the root directory with your Firebase configuration:
+```env
+REACT_APP_FIREBASE_API_KEY=your_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_auth_domain
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+```
+
+## Installation
+
 1. Clone the repository:
-   ```sh
-   git clone https://github.com/clinton825/Final-Year-Project.git
-   ```
-2. Navigate to the project directory:
-   ```sh
-   cd Final-Year-Project/project-info-app
-   ```
-3. Install dependencies for both client and server:
-   ```sh
-   npm install
-   cd server && npm install
-   ```
-4. Create a .env file in the server directory with your environment variables:
-   ```
-   PORT=3001
-   # Add any other environment variables
-   ```
-5. Start the development servers:
-   In the project-info-app directory:
-   ```sh
-   npm start
-   ```
-   In a new terminal, navigate to the server directory and start the backend:
-   ```sh
-   cd server && npm start
-   ```
-   The frontend will be available at `http://localhost:3000/` and the backend at `http://localhost:3001/`.
-
-## API Endpoints
-The application uses the following API endpoints:
-
-### Get Project by ID
-```
-GET http://localhost:3001/api/project/{projectId}
+```bash
+git clone https://github.com/your-username/infrastructure-project-tracker.git
+cd infrastructure-project-tracker
 ```
 
-### Get All Projects
-```
-GET http://localhost:3001/api/projects
+2. Install dependencies for both frontend and backend:
+```bash
+# Install frontend dependencies
+npm install
+
+# Install backend dependencies
+cd server
+npm install
 ```
 
-### Get Subcategories by Category
-```
-GET http://localhost:3001/api/subcategories/{category}
+3. Start the development servers:
+```bash
+# Start the backend server (from the server directory)
+npm run dev
+
+# Start the frontend development server (from the root directory)
+npm start
 ```
 
-### Get Projects by Category
+## Project Structure
+
 ```
-GET http://localhost:3001/api/projects/category/{category}
+project-info-app/
+├── public/
+├── server/
+│   ├── config/
+│   ├── models/
+│   ├── routes/
+│   └── server.js
+├── src/
+│   ├── components/
+│   │   ├── Auth/
+│   │   └── Project/
+│   ├── contexts/
+│   ├── pages/
+│   ├── services/
+│   ├── styles/
+│   └── App.js
+└── package.json
 ```
 
-### Get Projects by Category and Subcategory
-```
-GET http://localhost:3001/api/projects/category/{category}?subcategory={subcategory}
-```
+## Available Scripts
 
-### Expected API Response Format
-```json
-{
-  "status": "success",
-  "projects": [
-    {
-      "planning_id": "123",
-      "planning_title": "Project Name",
-      "planning_category": "Category",
-      "planning_subcategory": "Subcategory",
-      "planning_value": "1000000",
-      "planning_county": "County",
-      "planning_region": "Region",
-      "planning_description": "Project details here...",
-      "planning_url": "https://example.com"
-    }
-  ]
-}
-```
-
-## Usage
-1. Browse projects on the home page using the grid layout
-2. Use the search bar to find specific projects by ID, title, location, or category
-3. Filter projects by:
-   - Selecting a category from the dropdown
-   - Choosing a subcategory (if available)
-   - Setting a value range
-4. Click "Read More" on any project card to view its full description
-5. Click on a project card to view detailed information
-6. Use the "Clear All Filters" button to reset your search and filters
-
-## License
-This project is licensed under the [MIT License](LICENSE).
+- `npm start`: Start the frontend development server
+- `npm test`: Run frontend tests
+- `npm run build`: Build the frontend for production
+- `npm run dev` (in server directory): Start the backend development server
 
 ## Contributing
-Feel free to open issues and submit pull requests to improve this project!
 
----
-Developed with ❤️ using React.js.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
