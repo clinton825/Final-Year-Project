@@ -7,7 +7,12 @@ const path = require('path');
 
 // Initialize Firebase Admin
 admin.initializeApp({
-  credential: admin.credential.applicationDefault()
+  credential: admin.credential.cert({
+    projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  }),
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET
 });
 
 const { 
@@ -223,26 +228,32 @@ app.get("/api/projects/category/:category", async (req, res) => {
 // Get subcategories for a category
 app.get("/api/subcategories/:category", async (req, res) => {
   try {
-    const category = decodeURIComponent(req.params.category);
-    console.log(`Fetching subcategories for category: ${category}`);
-    
-    const projects = await getAllProjects();
-    
-    const subcategories = [...new Set(
-      projects
-        .filter(project => project.planning_category === category)
-        .map(project => project.planning_subcategory)
-    )].filter(Boolean).sort();
+    const category = req.params.category;
+    const subcategories = {
+      'Residential': ['Houses', 'Apartments', 'Mixed Use', 'Student Accommodation'],
+      'Commercial': ['Office', 'Retail', 'Hotel', 'Restaurant'],
+      'Industrial': ['Factory', 'Warehouse', 'Light Industrial', 'Manufacturing'],
+      'Infrastructure': ['Roads', 'Bridges', 'Railways', 'Utilities'],
+      'Education': ['Primary School', 'Secondary School', 'University', 'Training Center'],
+      'Healthcare': ['Hospital', 'Clinic', 'Medical Center', 'Care Home']
+    };
 
-    res.json({
-      status: "success",
-      subcategories
-    });
+    if (subcategories[category]) {
+      res.json({
+        status: "success",
+        subcategories: subcategories[category]
+      });
+    } else {
+      res.json({
+        status: "success",
+        subcategories: []
+      });
+    }
   } catch (error) {
-    console.error("Error fetching subcategories:", error);
-    res.status(500).json({ 
-      status: "error", 
-      message: error.message || "Failed to fetch subcategories"
+    console.error('Error in /api/subcategories endpoint:', error);
+    res.status(500).json({
+      status: "error",
+      message: error.message
     });
   }
 });

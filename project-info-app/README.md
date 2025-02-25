@@ -1,25 +1,27 @@
-# Infrastructure Project Tracker
+# Infrastructure Tracking Web Application
 
-A modern web application for tracking and comparing infrastructure projects. Built with React, Firebase Authentication, and PostgreSQL.
+A modern web application for tracking and comparing local infrastructure developments. Built with React, Firebase Authentication, and PostgreSQL.
 
 ## Features
 
 - **User Authentication**
   - Email/Password login and registration
-  - Google Sign-in integration
+  - Google and GitHub Sign-in integration
   - Secure authentication powered by Firebase
 
-- **Project Management**
-  - View infrastructure projects
-  - Compare different projects
-  - Detailed project information
+- **Infrastructure Tracking**
+  - View local infrastructure developments
+  - Compare different developments
+  - Filter by category and value
+  - Search functionality
+  - Detailed development information
 
 - **Modern UI/UX**
+  - Clean and minimalist interface
   - Responsive design
-  - Clean and professional interface
-  - Consistent design system
+  - Intuitive navigation
   - Loading states and transitions
-  - Mobile-friendly navigation
+  - Mobile-friendly layout
 
 ## Tech Stack
 
@@ -28,7 +30,6 @@ A modern web application for tracking and comparing infrastructure projects. Bui
   - React Router v6
   - Firebase Authentication
   - Font Awesome icons
-  - Inter font family
   - CSS Variables for theming
 
 - **Backend**
@@ -69,8 +70,8 @@ REACT_APP_FIREBASE_APP_ID=your_app_id
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/infrastructure-project-tracker.git
-cd infrastructure-project-tracker
+git clone https://github.com/your-username/infrastructure-tracking.git
+cd infrastructure-tracking
 ```
 
 2. Install dependencies for both frontend and backend:
@@ -95,31 +96,42 @@ npm start
 ## Project Structure
 
 ```
-project-info-app/
+infrastructure-tracking/
 ├── public/
-├── server/
-│   ├── config/
-│   ├── models/
-│   ├── routes/
-│   └── server.js
+│   ├── index.html
+│   └── manifest.json
 ├── src/
 │   ├── components/
-│   │   ├── Auth/
-│   │   └── Project/
+│   │   ├── auth/
+│   │   │   ├── Login.js
+│   │   │   └── SignUp.js
+│   │   └── Navbar.js
 │   ├── contexts/
+│   │   └── AuthContext.js
 │   ├── pages/
-│   ├── services/
-│   ├── styles/
-│   └── App.js
-└── package.json
+│   │   ├── Home.js
+│   │   └── ProjectComparison.js
+│   ├── App.js
+│   └── index.js
+└── server/
+    ├── config/
+    ├── routes/
+    └── server.js
 ```
 
-## Available Scripts
+## Navigation
 
-- `npm start`: Start the frontend development server
-- `npm test`: Run frontend tests
-- `npm run build`: Build the frontend for production
-- `npm run dev` (in server directory): Start the backend development server
+- **Home**: Main dashboard showing all infrastructure developments
+- **Compare**: Compare different developments (requires authentication)
+- **Authentication**: Login/Signup functionality integrated into the home page
+
+## Recent Updates
+
+- Streamlined navigation for better user experience
+- Added GitHub authentication option
+- Improved responsive design
+- Updated branding and text consistency
+- Enhanced error handling and loading states
 
 ## Contributing
 
@@ -128,7 +140,3 @@ project-info-app/
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

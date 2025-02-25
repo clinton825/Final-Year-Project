@@ -9,10 +9,52 @@ const ProjectComparison = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('budget');
+  const [showAllProjects, setShowAllProjects] = useState(true);
+
+  // New state for filters
+  const [filters, setFilters] = useState({
+    projectType: '',
+    stakeholderType: '',
+    stage: '',
+    valueRange: 'all',
+    sortBy: 'value'
+  });
+
+  // New state for unique filter options
+  const [filterOptions, setFilterOptions] = useState({
+    projectTypes: [],
+    stakeholderTypes: [],
+    stages: [],
+    valueRanges: [
+      { label: 'All', value: 'all' },
+      { label: 'Under €1M', value: 'under1m' },
+      { label: '€1M - €5M', value: '1m-5m' },
+      { label: '€5M - €10M', value: '5m-10m' },
+      { label: 'Over €10M', value: 'over10m' }
+    ]
+  });
 
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    // Extract unique filter options from available projects
+    if (availableProjects.length > 0) {
+      const types = [...new Set(availableProjects.map(p => p.planning_type))];
+      const stages = [...new Set(availableProjects.map(p => p.planning_stage))];
+      const stakeholders = [...new Set(availableProjects.flatMap(p => 
+        p.companies?.map(c => c.planning_company_type_name.company_type_name) || []
+      ))];
+
+      setFilterOptions(prev => ({
+        ...prev,
+        projectTypes: types,
+        stakeholderTypes: stakeholders,
+        stages: stages
+      }));
+    }
+  }, [availableProjects]);
 
   const fetchProjects = async () => {
     try {
@@ -29,12 +71,64 @@ const ProjectComparison = () => {
     }
   };
 
+  const getValueRange = (value) => {
+    const numValue = parseFloat(value);
+    if (numValue < 1000000) return 'under1m';
+    if (numValue <= 5000000) return '1m-5m';
+    if (numValue <= 10000000) return '5m-10m';
+    return 'over10m';
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  const getFilteredProjects = () => {
+    return availableProjects.filter(project => {
+      const typeMatch = !filters.projectType || project.planning_type === filters.projectType;
+      const stageMatch = !filters.stage || project.planning_stage === filters.stage;
+      const stakeholderMatch = !filters.stakeholderType || 
+        project.companies?.some(c => c.planning_company_type_name.company_type_name === filters.stakeholderType);
+      const valueMatch = filters.valueRange === 'all' || getValueRange(project.planning_value) === filters.valueRange;
+      
+      return typeMatch && stageMatch && stakeholderMatch && valueMatch;
+    }).sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'value':
+          return (parseFloat(b.planning_value) || 0) - (parseFloat(a.planning_value) || 0);
+        case 'size':
+          return (parseFloat(b.planning_sizesqmt) || 0) - (parseFloat(a.planning_sizesqmt) || 0);
+        case 'date':
+          return new Date(b.planning_application_date) - new Date(a.planning_application_date);
+        case 'stage':
+          return a.planning_stage.localeCompare(b.planning_stage);
+        default:
+          return 0;
+      }
+    });
+  };
+
   const handleProjectSelect = (project) => {
     if (selectedProjects.find(p => p.planning_id === project.planning_id)) {
-      setSelectedProjects(selectedProjects.filter(p => p.planning_id !== project.planning_id));
+      const updatedProjects = selectedProjects.filter(p => p.planning_id !== project.planning_id);
+      setSelectedProjects(updatedProjects);
+      // Show all projects again if none are selected
+      if (updatedProjects.length === 0) {
+        setShowAllProjects(true);
+      }
     } else if (selectedProjects.length < 3) {
       setSelectedProjects([...selectedProjects, project]);
+      // Hide unselected projects when we start comparing
+      setShowAllProjects(false);
     }
+  };
+
+  const handleResetComparison = () => {
+    setSelectedProjects([]);
+    setShowAllProjects(true);
   };
 
   const formatValue = (value) => {
@@ -127,8 +221,81 @@ const ProjectComparison = () => {
     </div>
   );
 
+  const renderFilters = () => (
+    <div className="filters-section">
+      <h3>Filters and Sorting</h3>
+      <div className="filters-grid">
+        <div className="filter-group">
+          <label>Project Type</label>
+          <select 
+            value={filters.projectType}
+            onChange={(e) => handleFilterChange('projectType', e.target.value)}
+          >
+            <option value="">All Types</option>
+            {filterOptions.projectTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Project Stage</label>
+          <select 
+            value={filters.stage}
+            onChange={(e) => handleFilterChange('stage', e.target.value)}
+          >
+            <option value="">All Stages</option>
+            {filterOptions.stages.map(stage => (
+              <option key={stage} value={stage}>{stage}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Value Range</label>
+          <select 
+            value={filters.valueRange}
+            onChange={(e) => handleFilterChange('valueRange', e.target.value)}
+          >
+            {filterOptions.valueRanges.map(range => (
+              <option key={range.value} value={range.value}>{range.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Stakeholder Type</label>
+          <select 
+            value={filters.stakeholderType}
+            onChange={(e) => handleFilterChange('stakeholderType', e.target.value)}
+          >
+            <option value="">All Stakeholders</option>
+            {filterOptions.stakeholderTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Sort By</label>
+          <select 
+            value={filters.sortBy}
+            onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+          >
+            <option value="value">Project Value</option>
+            <option value="size">Project Size</option>
+            <option value="date">Application Date</option>
+            <option value="stage">Project Stage</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading) return <div className="loading">Loading projects...</div>;
   if (error) return <div className="error">{error}</div>;
+
+  const filteredProjects = getFilteredProjects();
 
   return (
     <div className="comparison-container">
@@ -138,97 +305,126 @@ const ProjectComparison = () => {
       </h2>
       <p className="subtitle">Compare infrastructure projects across different metrics</p>
 
-      <div className="comparison-content">
-        <div className="project-selection">
-          <h3>Select Projects to Compare (Max 3)</h3>
-          <div className="selected-projects">
-            {selectedProjects.map(project => (
-              <span key={project.planning_id} className="selected-project">
-                {project.planning_title}
-                <button 
-                  onClick={() => handleProjectSelect(project)}
-                  className="remove-btn"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {selectedProjects.length > 0 && (
-          <div className="comparison-tabs">
-            <button 
-              className={activeTab === 'budget' ? 'active' : ''} 
-              onClick={() => setActiveTab('budget')}
-            >
-              Budget
-            </button>
-            <button 
-              className={activeTab === 'timeline' ? 'active' : ''} 
-              onClick={() => setActiveTab('timeline')}
-            >
-              Timeline
-            </button>
-            <button 
-              className={activeTab === 'size' ? 'active' : ''} 
-              onClick={() => setActiveTab('size')}
-            >
-              Size & Scope
-            </button>
-            <button 
-              className={activeTab === 'stakeholders' ? 'active' : ''} 
-              onClick={() => setActiveTab('stakeholders')}
-            >
-              Stakeholders
-            </button>
-          </div>
-        )}
-
-        {selectedProjects.length > 0 && (
-          <div className="charts-container">
-            {activeTab === 'budget' && (
-              <div className="chart">
-                <h4>
-                  <span className="icon">💰</span>
-                  Budget Comparison (Millions)
-                </h4>
-                <BarChart width={500} height={300} data={prepareChartData()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#8884d8" />
-                </BarChart>
+      {showAllProjects ? (
+        <>
+          {renderFilters()}
+          <div className="comparison-content">
+            <div className="project-selection">
+              <h3>Select Projects to Compare (Max 3)</h3>
+              <div className="project-list">
+                {filteredProjects.map(project => (
+                  <div 
+                    key={project.planning_id} 
+                    className={`project-item ${selectedProjects.find(p => p.planning_id === project.planning_id) ? 'selected' : ''}`}
+                    onClick={() => handleProjectSelect(project)}
+                  >
+                    <h4>{project.planning_title}</h4>
+                    <div className="project-meta">
+                      <span>Type: {project.planning_type}</span>
+                      <span>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
+                      <span>Stage: {project.planning_stage}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-            {activeTab === 'timeline' && renderTimeline()}
-            {activeTab === 'size' && renderSizeMetrics()}
-            {activeTab === 'stakeholders' && renderStakeholderAnalysis()}
+            </div>
           </div>
-        )}
-
-        <div className="available-projects">
-          <h3>Available Projects</h3>
-          <div className="projects-grid">
-            {availableProjects.map(project => (
+        </>
+      ) : (
+        <div className="comparison-content">
+          <div className="selected-projects-header">
+            <h3>Selected Projects</h3>
+            <button 
+              className="reset-button"
+              onClick={handleResetComparison}
+            >
+              Reset Comparison
+            </button>
+          </div>
+          <div className="selected-projects-grid">
+            {selectedProjects.map(project => (
               <div 
                 key={project.planning_id} 
-                className={`project-card ${selectedProjects.find(p => p.planning_id === project.planning_id) ? 'selected' : ''}`}
-                onClick={() => handleProjectSelect(project)}
+                className="selected-project-card"
               >
-                <h3>{project.planning_title}</h3>
-                <div className="project-details">
-                  <p><span className="icon">📍</span> {project.planning_county}</p>
-                  <p><span className="icon">💶</span> {project.planning_value}</p>
-                  <p><span className="icon">📐</span> {project.planning_sizesqmt || 'N/A'} sq.mt</p>
-                  <p><span className="icon">📅</span> {format(parseISO(project.planning_application_date), 'MMM yyyy')}</p>
+                <div className="card-header">
+                  <h4>{project.planning_title}</h4>
+                  <button 
+                    className="remove-button"
+                    onClick={() => handleProjectSelect(project)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="project-meta">
+                  <span>Type: {project.planning_type}</span>
+                  <span>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
+                  <span>Stage: {project.planning_stage}</span>
                 </div>
               </div>
             ))}
+            {selectedProjects.length < 3 && (
+              <div 
+                className="add-project-card"
+                onClick={() => setShowAllProjects(true)}
+              >
+                <div className="add-icon">+</div>
+                <p>Add Another Project</p>
+              </div>
+            )}
+          </div>
+
+          <div className="comparison-charts">
+            <div className="tabs">
+              <button 
+                className={`tab ${activeTab === 'budget' ? 'active' : ''}`}
+                onClick={() => setActiveTab('budget')}
+              >
+                Budget Analysis
+              </button>
+              <button 
+                className={`tab ${activeTab === 'timeline' ? 'active' : ''}`}
+                onClick={() => setActiveTab('timeline')}
+              >
+                Timeline
+              </button>
+              <button 
+                className={`tab ${activeTab === 'metrics' ? 'active' : ''}`}
+                onClick={() => setActiveTab('metrics')}
+              >
+                Size Metrics
+              </button>
+              <button 
+                className={`tab ${activeTab === 'stakeholders' ? 'active' : ''}`}
+                onClick={() => setActiveTab('stakeholders')}
+              >
+                Stakeholders
+              </button>
+            </div>
+
+            <div className="chart-container">
+              {activeTab === 'budget' && (
+                <div className="chart">
+                  <h4>
+                    <span className="icon">💰</span>
+                    Budget Comparison (Millions)
+                  </h4>
+                  <BarChart width={500} height={300} data={prepareChartData()}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#8884d8" />
+                  </BarChart>
+                </div>
+              )}
+              {activeTab === 'timeline' && renderTimeline()}
+              {activeTab === 'metrics' && renderSizeMetrics()}
+              {activeTab === 'stakeholders' && renderStakeholderAnalysis()}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

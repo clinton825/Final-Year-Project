@@ -20,7 +20,7 @@ const Login = () => {
     try {
       setLoading(true);
       await login(formData.email, formData.password);
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       setError('Failed to sign in: ' + err.message);
     } finally {
@@ -33,7 +33,7 @@ const Login = () => {
       setError('');
       setLoading(true);
       await googleSignIn();
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       setError('Failed to sign in with Google: ' + err.message);
     } finally {
@@ -46,7 +46,7 @@ const Login = () => {
       setError('');
       setLoading(true);
       await githubSignIn();
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       setError('Failed to sign in with GitHub: ' + err.message);
     } finally {
