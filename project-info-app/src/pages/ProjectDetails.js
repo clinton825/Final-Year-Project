@@ -1,46 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { doc, getDoc, setDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import './ProjectDetails.css';
 
 const ProjectDetails = () => {
   const { planning_id } = useParams();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [project, setProject] = useState(null);
+  const [isTracked, setIsTracked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [isTracked, setIsTracked] = useState(false);
-
-  // TODO: Replace with actual user authentication
-  const mockUserId = '123';
 
   useEffect(() => {
     if (planning_id) {
       fetchProjectDetails();
-      checkIfTracked();
+      if (currentUser) {
+        checkIfTracked();
+      }
     }
-  }, [planning_id]);
+  }, [planning_id, currentUser]);
+
+  // Clear success message after 5 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   const fetchProjectDetails = async () => {
     try {
-      console.log('Fetching project details for ID:', planning_id);
+      setLoading(true);
       const response = await fetch(`http://localhost:8080/api/project/${planning_id}`);
-      
       if (!response.ok) {
         throw new Error('Failed to fetch project details');
       }
-
       const data = await response.json();
-      console.log('Received project data:', data);
-
-      if (data.status === "success" && data.project) {
-        setProject(data.project);
-      } else {
-        throw new Error('Project not found');
-      }
-    } catch (err) {
-      console.error('Error fetching project:', err);
-      setError(err.message);
+      console.log('Fetched project data:', data.project);
+      setProject(data.project);
+    } catch (error) {
+      console.error('Error fetching project details:', error);
+      setError('Failed to load project details. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -48,12 +55,13 @@ const ProjectDetails = () => {
 
   const checkIfTracked = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/users/${mockUserId}/tracked-projects`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch tracked projects');
-      }
-      const data = await response.json();
-      setIsTracked(data.projects.some(p => p.planning_id === planning_id));
+      if (!currentUser) return;
+      
+      // Check in Firestore if project is tracked
+      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${planning_id}`);
+      const trackedProjectDoc = await getDoc(trackedProjectRef);
+      
+      setIsTracked(trackedProjectDoc.exists());
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
     }
@@ -61,26 +69,93 @@ const ProjectDetails = () => {
 
   const handleTrackToggle = async () => {
     try {
-      const endpoint = isTracked ? 'untrack' : 'track';
-      const response = await fetch(`http://localhost:8080/api/projects/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: mockUserId,
-          projectId: planning_id
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${endpoint} project`);
+      if (!currentUser) {
+        // Redirect to login if user is not authenticated
+        navigate('/login');
+        return;
       }
-
+      
+      console.log('Tracking project:', planning_id);
+      console.log('Current user:', currentUser.uid);
+      console.log('Project data:', project);
+      
+      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${planning_id}`);
+      
+      if (isTracked) {
+        console.log('Untracking project...');
+        // Untrack project
+        await deleteDoc(trackedProjectRef);
+        console.log('Project untracked successfully');
+        
+        // Log activity
+        await addDoc(collection(db, 'activity'), {
+          userId: currentUser.uid,
+          type: 'untrack',
+          projectId: planning_id,
+          projectName: project?.planning_name || project?.planning_title || 'Unknown Project',
+          description: `Untracked project: ${project?.planning_name || project?.planning_title || 'Unknown Project'}`,
+          timestamp: serverTimestamp()
+        });
+        console.log('Activity logged successfully');
+        setSuccess('Project untracked successfully');
+      } else {
+        console.log('Tracking project...');
+        
+        // Create a complete project object for Firestore
+        const projectData = {
+          userId: currentUser.uid,
+          projectId: planning_id,
+          trackedAt: serverTimestamp(),
+          
+          // Store both specific and common fields to make it compatible with Dashboard
+          projectName: project?.planning_name || project?.planning_title || 'Unknown Project',
+          projectDescription: project?.planning_description || '',
+          projectStatus: project?.planning_stage || '',
+          projectAddress1: project?.planning_development_address_1 || '',
+          projectAddress2: project?.planning_development_address_2 || '',
+          projectValue: project?.planning_value || '',
+          
+          // Store all the important project fields (original format)
+          planning_id: project.planning_id,
+          planning_name: project.planning_name || project.planning_title || 'Unknown Project',
+          planning_description: project.planning_description || '',
+          planning_stage: project.planning_stage || '',
+          planning_category: project.planning_category || '',
+          planning_subcategory: project.planning_subcategory || '',
+          planning_type: project.planning_type || '',
+          planning_value: project.planning_value || '',
+          planning_region: project.planning_region || '',
+          planning_county: project.planning_county || '',
+          planning_development_address_1: project.planning_development_address_1 || '',
+          planning_development_address_2: project.planning_development_address_2 || '',
+          planning_application_date: project.planning_application_date || null,
+          planning_decision_date: project.planning_decision_date || null,
+          planning_start_date: project.planning_start_date || null,
+          planning_est_completion_date: project.planning_est_completion_date || null,
+        };
+        
+        // Track project with complete data
+        await setDoc(trackedProjectRef, projectData);
+        console.log('Project tracked successfully');
+        
+        // Log activity
+        await addDoc(collection(db, 'activity'), {
+          userId: currentUser.uid,
+          type: 'track',
+          projectId: planning_id,
+          projectName: project?.planning_name || project?.planning_title || 'Unknown Project',
+          description: `Started tracking project: ${project?.planning_name || project?.planning_title || 'Unknown Project'}`,
+          timestamp: serverTimestamp()
+        });
+        console.log('Activity logged successfully');
+        setSuccess('Project tracked successfully');
+      }
+      
       setIsTracked(!isTracked);
+      console.log('isTracked state updated to:', !isTracked);
     } catch (error) {
       console.error(`Error ${isTracked ? 'untracking' : 'tracking'} project:`, error);
-      setError(error.message);
+      setError(`Failed to ${isTracked ? 'untrack' : 'track'} project. Please try again later.`);
     }
   };
 
@@ -96,8 +171,8 @@ const ProjectDetails = () => {
           <p>{project.planning_id}</p>
         </div>
         <div className="detail-item">
-          <h3>Title</h3>
-          <p>{project.planning_title}</p>
+          <h3>Name</h3>
+          <p>{project.planning_name}</p>
         </div>
         <div className="detail-item">
           <h3>Category</h3>
@@ -258,12 +333,17 @@ const ProjectDetails = () => {
 
   return (
     <div className="project-details">
+      {success && (
+        <div className="success-notification">
+          {success}
+        </div>
+      )}
       <button className="back-button" onClick={handleBack}>
         Back to Projects
       </button>
 
       <div className="project-header">
-        <h1>{project.planning_title}</h1>
+        <h1>{project.planning_name}</h1>
         <button 
           className={`track-button ${isTracked ? 'tracked' : ''}`}
           onClick={handleTrackToggle}

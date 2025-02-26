@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../contexts/AuthContext';
 import './Home.css';
-import Footer from '../components/Footer';
 
 const Home = () => {
   const { currentUser } = useAuth();
@@ -77,14 +76,22 @@ const Home = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/projects');
+      setLoading(true);
+      const response = await fetch('http://localhost:8080/api/projects')
+        .catch(err => {
+          console.error('Network error:', err);
+          throw new Error('Cannot connect to the server. Please make sure the API server is running.');
+        });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch projects');
+        throw new Error(`Failed to fetch projects: ${response.statusText}`);
       }
+      
       const data = await response.json();
       setProjects(data.projects);
       setLoading(false);
     } catch (error) {
+      console.error('Error fetching projects:', error);
       setError(error.message);
       setLoading(false);
     }
@@ -168,10 +175,6 @@ const Home = () => {
     return <div className="loading">Loading projects...</div>;
   }
 
-  if (error) {
-    return <div className="error">Error: {error}</div>;
-  }
-
   return (
     <div className="home-container">
       <div className="hero-section">
@@ -252,52 +255,86 @@ const Home = () => {
         </div>
       </div>
 
+      {error && (
+        <div className="error-banner">
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button className="retry-button" onClick={fetchProjects}>Retry</button>
+        </div>
+      )}
+
       {currentUser && (searchTerm || selectedCategory || selectedSubcategory || valueRange.min || valueRange.max) && (
         <button onClick={clearFilters} className="clear-filters-btn">
           Clear All Filters
         </button>
       )}
 
-      <div className="projects-grid">
+      <div className="projects-container">
         {displayedProjects.map((project) => (
           <div
             key={project.planning_id}
             className={`project-card ${!currentUser ? 'limited-view' : ''} ${
               expandedCards.has(project.planning_id) ? 'expanded' : ''
             }`}
-            onClick={() => handleProjectClick(project.planning_id)}
           >
-            <h3>{project.planning_title}</h3>
-            <p className="project-description">
-              {project.planning_description?.substring(0, 150)}
-              {project.planning_description?.length > 150 ? '...' : ''}
-            </p>
+            <div className="project-card-header">
+              <h3>{project.planning_title}</h3>
+            </div>
+            
+            <div className="project-card-body">
+              <p className="project-description">
+                {project.planning_description?.substring(0, 150)}
+                {project.planning_description?.length > 150 ? '...' : ''}
+              </p>
 
-            {currentUser ? (
-              <>
-                <div className="project-details">
-                  <div className="detail-row">
-                    <span><strong>Planning ID:</strong> {project.planning_id}</span>
-                    <span><strong>Town:</strong> {project.planning_development_address_1?.split(',')[0]}</span>
-                  </div>
-
-                  <div className="detail-row">
-                    <span><strong>Category:</strong> {project.planning_category}</span>
-                    <span><strong>Value:</strong> €{project.planning_value?.replace('£', '')}</span>
-                  </div>
-
-                  {project.planning_subcategory && (
+              {currentUser ? (
+                <>
+                  <div className="project-details">
                     <div className="detail-row">
-                      <span><strong>Subcategory:</strong> {project.planning_subcategory}</span>
+                      <span><strong>Location:</strong> {project.planning_address}</span>
                     </div>
-                  )}
+                    <div className="detail-row">
+                      <span><strong>Value:</strong> €{project.planning_value.toLocaleString()}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span><strong>Status:</strong> {project.planning_status}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span><strong>Category:</strong> {project.planning_category}</span>
+                    </div>
+
+                    {project.planning_subcategory && (
+                      <div className="detail-row">
+                        <span><strong>Subcategory:</strong> {project.planning_subcategory}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="login-prompt">
+                  <p>Log in to view project details</p>
                 </div>
-              </>
-            ) : (
-              <div className="login-prompt">
-                <p>Log in to view project details</p>
+              )}
+            </div>
+            
+            <div className="project-card-footer">
+              <div className="location-row">
+                <i className="fas fa-map-marker-alt location-icon"></i>
+                <span>{project.planning_town}</span>
               </div>
-            )}
+              <button 
+                className={`toggle-details-btn ${expandedCards.has(project.planning_id) ? 'open' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleProjectClick(project.planning_id);
+                }}
+              >
+                {expandedCards.has(project.planning_id) ? 'View Less' : 'View More'}
+                <i className={`fas ${expandedCards.has(project.planning_id) ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -309,8 +346,6 @@ const Home = () => {
           </button>
         </div>
       )}
-
-      <Footer />
     </div>
   );
 };
