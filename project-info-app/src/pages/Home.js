@@ -20,11 +20,56 @@ const Home = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [valueRange, setValueRange] = useState({ min: '', max: '' });
   const [expandedCards, setExpandedCards] = useState(new Set());
+  const [trackedProjectIds, setTrackedProjectIds] = useState(new Set());
+  const [showTrackedProjects, setShowTrackedProjects] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+    if (currentUser) {
+      fetchTrackedProjects();
+    }
+  }, [currentUser]);
+
+  // Fetch the user's tracked projects to filter them out
+  const fetchTrackedProjects = async () => {
+    try {
+      if (!currentUser) return;
+      
+      const q = query(
+        collection(db, 'trackedProjects'),
+        where('userId', '==', currentUser.uid)
+      );
+      
+      const snapshot = await getDocs(q);
+      const trackedIds = new Set();
+      
+      snapshot.forEach(doc => {
+        const projectData = doc.data();
+        // Extract the planning_id from potentially compound IDs (user_id:planning_id)
+        let planningId = null;
+        
+        if (projectData.planning_id) {
+          // The planning_id might be a compound ID
+          if (projectData.planning_id.includes(':')) {
+            // Extract the actual planning_id from the compound ID
+            planningId = projectData.planning_id.split(':')[1];
+          } else {
+            planningId = projectData.planning_id;
+          }
+          
+          if (planningId) {
+            trackedIds.add(planningId);
+          }
+        }
+      });
+      
+      setTrackedProjectIds(trackedIds);
+      console.log('Tracked project IDs:', Array.from(trackedIds));
+    } catch (error) {
+      console.error('Error fetching tracked projects:', error);
+    }
+  };
 
   useEffect(() => {
     if (selectedCategory) {
@@ -37,6 +82,18 @@ const Home = () => {
 
   useEffect(() => {
     let filtered = [...projects];
+
+    // Filter out tracked projects unless showTrackedProjects is true
+    if (currentUser && !showTrackedProjects && trackedProjectIds.size > 0) {
+      filtered = filtered.filter(project => {
+        // The project's planning_id should not be in our tracked IDs set
+        // Need to check both raw ID and potential compound ID (user_id:planning_id)
+        const planningId = project.planning_id;
+        const compoundId = `${currentUser.uid}:${planningId}`;
+        
+        return !trackedProjectIds.has(planningId) && !trackedProjectIds.has(compoundId);
+      });
+    }
 
     if (searchTerm.trim()) {
       const searchTermLower = searchTerm.toLowerCase();
@@ -75,7 +132,7 @@ const Home = () => {
 
     setFilteredProjects(filtered);
     setDisplayedProjects(filtered.slice(0, projectsToShow));
-  }, [searchTerm, selectedCategory, selectedSubcategory, projects, valueRange, projectsToShow]);
+  }, [searchTerm, selectedCategory, selectedSubcategory, projects, valueRange, projectsToShow, trackedProjectIds, showTrackedProjects]);
 
   const fetchProjects = async () => {
     try {
@@ -325,6 +382,23 @@ const Home = () => {
         <button onClick={clearFilters} className="clear-filters-btn">
           Clear All Filters
         </button>
+      )}
+
+      {currentUser && (
+        <div className="show-tracked-projects-toggle">
+          <input
+            type="checkbox"
+            id="show-tracked-projects"
+            checked={showTrackedProjects}
+            onChange={() => setShowTrackedProjects(prev => !prev)}
+          />
+          <label htmlFor="show-tracked-projects">Show Tracked Projects</label>
+          {!showTrackedProjects && trackedProjectIds.size > 0 && (
+            <span className="tracked-count-badge">
+              {trackedProjectIds.size} project{trackedProjectIds.size !== 1 ? 's' : ''} hidden
+            </span>
+          )}
+        </div>
       )}
 
       <div className="projects-container">
