@@ -15,15 +15,34 @@ const ProjectDetails = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [actualPlanningId, setActualPlanningId] = useState(null);
 
   useEffect(() => {
-    if (planning_id) {
+    // Check if planning_id is a Firestore document ID (format: userId_planningId)
+    if (planning_id && planning_id.includes('_')) {
+      // If it's a compound ID from Firestore, extract the actual planning_id
+      const parts = planning_id.split('_');
+      if (parts.length >= 2) {
+        const extractedPlanningId = parts[1]; // The planning_id is the second part
+        console.log('Extracted planning_id from compound ID:', extractedPlanningId);
+        setActualPlanningId(extractedPlanningId);
+      } else {
+        setActualPlanningId(planning_id);
+      }
+    } else {
+      // It's already a plain planning_id
+      setActualPlanningId(planning_id);
+    }
+  }, [planning_id]);
+
+  useEffect(() => {
+    if (actualPlanningId) {
       fetchProjectDetails();
       if (currentUser) {
         checkIfTracked();
       }
     }
-  }, [planning_id, currentUser]);
+  }, [actualPlanningId, currentUser]);
 
   // Clear success message after 5 seconds
   useEffect(() => {
@@ -38,7 +57,8 @@ const ProjectDetails = () => {
   const fetchProjectDetails = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8080/api/project/${planning_id}`);
+      // Use the extracted or original planning_id for API calls
+      const response = await fetch(`http://localhost:8080/api/project/${actualPlanningId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch project details');
       }
@@ -58,10 +78,18 @@ const ProjectDetails = () => {
       if (!currentUser) return;
       
       // Check in Firestore if project is tracked
-      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${planning_id}`);
+      // First try with the document ID format userId_planningId
+      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${actualPlanningId}`);
       const trackedProjectDoc = await getDoc(trackedProjectRef);
       
-      setIsTracked(trackedProjectDoc.exists());
+      // If not found, try checking with the original ID (for backward compatibility)
+      if (!trackedProjectDoc.exists() && planning_id !== actualPlanningId) {
+        const altTrackedProjectRef = doc(db, 'trackedProjects', planning_id);
+        const altTrackedProjectDoc = await getDoc(altTrackedProjectRef);
+        setIsTracked(altTrackedProjectDoc.exists());
+      } else {
+        setIsTracked(trackedProjectDoc.exists());
+      }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
     }
@@ -74,12 +102,12 @@ const ProjectDetails = () => {
         return;
       }
       
-      console.log('Tracking project:', planning_id);
+      console.log('Tracking project:', actualPlanningId);
       console.log('Current user:', currentUser.uid);
       console.log('Project data:', project);
       
       // Create document ID with consistent format
-      const docId = `${currentUser.uid}_${planning_id}`;
+      const docId = `${currentUser.uid}_${actualPlanningId}`;
       console.log('Document ID for tracked project:', docId);
       
       const trackedProjectRef = doc(db, 'trackedProjects', docId);
@@ -95,7 +123,7 @@ const ProjectDetails = () => {
         await addDoc(collection(db, 'activity'), {
           userId: currentUser.uid,
           type: 'untrack',
-          projectId: planning_id,
+          projectId: actualPlanningId,
           projectName: project?.planning_name || project?.planning_title || 'Unknown Project',
           description: `Untracked project: ${project?.planning_name || project?.planning_title || 'Unknown Project'}`,
           timestamp: serverTimestamp()
@@ -108,7 +136,7 @@ const ProjectDetails = () => {
         // Create a complete project object for Firestore
         const projectData = {
           userId: currentUser.uid,
-          projectId: planning_id,
+          projectId: actualPlanningId,
           trackedAt: serverTimestamp(),
           
           // Store both specific and common fields to make it compatible with Dashboard
@@ -119,8 +147,10 @@ const ProjectDetails = () => {
           projectAddress2: project?.planning_development_address_2 || '',
           projectValue: project?.planning_value || '',
           
+          // Explicitly store the raw planning_id for future use
+          planning_id: actualPlanningId,
+          
           // Store all the important project fields (original format)
-          planning_id: project.planning_id,
           planning_name: project.planning_name || project.planning_title || 'Unknown Project',
           planning_description: project.planning_description || '',
           planning_stage: project.planning_stage || '',
@@ -158,7 +188,7 @@ const ProjectDetails = () => {
           await addDoc(collection(db, 'activity'), {
             userId: currentUser.uid,
             type: 'track',
-            projectId: planning_id,
+            projectId: actualPlanningId,
             projectName: project?.planning_name || project?.planning_title || 'Unknown Project',
             description: `Started tracking project: ${project?.planning_name || project?.planning_title || 'Unknown Project'}`,
             timestamp: serverTimestamp()

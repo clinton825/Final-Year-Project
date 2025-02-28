@@ -166,7 +166,7 @@ const Dashboard = () => {
   };
 
   // Function to untrack a project
-  const untrackProject = async (projectId) => {
+  const untrackProject = async (docId) => {
     try {
       if (!currentUser) return;
       
@@ -175,22 +175,26 @@ const Dashboard = () => {
         return;
       }
       
-      console.log('Untracking project:', projectId);
+      console.log('Untracking project with document ID:', docId);
       
       // Delete from trackedProjects collection
-      const projectRef = doc(db, 'trackedProjects', projectId);
+      const projectRef = doc(db, 'trackedProjects', docId);
       await deleteDoc(projectRef);
       
       // Update local state to remove the project
       const updatedProjects = trackedProjects.filter(p => {
-        const pId = p.id || p.projectId;
-        return pId !== projectId;
+        const pId = p.id || `${p.userId}_${p.projectId}`;
+        return pId !== docId;
       });
       
       setTrackedProjects(updatedProjects);
       
       // Log activity
       try {
+        // Find the project in the tracked projects to get its ID
+        const projectToUntrack = trackedProjects.find(p => p.id === docId);
+        const projectId = projectToUntrack?.projectId || projectToUntrack?.planning_id || docId.split('_')[1] || 'unknown';
+        
         await addDoc(collection(db, 'activity'), {
           userId: currentUser.uid,
           type: 'untrack',
@@ -854,7 +858,7 @@ const Dashboard = () => {
                           <div className="project-card-actions">
                             <button 
                               className="view-details-btn"
-                              onClick={() => navigate(`/project/${projectId}`)}
+                              onClick={() => navigate(`/project/${project.planning_id || project.projectId}`)}
                             >
                               <i className="fas fa-eye"></i> View Details
                             </button>
@@ -863,7 +867,7 @@ const Dashboard = () => {
                               className="untrack-btn"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                untrackProject(projectId);
+                                untrackProject(project.id);
                               }}
                               title="Remove from tracked projects"
                             >

@@ -1193,16 +1193,16 @@ section h2 {
   display: block;
   text-align: center;
   padding: 0.5rem;
-  background-color: var(--accent-color);
+  background: var(--accent-color);
   color: white;
   border-radius: 4px;
   text-decoration: none;
   font-size: 0.9rem;
-  transition: background-color 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .view-project-btn:hover {
-  background-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 /* Activity list styling */
@@ -1419,65 +1419,42 @@ section h2 {
   margin-top: 0.25rem;
 }
 
-/* Enhanced Empty State */
-.empty-state.enhanced {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+/* Dark mode styles for summary cards */
+[data-theme='dark'] .summary-card {
+  background-color: #1f2937;  /* Dark background */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.empty-state.enhanced:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+[data-theme='dark'] .summary-label {
+  color: #a5b4fc;  /* Light purple/blue for better contrast against dark background */
 }
 
-.empty-state.enhanced i {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
+[data-theme='dark'] .summary-value {
+  color: #ffffff;  /* Pure white for better contrast */
+  font-weight: 600; /* Make the text a bit bolder */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* Add subtle text shadow for better readability */
 }
 
-.empty-state.enhanced p {
-  font-size: 1.25rem;
-  color: #374151;
-  margin-bottom: 0.5rem;
+[data-theme='dark'] .summary-card:hover {
+  background-color: #2d3748;
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
 }
 
-.empty-state.enhanced .empty-subtext {
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin-bottom: 1.5rem;
+/* Ensure all icon backgrounds remain vibrant in dark mode */
+[data-theme='dark'] .summary-card.total-projects i,
+[data-theme='dark'] .summary-card.total-value i,
+[data-theme='dark'] .summary-card.user-activity i {
+  /* Keep existing gradient backgrounds from light mode */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-.empty-state.enhanced .button {
-  padding: 0.75rem 1.5rem;
-  background: #3b82f6;
-  color: white;
-  border-radius: 6px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: background 0.3s ease;
-  text-decoration: none;
-}
-
-.empty-state.enhanced .button:hover {
-  background: #2563eb;
+/* Dark mode styles for dashboard summary container */
+[data-theme='dark'] .dashboard-summary {
+  background: rgba(31, 41, 55, 0.7);  /* Dark background with transparency */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 /* Chart Styles */
@@ -1620,12 +1597,12 @@ section h2 {
 /* Dark mode dashboard card improvements */
 [data-theme='dark'] .dashboard-card {
   background-color: var(--card-bg);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
 }
 
 [data-theme='dark'] .dashboard-card-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--border-color);
   background-color: rgba(0, 0, 0, 0.2);
 }
 
@@ -1707,4 +1684,70 @@ section h2 {
 
 [data-theme='dark'] .empty-state-action:hover {
   background-color: var(--accent-color-hover);
+}
+
+/* Enhanced Empty State */
+.empty-state.enhanced {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.empty-state.enhanced:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.empty-state.enhanced i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.empty-state.enhanced p {
+  font-size: 1.25rem;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state.enhanced .empty-subtext {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+}
+
+.empty-state.enhanced .button {
+  padding: 0.75rem 1.5rem;
+  background: #3b82f6;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.3s ease;
+  text-decoration: none;
+}
+
+.empty-state.enhanced .button:hover {
+  background: #2563eb;
+}
+
+/* Enhance icon appearance in dark mode */
+[data-theme='dark'] .summary-card i {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
