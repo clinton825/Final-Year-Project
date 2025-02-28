@@ -1584,3 +1584,127 @@ section h2 {
     grid-template-columns: 1fr;
   }
 }
+
+/* Dark mode background and shape adjustments */
+[data-theme='dark'] .app-background {
+  background: 
+    linear-gradient(120deg, rgba(30, 64, 175, 0.1) 0%, rgba(35, 99, 175, 0.1) 100%),
+    radial-gradient(circle at top right, rgba(30, 64, 175, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at bottom left, rgba(35, 99, 175, 0.1) 0%, transparent 40%);
+}
+
+[data-theme='dark'] .app-background::before {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(30, 64, 175, 0.03) 0%,
+    rgba(30, 64, 175, 0.03) 10%,
+    transparent 10%,
+    transparent 20%
+  );
+}
+
+[data-theme='dark'] .app-background::after {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(35, 99, 175, 0.03) 0%,
+    rgba(35, 99, 175, 0.03) 10%,
+    transparent 10%,
+    transparent 20%
+  );
+}
+
+[data-theme='dark'] .shape {
+  background: linear-gradient(45deg, rgba(30, 64, 175, 0.1), rgba(35, 99, 175, 0.1));
+}
+
+/* Dark mode dashboard card improvements */
+[data-theme='dark'] .dashboard-card {
+  background-color: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .dashboard-card-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .widget-controls button {
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .widget-controls button.active {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+[data-theme='dark'] .widget-controls button:hover:not(.active) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Dark mode for tracked projects cards */
+[data-theme='dark'] .project-item {
+  background-color: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .project-item:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+/* Dark mode activity feed improvements */
+[data-theme='dark'] .activity-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .activity-icon {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .activity-time {
+  color: #999;
+}
+
+/* Dark mode statistics and charts */
+[data-theme='dark'] .stats-card {
+  background-color: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .stat-value {
+  color: var(--accent-color);
+}
+
+[data-theme='dark'] .chart-container {
+  background-color: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+/* Empty state improvements for dark mode */
+[data-theme='dark'] .empty-state {
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .empty-state-icon {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme='dark'] .empty-state-text {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='dark'] .empty-state-action {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+[data-theme='dark'] .empty-state-action:hover {
+  background-color: var(--accent-color-hover);
+}

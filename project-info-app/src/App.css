@@ -50,27 +50,27 @@
 }
 
 [data-theme='dark'] {
-  /* Improved dark mode colors with better contrast and deeper tones */
-  --bg-primary: #121620;
-  --bg-secondary: #1e2433;
-  --bg-tertiary: #2a3142; 
-  --text-primary: #f5f5f7;
-  --text-secondary: #b0b7c3;
-  --border-color: #2e3446;
-  --accent-color: #4d9fff;
-  --accent-color-hover: #72b4ff;
+  /* Improved dark mode colors with better contrast and readability */
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #2a2a2a; 
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --border-color: #3a3a3a;
+  --accent-color: #60a5fa;
+  --accent-color-hover: #90c1ff;
   --error-color: #ff6b6b;
   --success-color: #5cdb95;
-  --card-bg: #1e2433;
-  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  --header-bg: #121620;
-  --footer-bg: #121620;
-  --input-bg: #1a1f2c;
-  --input-border: #2e3446;
-  --button-primary-bg: #4d9fff;
+  --card-bg: #262626;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --header-bg: #1a1a1a;
+  --footer-bg: #1a1a1a;
+  --input-bg: #323232;
+  --input-border: #444444;
+  --button-primary-bg: #60a5fa;
   --button-primary-text: #ffffff;
-  --button-secondary-bg: #2a3142;
-  --button-secondary-text: #f5f5f7;
+  --button-secondary-bg: #383838;
+  --button-secondary-text: #ffffff;
   --hover-transition: all 0.3s ease;
 }
 
