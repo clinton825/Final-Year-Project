@@ -466,6 +466,90 @@
   }
 }
 
+/* Dark mode improvements for auth pages */
+[data-theme='dark'] .auth-card {
+  background-color: var(--card-bg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .auth-header h2,
+[data-theme='dark'] .auth-container h2 {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .auth-header p {
+  color: #cccccc;
+}
+
+[data-theme='dark'] .form-group label {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .form-group input {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .form-group input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+}
+
+[data-theme='dark'] .error-message {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+  border-color: #ef4444;
+}
+
+[data-theme='dark'] .auth-error {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+}
+
+[data-theme='dark'] .google-signin {
+  background-color: var(--input-bg);
+  color: #ffffff;
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .google-signin:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-color);
+}
+
+[data-theme='dark'] .auth-divider::before,
+[data-theme='dark'] .auth-divider::after {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .auth-divider span {
+  background-color: var(--card-bg);
+  color: #aaaaaa;
+}
+
+[data-theme='dark'] .role-option {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .role-option span {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .role-option.selected {
+  background-color: rgba(96, 165, 250, 0.2);
+  border-color: var(--accent-color);
+}
+
+[data-theme='dark'] .toggle-auth-mode {
+  color: var(--accent-color);
+}
+
+[data-theme='dark'] .toggle-auth-mode:hover {
+  color: var(--accent-color-hover);
+}
+
 /* Loading animation */
 @keyframes pulse {
   0% { opacity: 1; }

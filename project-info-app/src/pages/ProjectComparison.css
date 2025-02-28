@@ -357,6 +357,96 @@
   margin: 0;
 }
 
+/* Dark mode improvements for comparison page */
+[data-theme='dark'] .comparison-container h2 {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .subtitle {
+  color: #cccccc;
+}
+
+[data-theme='dark'] .project-selection {
+  background-color: var(--card-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .comparison-table {
+  color: #ffffff;
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .comparison-table th {
+  background-color: var(--header-bg);
+  color: #ffffff;
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .comparison-table td {
+  border-color: var(--border-color);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .comparison-table tr:nth-child(odd) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='dark'] .selected-project {
+  background-color: var(--tag-bg);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .remove-btn {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .project-search input {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .project-search input::placeholder {
+  color: #aaaaaa;
+}
+
+[data-theme='dark'] .no-projects-message {
+  color: #cccccc;
+}
+
+[data-theme='dark'] .compare-btn {
+  background-color: var(--accent-color);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .compare-btn:hover {
+  background-color: var(--accent-color-hover);
+}
+
+[data-theme='dark'] .comparison-chart {
+  background-color: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .project-card {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .project-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border-color: var(--accent-color);
+}
+
+[data-theme='dark'] .project-title {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .project-meta {
+  color: #cccccc;
+}
+
 @media (max-width: 768px) {
   .comparison-container {
     padding: 1rem;

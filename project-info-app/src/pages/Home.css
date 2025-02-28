@@ -198,7 +198,7 @@
 }
 
 [data-theme='dark'] .project-description {
-  color: var(--text-secondary);
+  color: #ffffff;
 }
 
 .project-card-footer {
@@ -262,7 +262,7 @@
 }
 
 [data-theme='dark'] .detail-row {
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 [data-theme='dark'] .detail-row strong {
@@ -426,6 +426,21 @@
   color: var(--text-primary, #4a5568);
   margin-right: 0.5rem;
   font-weight: 600;
+}
+
+[data-theme='dark'] .project-details .detail-row {
+  background-color: var(--card-bg);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] .project-details .detail-row span {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .project-details .detail-row span strong {
+  color: var(--accent-color);
 }
 
 .loading {
@@ -671,6 +686,29 @@
 [data-theme='dark'] .header h1,
 [data-theme='dark'] .header p {
   color: var(--text-primary);
+}
+
+[data-theme='dark'] .project-card {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .project-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border-color: var(--accent-color);
+}
+
+[data-theme='dark'] .project-header h3 {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .login-prompt {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #cccccc;
+}
+
+[data-theme='dark'] .value-separator {
+  color: #ffffff;
 }
 
 @media (max-width: 768px) {
