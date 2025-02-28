@@ -3,13 +3,13 @@ import { getAuth } from '@firebase/auth';
 import { getFirestore, enableIndexedDbPersistence, connectFirestoreEmulator, CACHE_SIZE_UNLIMITED } from '@firebase/firestore';
 
 const firebaseConfig = {
-  // Your Firebase configuration object goes here
-  apiKey: "AIzaSyCYCGXsttUJHV0QStjs_sOvgmdoisFVu-o",
-  authDomain: "infrastructure-project--app.firebaseapp.com",
-  projectId: "infrastructure-project--app",
-  storageBucket: "infrastructure-project--app.appspot.com",
-  messagingSenderId: "845897639432",
-  appId: "1:845897639432:web:9e14b96fc048c7bd6313bd"
+  // Use environment variables if available, otherwise use the hardcoded values
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCYCGXsttUJHV0QStjs_sOvgmdoisFVu-o",
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "infrastructure-project--app.firebaseapp.com",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "infrastructure-project--app",
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "infrastructure-project--app.appspot.com",
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "845897639432",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:845897639432:web:9e14b96fc048c7bd6313bd"
 };
 
 // Initialize Firebase

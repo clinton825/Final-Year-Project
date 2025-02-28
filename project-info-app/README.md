@@ -127,6 +127,33 @@ npm run dev
 npm start
 ```
 
+## Deployment
+
+### Deploying to Vercel
+
+This project is configured for easy deployment to Vercel. Follow these steps:
+
+1. Ensure your code is committed to GitHub
+2. Visit [vercel.com](https://vercel.com) and sign up/login (you can use your GitHub account)
+3. Click "Add New Project"
+4. Import your GitHub repository
+5. Configure the project:
+   - Framework Preset: Create React App
+   - Build Command: `npm run build`
+   - Output Directory: `build`
+   - Install Command: `npm install`
+   
+6. Set up environment variables:
+   - Add all the environment variables listed in the VERCEL_ENV_SETUP.md file
+   
+7. Click "Deploy"
+
+Your application will be built and deployed to a custom URL provided by Vercel. You can also set up a custom domain in the Vercel dashboard.
+
+### Updating Your Deployment
+
+Any time you push changes to your GitHub repository, Vercel will automatically rebuild and redeploy your application.
+
 ## Project Structure
 
 ```
