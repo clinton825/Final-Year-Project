@@ -4,13 +4,15 @@ When deploying to Vercel, you'll need to add the following environment variables
 
 ## Firebase Configuration
 ```
-REACT_APP_FIREBASE_API_KEY=AIzaSyCYCGXsttUJHV0QStjs_sOvgmdoisFVu-o
-REACT_APP_FIREBASE_AUTH_DOMAIN=infrastructure-project--app.firebaseapp.com
-REACT_APP_FIREBASE_PROJECT_ID=infrastructure-project--app
-REACT_APP_FIREBASE_STORAGE_BUCKET=infrastructure-project--app.appspot.com
-REACT_APP_FIREBASE_MESSAGING_SENDER_ID=845897639432
-REACT_APP_FIREBASE_APP_ID=1:845897639432:web:9e14b96fc048c7bd6313bd
+REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+REACT_APP_FIREBASE_PROJECT_ID=your_firebase_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
+REACT_APP_FIREBASE_APP_ID=your_firebase_app_id
 ```
+
+The actual values for these environment variables can be found in your Firebase console or your local .env file.
 
 ## Other Environment Variables
 Add any other environment variables that your application uses here.
