@@ -29,6 +29,9 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
   - Smooth animations and transitions
   - Modern gradient backgrounds
   - High contrast design for better readability
+  - Customizable layout options (grid/list view)
+  - Widget visibility toggles for personalized experience
+  - Euro (€) currency formatting
 - User Activity Tracking:
   - Track user interactions with projects
   - Monitor search patterns and preferences
@@ -49,13 +52,22 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Clean and intuitive user interface
 
 ## Recent Updates
-### UI Enhancements (February 2025)
-- Implemented new dashboard with modern design
-- Added gradient backgrounds with subtle animations
-- Improved text contrast and readability
-- Enhanced card layouts with interactive hover effects
-- Optimized spacing and visual hierarchy
-- Added user tracking functionality for better analytics
+### Dashboard Enhancement (February 2025)
+- Added summary statistics cards at the top of the dashboard
+- Implemented data visualization with bar charts for project value distribution
+- Fixed location display with map marker icons
+- Enhanced empty state displays with improved guidance
+- Added hover effects and visual improvements to project cards
+- Improved icon usage for better visual hierarchy
+- Enhanced mobile responsiveness
+
+### UI Enhancement Phase 2 (February 2025)
+- Converted currency display to Euro (€)
+- Simplified project card layout on Home page
+- Improved tracking functionality
+- Added dashboard layout customization and widget visibility toggles
+- Enhanced project filter capabilities
+- Fixed subcategory mapping for "Commercial & Retail" category
 
 ## Technologies Used
 - React.js (Functional Components, Hooks)
@@ -169,6 +181,24 @@ GET http://localhost:3001/api/projects/category/{category}?subcategory={subcateg
 4. Click "Read More" on any project card to view its full description
 5. Click on a project card to view detailed information
 6. Use the "Clear All Filters" button to reset your search and filters
+7. Track projects by clicking the "Track Project" button on any project card
+8. Access your personalized dashboard to view tracked projects and statistics
+9. Customize your dashboard by:
+   - Toggling between grid and list layouts
+   - Showing/hiding specific widgets (Projects, Activity, Stats)
+   - Untracking projects you no longer want to follow
+
+## Dashboard Features
+The personalized dashboard provides users with a customized view of their tracked projects and activities:
+
+- **Tracked Projects Widget**: View all projects you've chosen to track
+- **Recent Activity**: Monitor your recent interactions with the application
+- **Project Statistics**: View aggregated data about your tracked projects
+- **Customizable Layout**: Toggle between grid and list views
+- **Widget Visibility Controls**: Show or hide specific dashboard sections
+- **Interactive Project Cards**: View project details or untrack projects with a single click
+- **Euro (€) Currency Formatting**: All monetary values displayed in euros
+- **Real-time Updates**: Dashboard automatically updates when tracking or untracking projects
 
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.

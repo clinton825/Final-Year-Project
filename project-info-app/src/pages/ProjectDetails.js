@@ -70,8 +70,7 @@ const ProjectDetails = () => {
   const handleTrackToggle = async () => {
     try {
       if (!currentUser) {
-        // Redirect to login if user is not authenticated
-        navigate('/login');
+        setError('You must be logged in to track projects');
         return;
       }
       
@@ -79,10 +78,15 @@ const ProjectDetails = () => {
       console.log('Current user:', currentUser.uid);
       console.log('Project data:', project);
       
-      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${planning_id}`);
+      // Create document ID with consistent format
+      const docId = `${currentUser.uid}_${planning_id}`;
+      console.log('Document ID for tracked project:', docId);
+      
+      const trackedProjectRef = doc(db, 'trackedProjects', docId);
       
       if (isTracked) {
         console.log('Untracking project...');
+        
         // Untrack project
         await deleteDoc(trackedProjectRef);
         console.log('Project untracked successfully');
@@ -134,21 +138,37 @@ const ProjectDetails = () => {
           planning_est_completion_date: project.planning_est_completion_date || null,
         };
         
-        // Track project with complete data
-        await setDoc(trackedProjectRef, projectData);
-        console.log('Project tracked successfully');
-        
-        // Log activity
-        await addDoc(collection(db, 'activity'), {
-          userId: currentUser.uid,
-          type: 'track',
-          projectId: planning_id,
-          projectName: project?.planning_name || project?.planning_title || 'Unknown Project',
-          description: `Started tracking project: ${project?.planning_name || project?.planning_title || 'Unknown Project'}`,
-          timestamp: serverTimestamp()
-        });
-        console.log('Activity logged successfully');
-        setSuccess('Project tracked successfully');
+        // Make multiple attempts to ensure data persists
+        try {
+          // Track project with complete data
+          await setDoc(trackedProjectRef, projectData);
+          console.log('Project tracked successfully');
+          
+          // Double-check the document was written
+          const verifyDoc = await getDoc(trackedProjectRef);
+          if (verifyDoc.exists()) {
+            console.log('Verified tracked project was saved correctly');
+          } else {
+            console.warn('Project tracking verification failed - retrying...');
+            // Try one more time
+            await setDoc(trackedProjectRef, projectData);
+          }
+          
+          // Log activity
+          await addDoc(collection(db, 'activity'), {
+            userId: currentUser.uid,
+            type: 'track',
+            projectId: planning_id,
+            projectName: project?.planning_name || project?.planning_title || 'Unknown Project',
+            description: `Started tracking project: ${project?.planning_name || project?.planning_title || 'Unknown Project'}`,
+            timestamp: serverTimestamp()
+          });
+          console.log('Activity logged successfully');
+          setSuccess('Project tracked successfully');
+        } catch (innerError) {
+          console.error('Error in tracking operation:', innerError);
+          throw innerError;
+        }
       }
       
       setIsTracked(!isTracked);

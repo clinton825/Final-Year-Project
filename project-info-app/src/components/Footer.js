@@ -58,7 +58,7 @@ const Footer = () => {
       
       <div className="footer-bottom">
         <p>&copy; {currentYear} Infrastructure Project Tracker. All rights reserved.</p>
-        <p>Designed and developed by <a href="#">Your Name</a></p>
+        <p>Designed and developed by <a href="https://clinton825.github.io/">Clinton Bempah</a></p>
       </div>
     </footer>
   );

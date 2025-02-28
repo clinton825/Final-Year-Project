@@ -15,6 +15,9 @@ A modern web application for tracking and comparing local infrastructure develop
   - Filter by category and value
   - Search functionality
   - Detailed development information
+  - Track/untrack projects for personalized dashboard
+  - Customizable dashboard layout (grid/list view)
+  - Widget visibility toggles
 
 - **Modern UI/UX**
   - Clean and minimalist interface
@@ -22,6 +25,37 @@ A modern web application for tracking and comparing local infrastructure develop
   - Intuitive navigation
   - Loading states and transitions
   - Mobile-friendly layout
+  - Euro (€) currency formatting
+  - Interactive buttons with icons
+  - Hover effects for better user engagement
+
+## Dashboard Features
+
+### Project Tracking
+- Personal dashboard to track projects of interest
+- Ability to add/remove projects from your tracking list
+- Quick access to project details
+- Projects organized in a clean, card-based layout
+
+### Dashboard Customization
+- Toggle between grid and list layouts
+- Show/hide widgets based on preferences
+- Widget visibility toggles for Projects, Activity, and Statistics sections
+- User settings are saved and persisted between sessions
+
+### Statistics and Visualization
+- Summary statistics cards with key metrics
+- Visual representation of project value distribution
+- Project categorization by status and type
+- Bar chart visualization for project value by category
+- Numeric breakdown of project statuses
+
+### User Experience
+- Personalized welcome banner
+- Enhanced empty states with guidance
+- Hover effects and visual feedback
+- Consistent icon system for better visual hierarchy
+- Mobile-responsive design for all dashboard components
 
 ## Tech Stack
 
@@ -121,8 +155,10 @@ infrastructure-tracking/
 
 ## Navigation
 
-- **Home**: Main dashboard showing all infrastructure developments
+- **Home**: Main page showing all infrastructure developments
+- **Dashboard**: Personalized dashboard with tracked projects and statistics
 - **Compare**: Compare different developments (requires authentication)
+- **Project Details**: Detailed view of individual projects
 - **Authentication**: Login/Signup functionality integrated into the home page
 
 ## Recent Updates
@@ -132,6 +168,12 @@ infrastructure-tracking/
 - Improved responsive design
 - Updated branding and text consistency
 - Enhanced error handling and loading states
+- Redesigned dashboard with improved project tracking functionality and euro currency formatting
+- Added customizable dashboard layout options (grid/list view)
+- Implemented widget visibility toggles for personalized user experience
+- Enhanced project cards with improved action buttons and icons
+- Optimized dashboard performance for large datasets
+- Added hover effects and transitions for better visual feedback
 
 ## Contributing
 

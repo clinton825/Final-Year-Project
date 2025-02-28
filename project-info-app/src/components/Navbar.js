@@ -31,23 +31,24 @@ const Navbar = () => {
             <i className="fas fa-home"></i> Home
           </Link>
           
-          <button 
-            onClick={toggleTheme} 
-            className="theme-toggle-button"
-            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-          >
-            {theme === 'light' ? (
-              <>
-                <i className="fas fa-moon"></i>
-                <span className="theme-toggle-text">Dark</span>
-              </>
-            ) : (
-              <>
-                <i className="fas fa-sun"></i>
-                <span className="theme-toggle-text">Light</span>
-              </>
-            )}
-          </button>
+          <div className="action-area">
+            <button 
+              onClick={toggleTheme} 
+              className="theme-toggle-button"
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? (
+                <>
+                  <i className="fas fa-moon"></i>
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-sun"></i>
+                </>
+              )}
+              <span className="sr-only">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+            </button>
+          </div>
           
           {currentUser && (
             <>

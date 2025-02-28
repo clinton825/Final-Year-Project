@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../contexts/AuthContext';
+import { db } from '../firebase/config';
+import { collection, addDoc, doc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import './Home.css';
+import { updateDashboardCache } from '../pages/Dashboard';
 
 const Home = () => {
   const { currentUser } = useAuth();
@@ -171,6 +174,59 @@ const Home = () => {
     return `${description.substring(0, maxLength)}...`;
   };
 
+  const trackProject = async (projectData) => {
+    try {
+      if (!currentUser) {
+        console.log('No user logged in');
+        return;
+      }
+      
+      // Add user ID and timestamp to the project data
+      const trackingData = {
+        ...projectData,
+        userId: currentUser.uid,
+        trackedAt: serverTimestamp()
+      };
+      
+      // Add to trackedProjects collection
+      const projectRef = await addDoc(collection(db, 'trackedProjects'), trackingData);
+      console.log('Project tracked:', projectRef.id);
+      
+      // Log activity
+      try {
+        await addDoc(collection(db, 'activity'), {
+          userId: currentUser.uid,
+          type: 'track',
+          projectId: projectData.planning_id || projectData.id,
+          description: `Tracked project: ${projectData.planning_title || projectData.title || 'Unnamed project'}`,
+          timestamp: serverTimestamp()
+        });
+      } catch (err) {
+        console.error('Error logging track activity:', err);
+      }
+
+      // Get all tracked projects for this user to update the dashboard cache
+      const trackedProjectsQuery = query(
+        collection(db, 'trackedProjects'),
+        where('userId', '==', currentUser.uid)
+      );
+      
+      const trackedProjectsSnapshot = await getDocs(trackedProjectsQuery);
+      const trackedProjects = trackedProjectsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Update dashboard cache with the current user's tracked projects
+      await updateDashboardCache(currentUser, trackedProjects, null);
+      
+      alert('Project tracked successfully!');
+    } catch (error) {
+      console.error('Error tracking project:', error);
+      alert('Error tracking project: ' + error.message);
+    }
+  };
+
   if (loading) {
     return <div className="loading">Loading projects...</div>;
   }
@@ -215,7 +271,7 @@ const Home = () => {
         >
           <option value="">Select Category</option>
           <option value="Residential">Residential</option>
-          <option value="Commercial">Commercial</option>
+          <option value="Commercial & Retail">Commercial & Retail</option>
           <option value="Industrial">Industrial</option>
         </select>
 
@@ -272,71 +328,78 @@ const Home = () => {
       )}
 
       <div className="projects-container">
-        {displayedProjects.map((project) => (
-          <div
-            key={project.planning_id}
-            className={`project-card ${!currentUser ? 'limited-view' : ''} ${
+        {displayedProjects.map((project) => {
+          const projectLocation = 
+            project.planning_development_address_1 || 
+            project.planning_development_address_2 || 
+            project.planning_development_address_3 || 
+            `${project.planning_region}, ${project.planning_county}` || 
+            'Location not specified';
+
+          const projectStatus = project.planning_stage || 'Status not available';
+
+          return (
+            <div key={project.planning_id} className={`project-card ${!currentUser ? 'limited-view' : ''} ${
               expandedCards.has(project.planning_id) ? 'expanded' : ''
-            }`}
-          >
-            <div className="project-card-header">
-              <h3>{project.planning_title}</h3>
-            </div>
-            
-            <div className="project-card-body">
-              <p className="project-description">
-                {project.planning_description?.substring(0, 150)}
-                {project.planning_description?.length > 150 ? '...' : ''}
-              </p>
-
-              {currentUser ? (
-                <>
-                  <div className="project-details">
-                    <div className="detail-row">
-                      <span><strong>Location:</strong> {project.planning_address}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span><strong>Value:</strong> €{project.planning_value.toLocaleString()}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span><strong>Status:</strong> {project.planning_status}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span><strong>Category:</strong> {project.planning_category}</span>
-                    </div>
-
-                    {project.planning_subcategory && (
-                      <div className="detail-row">
-                        <span><strong>Subcategory:</strong> {project.planning_subcategory}</span>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="login-prompt">
-                  <p>Log in to view project details</p>
+            }`}> 
+              <div className="project-card-content">
+                <div className="project-header">
+                  <h3>{project.planning_title}</h3>
                 </div>
-              )}
-            </div>
-            
-            <div className="project-card-footer">
-              <div className="location-row">
-                <i className="fas fa-map-marker-alt location-icon"></i>
-                <span>{project.planning_town}</span>
+                
+                <div className="project-card-body">
+                  <p className="project-description">
+                    {project.planning_description?.substring(0, 150)}
+                    {project.planning_description?.length > 150 ? '...' : ''}
+                  </p>
+
+                  {currentUser ? (
+                    <>
+                      <div className="project-details">
+                        <div className="detail-row">
+                          <span><strong>Location:</strong> {projectLocation}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span><strong>Value:</strong> €{project.planning_value.toLocaleString()}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span><strong>Status:</strong> {projectStatus}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span><strong>Category:</strong> {project.planning_category}</span>
+                        </div>
+
+                        {project.planning_subcategory && (
+                          <div className="detail-row">
+                            <span><strong>Subcategory:</strong> {project.planning_subcategory}</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="login-prompt">
+                      <p>Log in to view project details</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="project-card-footer">
+                  <div className="project-actions">
+                    <button 
+                      className="view-details-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleProjectClick(project.planning_id);
+                      }}
+                    >
+                      <i className="fas fa-eye"></i> View Details
+                    </button>
+                  </div>
+                </div>
               </div>
-              <button 
-                className={`toggle-details-btn ${expandedCards.has(project.planning_id) ? 'open' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleProjectClick(project.planning_id);
-                }}
-              >
-                {expandedCards.has(project.planning_id) ? 'View Less' : 'View More'}
-                <i className={`fas ${expandedCards.has(project.planning_id) ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {currentUser && filteredProjects.length > displayedProjects.length && (

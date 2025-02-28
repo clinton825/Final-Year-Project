@@ -228,22 +228,31 @@ app.get("/api/projects/category/:category", async (req, res) => {
 // Get subcategories for a category
 app.get("/api/subcategories/:category", async (req, res) => {
   try {
-    const category = req.params.category;
+    const category = decodeURIComponent(req.params.category);
+    
+    // Use the same subcategories mapping as in the categories endpoint
     const subcategories = {
-      'Residential': ['Houses', 'Apartments', 'Mixed Use', 'Student Accommodation'],
-      'Commercial': ['Office', 'Retail', 'Hotel', 'Restaurant'],
-      'Industrial': ['Factory', 'Warehouse', 'Light Industrial', 'Manufacturing'],
-      'Infrastructure': ['Roads', 'Bridges', 'Railways', 'Utilities'],
-      'Education': ['Primary School', 'Secondary School', 'University', 'Training Center'],
-      'Healthcare': ['Hospital', 'Clinic', 'Medical Center', 'Care Home']
+      'Residential': ['Houses', 'Apartments', 'Mixed Development'],
+      'Commercial & Retail': ['Retail', 'Office', 'Service Station', 'Car Showroom', 'Hotel & Guesthouse', 'Bar & Restaurant'],
+      'Industrial': ['Factory', 'Warehouse', 'Light Industrial'],
+      'Education': ['School', 'University', 'Pre School'],
+      'Medical': ['Hospital', 'Care Home', 'Medical Centre'],
+      'Civil': ['Roads & Bridges', 'Water & Sewerage', 'Transport', 'Carpark', 'Power Generation', 'Quarry'],
+      'Social': ['Sport & Leisure', 'Church & Community', 'Public Building'],
+      'Agriculture': ['Agricultural Building'],
+      'Supply & Services': ['Professional Services', 'Construction Supplies'],
+      'Self Build': ['House', 'Extension', 'Alteration']
     };
 
+    console.log(`Fetching subcategories for category: ${category}`);
+    
     if (subcategories[category]) {
       res.json({
         status: "success",
         subcategories: subcategories[category]
       });
     } else {
+      console.log(`No subcategories found for category: ${category}`);
       res.json({
         status: "success",
         subcategories: []

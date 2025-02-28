@@ -10,7 +10,21 @@
 }
 
 [data-theme='dark'] .navbar {
-  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme='dark'] .navbar a {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .navbar a:hover {
+  color: var(--accent-color);
+}
+
+[data-theme='dark'] .navbar-logo {
+  color: var(--accent-color);
 }
 
 .navbar-content {
@@ -147,54 +161,81 @@
   margin-right: 6px;
 }
 
+.action-area {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 0.5rem;
+}
+
 .theme-toggle-button {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 8px 12px;
-  margin-right: 10px;
-  border-radius: 20px;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   overflow: hidden;
+  margin-left: 12px;
 }
 
 .theme-toggle-button:hover {
+  transform: rotate(12deg) scale(1.1);
   background-color: var(--bg-tertiary);
-  transform: translateY(-2px);
 }
 
 .theme-toggle-button:focus {
   outline: none;
-  box-shadow: 0 0 0 2px var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-color);
 }
 
 .theme-toggle-button i {
-  margin-right: 6px;
+  font-size: 18px;
   transition: all 0.3s ease;
-}
-
-.theme-toggle-text {
-  font-weight: 500;
-  font-size: 0.85rem;
 }
 
 [data-theme='dark'] .theme-toggle-button {
   background-color: var(--bg-tertiary);
+  color: #ffcc33;
 }
 
 [data-theme='dark'] .theme-toggle-button i {
-  color: var(--accent-color);
+  animation: spin-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  text-shadow: 0 0 10px rgba(255, 204, 51, 0.6);
 }
 
-/* Add a subtle glow effect to the theme toggle in dark mode */
-[data-theme='dark'] .theme-toggle-button i {
-  text-shadow: 0 0 5px rgba(100, 181, 246, 0.5);
+[data-theme='light'] .theme-toggle-button i {
+  color: #1e90ff;
+  animation: spin-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes spin-in {
+  0% {
+    transform: rotate(-180deg) scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 @media (max-width: 768px) {

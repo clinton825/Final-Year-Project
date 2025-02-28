@@ -8,7 +8,9 @@ import {
   GithubAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from '@firebase/auth';
 import { doc, setDoc } from '@firebase/firestore';
 import { auth, db } from '../firebase/config';
@@ -71,6 +73,15 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
+    // Set persistence to LOCAL
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        console.log('Firebase auth persistence set to LOCAL');
+      })
+      .catch((error) => {
+        console.error('Error setting auth persistence:', error);
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setLoading(false);
