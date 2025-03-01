@@ -51,22 +51,46 @@ app.get('/', (req, res) => {
 // Get all projects
 app.get("/api/projects", async (req, res) => {
   try {
+    // Validate environment variables
+    if (!process.env.BUILDING_INFO_API_KEY || !process.env.BUILDING_INFO_USER_KEY) {
+      console.error('Missing required API credentials in environment variables');
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Server configuration error: Missing API credentials"
+      });
+    }
+    
     console.log('Fetching all projects');
     const projects = await getAllProjects();
     
     if (!projects) {
-      throw new Error('No projects found');
+      console.error('No projects returned from API');
+      return res.status(404).json({
+        status: "error",
+        message: "No projects found"
+      });
     }
-
+    
+    // Check if we got a valid projects array
+    if (!Array.isArray(projects)) {
+      console.error('API did not return an array:', typeof projects);
+      return res.status(500).json({
+        status: "error",
+        message: "Unexpected API response format"
+      });
+    }
+    
+    console.log(`Successfully retrieved ${projects.length} projects`);
     res.json({
       status: "success",
-      projects: Array.isArray(projects) ? projects : [projects]
+      projects: projects
     });
   } catch (error) {
     console.error("Error in /api/projects:", error);
     res.status(500).json({ 
       status: "error", 
-      message: error.message || "Failed to fetch projects"
+      message: error.message || "Failed to fetch projects",
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

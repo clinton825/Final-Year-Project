@@ -1,16 +1,24 @@
-// Import fetch dynamically
-let fetch;
-(async () => {
-  const nodeFetch = await import('node-fetch');
-  fetch = nodeFetch.default;
-})();
+// Import fetch directly
+const fetch = require('node-fetch');
+
+// Add timeout to fetch requests
+const fetchWithTimeout = (url, options = {}) => {
+  const { timeout = 10000, ...fetchOptions } = options;
+  
+  return Promise.race([
+    fetch(url, fetchOptions),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`Request timed out after ${timeout}ms`)), timeout)
+    )
+  ]);
+};
 
 // Utility function to retry failed requests
 async function fetchWithRetry(url, options, maxRetries = 3, delay = 1000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Attempt ${attempt} of ${maxRetries} for URL: ${url}`);
-      const response = await fetch(url, options);
+      const response = await fetchWithTimeout(url, options);
       return response;
     } catch (error) {
       if (attempt === maxRetries) {
@@ -88,33 +96,48 @@ const getAllProjects = async () => {
     const url = `https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${process.env.BUILDING_INFO_API_KEY}&ukey=${process.env.BUILDING_INFO_USER_KEY}`;
     
     console.log('Making API request for all projects');
+    console.log('API Key length:', process.env.BUILDING_INFO_API_KEY?.length);
+    console.log('User Key length:', process.env.BUILDING_INFO_USER_KEY?.length);
     
     const response = await fetchWithRetry(url, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'User-Agent': 'Project-Info-App/1.0'
       },
-      timeout: 10000
+      timeout: 15000
     });
 
     if (!response.ok) {
+      console.error(`API responded with status: ${response.status} - ${response.statusText}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('Raw API Response:', JSON.stringify(data, null, 2));
+    console.log('API Response Status:', response.status);
+    console.log('API Response Content Type:', response.headers.get('content-type'));
+    console.log('API Response Data Type:', typeof data);
+    
+    if (data) {
+      console.log('API Response First Level Keys:', Object.keys(data));
+    }
 
     // Check if data has the expected structure
     let projectsArray;
     if (Array.isArray(data)) {
+      console.log('Data is an array with length:', data.length);
       projectsArray = data;
     } else if (data && data.data && Array.isArray(data.data)) {
+      console.log('Data has a data property that is an array with length:', data.data.length);
       projectsArray = data.data;
     } else if (data && data.data && data.data.rows && Array.isArray(data.data.rows)) {
+      console.log('Data has a data.rows property that is an array with length:', data.data.rows.length);
       projectsArray = data.data.rows;
     } else if (data && typeof data === 'object') {
+      console.log('Data is a non-array object, treating as single project');
       projectsArray = [data];
     } else {
+      console.error('Unexpected API response format:', typeof data);
       throw new Error('Unexpected API response format');
     }
 
@@ -127,6 +150,10 @@ const getAllProjects = async () => {
     return projectsWithEuros;
   } catch (error) {
     console.error('Error fetching all projects:', error);
+    // Log additional diagnostic information
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     throw error;
   }
 };

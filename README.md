@@ -52,6 +52,20 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Clean and intuitive user interface
 
 ## Recent Updates
+### Home Page Improvements (February 2025)
+- Added smart filtering to hide already tracked projects from the home page
+- Implemented a toggle switch to show/hide tracked projects based on user preference
+- Added a notification badge showing how many projects are currently hidden
+- Enhanced project ID handling for improved tracking functionality
+
+### Dark Mode Enhancements (February 2025)
+- Improved dark mode styling throughout the application
+- Enhanced dashboard summary cards with better contrast and readability in dark mode
+- Fixed visibility issues in project comparison page when using dark theme
+- Added proper dark styling for selected project cards in comparison view
+- Ensured all text elements have proper contrast in dark mode
+- Maintained consistent visual design across theme changes
+
 ### Dashboard Enhancement (February 2025)
 - Added summary statistics cards at the top of the dashboard
 - Implemented data visualization with bar charts for project value distribution

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, query, where, orderBy, limit, getDocs, onSnapshot, doc, getDoc, setDoc, deleteDoc, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, onSnapshot, doc, getDoc, setDoc, deleteDoc, serverTimestamp, addDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { getDatabase, ref, set } from "firebase/database";
 import { getAuth } from "firebase/auth";
+import NotesList from '../components/notes/NotesList';
 import './Dashboard.css';
 
 // Export the updateDashboardCache function
@@ -125,6 +126,7 @@ const Dashboard = () => {
     categories: [],
     values: []
   });
+  const [projectNotes, setProjectNotes] = useState({});
 
   // Function to toggle dashboard layout between grid and list
   const toggleDashboardLayout = async () => {
@@ -369,6 +371,13 @@ const Dashboard = () => {
         console.log('Forcing dashboard cache update...');
         updateDashboardCache(currentUser, trackedProjects, setDashboardCache);
       }, 5000);
+    }
+  }, [currentUser, trackedProjects]);
+
+  useEffect(() => {
+    if (currentUser && trackedProjects.length > 0) {
+      // Fetch notes for all tracked projects
+      fetchAllProjectNotes();
     }
   }, [currentUser, trackedProjects]);
 
@@ -643,6 +652,238 @@ const Dashboard = () => {
     }
   };
 
+  // Project Notes CRUD Functions
+  const fetchProjectNotes = async (projectId) => {
+    try {
+      if (!currentUser) return;
+      
+      console.log('Fetching notes for project:', projectId);
+      
+      const q = query(
+        collection(db, 'projectNotes'),
+        where('userId', '==', currentUser.uid),
+        where('projectId', '==', projectId),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const snapshot = await getDocs(q);
+      const notes = [];
+      
+      snapshot.forEach(doc => {
+        // Get the raw data
+        const data = doc.data();
+        
+        // Log the raw timestamp data for debugging
+        console.log(`Note ${doc.id} raw timestamps:`, {
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          createdAtType: data.createdAt ? typeof data.createdAt : 'undefined',
+          hasToDate: data.createdAt && typeof data.createdAt.toDate === 'function'
+        });
+        
+        // Create a properly formatted note object
+        notes.push({
+          id: doc.id,
+          text: data.text,
+          userId: data.userId,
+          projectId: data.projectId,
+          // Keep the original timestamp objects
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt
+        });
+      });
+      
+      // Log the notes we found
+      if (notes.length > 0) {
+        console.log(`Found ${notes.length} notes for project ${projectId}`);
+        console.log('First note example:', notes[0]);
+      } else {
+        console.log(`No notes found for project ${projectId}`);
+      }
+      
+      // Update state with the notes
+      setProjectNotes(prev => ({
+        ...prev,
+        [projectId]: notes
+      }));
+      
+      return notes;
+    } catch (error) {
+      console.error('Error fetching project notes:', error);
+      return [];
+    }
+  };
+
+  const addProjectNote = async (projectId, text) => {
+    try {
+      if (!currentUser || !projectId) {
+        console.error('Cannot add note: Missing user or project ID');
+        return null;
+      }
+      
+      console.log('Adding note to project:', projectId);
+      
+      // Create note data with server timestamp
+      const noteData = {
+        userId: currentUser.uid,
+        projectId,
+        text,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      
+      console.log('Note data before saving:', noteData);
+      
+      // Add the note document
+      const docRef = await addDoc(collection(db, 'projectNotes'), noteData);
+      console.log('Note added with ID:', docRef.id);
+      
+      // Log activity
+      await addDoc(collection(db, 'activity'), {
+        userId: currentUser.uid,
+        type: 'note_add',
+        projectId,
+        description: 'Added a note to a project',
+        timestamp: serverTimestamp()
+      });
+      
+      // Fetch the note we just created to get the server timestamps
+      const noteSnapshot = await getDoc(docRef);
+      if (noteSnapshot.exists()) {
+        const savedNote = noteSnapshot.data();
+        console.log('Saved note with timestamps:', {
+          id: docRef.id,
+          ...savedNote,
+          createdAtType: typeof savedNote.createdAt,
+          updatedAtType: typeof savedNote.updatedAt
+        });
+      }
+      
+      // Refresh the notes list
+      await fetchProjectNotes(projectId);
+      
+      return docRef.id;
+    } catch (error) {
+      console.error('Error adding project note:', error);
+      return null;
+    }
+  };
+
+  const updateProjectNote = async (noteId, text) => {
+    try {
+      if (!currentUser || !noteId) return false;
+      
+      // Get the note to find its projectId
+      const noteRef = doc(db, 'projectNotes', noteId);
+      const noteSnap = await getDoc(noteRef);
+      
+      if (!noteSnap.exists()) {
+        console.error('Note not found:', noteId);
+        return false;
+      }
+      
+      const noteData = noteSnap.data();
+      const projectId = noteData.projectId;
+      
+      // Update the note
+      await updateDoc(noteRef, {
+        text,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Log activity
+      await addDoc(collection(db, 'activity'), {
+        userId: currentUser.uid,
+        type: 'note_update',
+        projectId,
+        description: 'Updated a project note',
+        timestamp: serverTimestamp()
+      });
+      
+      await fetchProjectNotes(projectId);
+      return true;
+    } catch (error) {
+      console.error('Error updating project note:', error);
+      return false;
+    }
+  };
+
+  const deleteProjectNote = async (noteId) => {
+    if (!currentUser) {
+      console.error('Cannot delete note: No authenticated user');
+      return false;
+    }
+    
+    if (!noteId) {
+      console.error('Cannot delete note: Missing note ID');
+      return false;
+    }
+    
+    console.log('Starting deletion process for note:', noteId);
+    
+    try {
+      // Step 1: Get the note document reference
+      const noteRef = doc(db, 'projectNotes', noteId);
+      
+      // Step 2: Get the note data to find its projectId
+      const noteSnap = await getDoc(noteRef);
+      
+      if (!noteSnap.exists()) {
+        console.error('Cannot delete note: Note not found with ID:', noteId);
+        return false;
+      }
+      
+      // Step 3: Extract the project ID from the note data
+      const noteData = noteSnap.data();
+      const projectId = noteData.projectId;
+      
+      if (!projectId) {
+        console.error('Cannot delete note: Note has no associated project ID');
+        return false;
+      }
+      
+      console.log(`Deleting note ${noteId} for project ${projectId}`);
+      
+      // Step 4: Delete the note document
+      await deleteDoc(noteRef);
+      console.log('Note document deleted successfully');
+      
+      // Step 5: Log the activity
+      const activityRef = await addDoc(collection(db, 'activity'), {
+        userId: currentUser.uid,
+        type: 'note_delete',
+        projectId,
+        description: 'Deleted a project note',
+        timestamp: serverTimestamp()
+      });
+      console.log('Activity logged with ID:', activityRef.id);
+      
+      // Step 6: Update the UI by refreshing the notes list
+      await fetchProjectNotes(projectId);
+      console.log('Notes list refreshed for project:', projectId);
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting project note:', error);
+      return false;
+    }
+  };
+
+  const fetchAllProjectNotes = async () => {
+    if (!currentUser || !trackedProjects.length) return;
+    
+    try {
+      for (const project of trackedProjects) {
+        const projectId = project.planning_id || project.id;
+        if (projectId) {
+          await fetchProjectNotes(projectId);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching all project notes:', error);
+    }
+  };
+
   const saveUserDashboardData = (dashboardData) => {
     const auth = getAuth();
     const user = auth.currentUser;
@@ -855,6 +1096,16 @@ const Dashboard = () => {
                               </div>
                             )}
                           </div>
+                          
+                          {/* Project Notes */}
+                          <NotesList 
+                            projectId={project.planning_id || project.id}
+                            notes={projectNotes[project.planning_id || project.id] || []}
+                            onAddNote={addProjectNote}
+                            onUpdateNote={updateProjectNote}
+                            onDeleteNote={deleteProjectNote}
+                          />
+                          
                           <div className="project-card-actions">
                             <button 
                               className="view-details-btn"
@@ -907,7 +1158,11 @@ const Dashboard = () => {
                         activity.type === 'track' ? 'bookmark' : 
                         activity.type === 'untrack' ? 'times' :
                         activity.type === 'search' ? 'search' : 
-                        activity.type === 'view' ? 'eye' : 'history'
+                        activity.type === 'view' ? 'eye' : 
+                        activity.type === 'note_add' ? 'sticky-note' :
+                        activity.type === 'note_update' ? 'edit' :
+                        activity.type === 'note_delete' ? 'trash-alt' :
+                        'history'
                       }`}></i>
                     </div>
                     <div className="activity-content">
