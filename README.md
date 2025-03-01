@@ -52,6 +52,25 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Clean and intuitive user interface
 
 ## Recent Updates
+### Deployment Enhancements (March 2025)
+- Implemented separate frontend and backend deployment architecture
+- Configured Vercel for hosting the React frontend application
+- Set up Render.com for hosting the backend API server
+- Added proper CORS configuration for cross-origin requests
+- Created environment-specific configuration for development and production
+- Enhanced API URL management via centralized config.js
+- Improved error handling for API connection issues
+
+### Project Notes Feature (March 2025)
+- Added a comprehensive project notes system for tracked projects
+- Implemented collapsible notes panel within each project card
+- Created components for adding, editing, viewing, and deleting notes
+- Set up Firestore integration for storing and retrieving user notes
+- Added activity tracking for note-related actions
+- Designed and implemented styling with dark mode support
+- Implemented edit and delete functionality with confirmation
+- Added character limits and real-time validation
+
 ### Home Page Improvements (February 2025)
 - Added smart filtering to hide already tracked projects from the home page
 - Implemented a toggle switch to show/hide tracked projects based on user preference
@@ -89,6 +108,9 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Axios for API requests
 - Express.js backend server
 - Node.js runtime
+- Firebase Authentication
+- Firestore Database for user data and notes
+- Firebase Storage
 - Environment variables support with dotenv
 - Modern CSS with responsive design
   - CSS Grid for layout
@@ -100,6 +122,59 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Fetch API for making HTTP requests
 - JavaScript (ES6+)
 - HTML & CSS for styling
+- Git for version control
+- CI/CD with Vercel and Render.com
+
+## Deployment
+
+### Frontend Deployment (Vercel)
+1. Push your code to GitHub
+2. Sign up for [Vercel](https://vercel.com)
+3. Connect your GitHub repository to Vercel
+4. Configure the following settings:
+   - Framework Preset: `Create React App`
+   - Build Command: `npm run build`
+   - Output Directory: `build`
+   - Environment Variables:
+     - `REACT_APP_API_URL` (Your backend API URL)
+     - Firebase configuration variables
+5. Deploy the application
+
+### Backend Deployment (Render.com)
+1. Push your code to GitHub
+2. Sign up for [Render.com](https://render.com)
+3. Create a new Web Service
+4. Connect your GitHub repository
+5. Configure the following settings:
+   - Root Directory: `api-server` (or your backend directory)
+   - Runtime: `Node`
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+   - Environment Variables (from your `.env` file)
+6. Deploy the service
+
+### Environment Variables Required
+For the backend server:
+```
+PORT=8080
+BUILDING_INFO_API_KEY=your_api_key
+BUILDING_INFO_USER_KEY=your_user_key
+FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+FIREBASE_PRIVATE_KEY=your_firebase_private_key
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+```
+
+For the frontend:
+```
+REACT_APP_API_URL=your_backend_url
+REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_auth_domain
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+```
 
 ## Installation & Setup
 ### Prerequisites
@@ -201,11 +276,18 @@ GET http://localhost:3001/api/projects/category/{category}?subcategory={subcateg
    - Toggling between grid and list layouts
    - Showing/hiding specific widgets (Projects, Activity, Stats)
    - Untracking projects you no longer want to follow
+10. Add, edit, and delete notes for your tracked projects:
+    - Click the notes section on any tracked project card
+    - Add new notes with the "+" button
+    - Edit existing notes by clicking the edit icon
+    - Delete notes by clicking the trash icon and confirming
+    - Notes are private and specific to each project
 
 ## Dashboard Features
 The personalized dashboard provides users with a customized view of their tracked projects and activities:
 
 - **Tracked Projects Widget**: View all projects you've chosen to track
+- **Project Notes**: Create, edit and delete private notes for each tracked project
 - **Recent Activity**: Monitor your recent interactions with the application
 - **Project Statistics**: View aggregated data about your tracked projects
 - **Customizable Layout**: Toggle between grid and list views
@@ -213,6 +295,7 @@ The personalized dashboard provides users with a customized view of their tracke
 - **Interactive Project Cards**: View project details or untrack projects with a single click
 - **Euro (€) Currency Formatting**: All monetary values displayed in euros
 - **Real-time Updates**: Dashboard automatically updates when tracking or untracking projects
+- **Dark Mode Support**: Full support for light and dark themes across all components
 
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
