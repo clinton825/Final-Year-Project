@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import './ProjectComparison.css';
+import config from '../config';
 
 const ProjectComparison = () => {
   const [selectedProjects, setSelectedProjects] = useState([]);
@@ -58,7 +59,7 @@ const ProjectComparison = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/projects');
+      const response = await fetch(`${config.API_URL}/api/projects`);
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }

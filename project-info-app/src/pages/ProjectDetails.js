@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, setDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import config from '../config';
 import './ProjectDetails.css';
 
 const ProjectDetails = () => {
@@ -58,7 +59,7 @@ const ProjectDetails = () => {
     try {
       setLoading(true);
       // Use the extracted or original planning_id for API calls
-      const response = await fetch(`http://localhost:8080/api/project/${actualPlanningId}`);
+      const response = await fetch(`${config.API_URL}/api/project/${actualPlanningId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch project details');
       }

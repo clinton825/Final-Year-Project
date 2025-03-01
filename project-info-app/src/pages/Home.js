@@ -5,6 +5,7 @@ import { db } from '../firebase/config';
 import { collection, addDoc, doc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import './Home.css';
 import { updateDashboardCache } from '../pages/Dashboard';
+import config from '../config';
 
 const Home = () => {
   const { currentUser } = useAuth();
@@ -135,16 +136,13 @@ const Home = () => {
   }, [searchTerm, selectedCategory, selectedSubcategory, projects, valueRange, projectsToShow, trackedProjectIds, showTrackedProjects]);
 
   const fetchProjects = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      const response = await fetch('http://localhost:8080/api/projects')
-        .catch(err => {
-          console.error('Network error:', err);
-          throw new Error('Cannot connect to the server. Please make sure the API server is running.');
-        });
-      
+      const response = await fetch(`${config.API_URL}/api/projects`)
       if (!response.ok) {
-        throw new Error(`Failed to fetch projects: ${response.statusText}`);
+        throw new Error('Cannot connect to the server. Please make sure the API server is running.');
       }
       
       const data = await response.json();
@@ -159,7 +157,7 @@ const Home = () => {
 
   const fetchSubcategories = async (category) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/subcategories/${encodeURIComponent(category)}`);
+      const response = await fetch(`${config.API_URL}/api/subcategories/${encodeURIComponent(category)}`);
       if (!response.ok) {
         throw new Error('Failed to fetch subcategories');
       }

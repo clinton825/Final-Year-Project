@@ -33,10 +33,14 @@ const {
 } = require('./api/user_tracking');
 
 const app = express();
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
-// Configure CORS
-app.use(cors());
+// Configure CORS with more permissive settings
+app.use(cors({
+  origin: '*',  // Allow requests from any origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json());
 
