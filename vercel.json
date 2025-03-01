@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/project-info-app/index.html" }
-  ],
-  "buildCommand": "cd project-info-app && npm install && npm run build",
-  "outputDirectory": "project-info-app/build",
-  "framework": "create-react-app"
-}

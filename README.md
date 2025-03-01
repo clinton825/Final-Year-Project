@@ -217,27 +217,27 @@ The application uses the following API endpoints:
 
 ### Get Project by ID
 ```
-GET http://localhost:3001/api/project/{projectId}
+GET http://localhost:8080/api/project/{projectId}
 ```
 
 ### Get All Projects
 ```
-GET http://localhost:3001/api/projects
+GET http://localhost:8080/api/projects
 ```
 
 ### Get Subcategories by Category
 ```
-GET http://localhost:3001/api/subcategories/{category}
+GET http://localhost:8080/api/subcategories/{category}
 ```
 
 ### Get Projects by Category
 ```
-GET http://localhost:3001/api/projects/category/{category}
+GET http://localhost:8080/api/projects/category/{category}
 ```
 
 ### Get Projects by Category and Subcategory
 ```
-GET http://localhost:3001/api/projects/category/{category}?subcategory={subcategory}
+GET http://localhost:8080/api/projects/category/{category}?subcategory={subcategory}
 ```
 
 ### Expected API Response Format

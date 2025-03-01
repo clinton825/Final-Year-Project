@@ -81,7 +81,7 @@ Before you begin, ensure you have the following installed:
 
 ## Environment Setup
 
-1. Create a `.env` file in the server directory with the following variables:
+1. Create a `.env` file in the root directory with the following variables:
 ```env
 DB_USER=your_db_user
 DB_PASSWORD=your_db_password
@@ -114,13 +114,13 @@ cd infrastructure-tracking
 npm install
 
 # Install backend dependencies
-cd server
+cd api-server
 npm install
 ```
 
 3. Start the development servers:
 ```bash
-# Start the backend server (from the server directory)
+# Start the backend server (from the api-server directory)
 npm run dev
 
 # Start the frontend development server (from the root directory)
@@ -164,17 +164,25 @@ infrastructure-tracking/
 ├── src/
 │   ├── components/
 │   │   ├── auth/
-│   │   │   ├── Login.js
-│   │   │   └── SignUp.js
-│   │   └── Navbar.js
+│   │   ├── dashboard/
+│   │   ├── layout/
+│   │   └── projects/
+│   ├── config/
+│   │   └── firebase.js
 │   ├── contexts/
-│   │   └── AuthContext.js
+│   │   ├── AuthContext.js
+│   │   └── ThemeContext.js
 │   ├── pages/
+│   │   ├── Dashboard.js
 │   │   ├── Home.js
-│   │   └── ProjectComparison.js
+│   │   ├── Login.js
+│   │   └── ProjectDetails.js
+│   ├── services/
+│   │   ├── api.js
+│   │   └── firebase.js
 │   ├── App.js
 │   └── index.js
-└── server/
+└── api-server/
     ├── config/
     ├── routes/
     └── server.js
