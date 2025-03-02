@@ -52,6 +52,13 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Clean and intuitive user interface
 
 ## Recent Updates
+### UX Improvements (March 2025)
+- Changed login redirection to take users to the home page instead of the dashboard for a more intuitive flow
+- Added a "Track Project" button directly on the home page project cards for faster project tracking
+- Implemented safeguards to prevent tracking the same project multiple times
+- Enhanced visual hierarchy with new button styling
+- Improved state management to reflect tracking status without page refresh
+
 ### Deployment Enhancements (March 2025)
 - Implemented separate frontend and backend deployment architecture
 - Configured Vercel for hosting the React frontend application

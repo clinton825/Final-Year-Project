@@ -198,6 +198,13 @@ infrastructure-tracking/
 
 ## Recent Updates
 
+### UX Improvements (March 2025)
+- Changed login redirection to take users to the home page instead of the dashboard for a more intuitive flow
+- Added a "Track Project" button directly on the home page project cards for faster project tracking
+- Implemented safeguards to prevent tracking the same project multiple times
+- Updated UI with new button styling for better visual hierarchy
+- Improved state management to reflect tracking status without page refresh
+
 - Streamlined navigation for better user experience
 - Added GitHub authentication option
 - Improved responsive design

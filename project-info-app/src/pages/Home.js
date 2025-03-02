@@ -236,6 +236,14 @@ const Home = () => {
         return;
       }
       
+      // Check if project is already tracked
+      const projectId = projectData.planning_id;
+      if (trackedProjectIds.has(projectId)) {
+        console.log('Project already tracked:', projectId);
+        alert('This project is already being tracked.');
+        return;
+      }
+      
       // Add user ID and timestamp to the project data
       const trackingData = {
         ...projectData,
@@ -274,6 +282,13 @@ const Home = () => {
       
       // Update dashboard cache with the current user's tracked projects
       await updateDashboardCache(currentUser, trackedProjects, null);
+      
+      // Update local state to reflect the newly tracked project
+      setTrackedProjectIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(projectId);
+        return newSet;
+      });
       
       alert('Project tracked successfully!');
     } catch (error) {
@@ -466,6 +481,27 @@ const Home = () => {
                     >
                       <i className="fas fa-eye"></i> View Details
                     </button>
+                    
+                    {currentUser && !trackedProjectIds.has(project.planning_id) && (
+                      <button 
+                        className="track-project-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          trackProject(project);
+                        }}
+                      >
+                        <i className="fas fa-bookmark"></i> Track Project
+                      </button>
+                    )}
+                    
+                    {currentUser && trackedProjectIds.has(project.planning_id) && (
+                      <button 
+                        className="tracked-project-btn"
+                        disabled
+                      >
+                        <i className="fas fa-check"></i> Tracked
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
