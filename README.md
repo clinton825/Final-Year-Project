@@ -61,6 +61,20 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Clean and intuitive user interface
 
 ## Recent Updates
+
+- Added a "Track Project" button directly on the home page project cards for faster project tracking
+
+### Profile Page Improvements (March 2025)
+- Redesigned user profile interface with a cleaner, more focused layout
+- Removed unnecessary fields (bio, organization, job title) to streamline the user experience
+- Enhanced profile photo upload with better client-side image compression
+- Improved form styling with better input field organization
+- Enhanced dark/light mode compatibility throughout the profile page
+- Updated CSS with more consistent button and form styling patterns
+- Improved responsive layout for better mobile experience
+- Optimized profile photo upload process with clear user feedback
+- Ensured CORS configuration for seamless photo uploads across development and production environments
+
 ### UX Improvements (March 2025)
 - Changed login redirection to take users to the home page instead of the dashboard for a more intuitive flow
 - Added a "Track Project" button directly on the home page project cards for faster project tracking

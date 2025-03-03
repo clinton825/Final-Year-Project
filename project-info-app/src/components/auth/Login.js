@@ -86,14 +86,15 @@ const Login = () => {
           </div>
 
           <div className="form-group">
-            <label>
-              Password
+            <div className="password-header">
+              <label htmlFor="password">Password</label>
               <a href="/forgot-password" className="forgot-password">
                 Forgot Password?
               </a>
-            </label>
+            </div>
             <input
               type="password"
+              id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}

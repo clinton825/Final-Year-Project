@@ -79,6 +79,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
 
 .form-group input {
@@ -100,10 +101,42 @@
   color: var(--accent-color);
   font-size: 0.875rem;
   text-decoration: none;
+  margin-left: auto;
+  font-weight: normal;
 }
 
 .forgot-password:hover {
   text-decoration: underline;
+}
+
+.password-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.password-header label {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.forgot-password-container {
+  position: relative;
+  width: 100%;
+}
+
+.forgot-password-container input {
+  width: 100%;
+}
+
+.forgot-password-container .forgot-password {
+  position: absolute;
+  right: 10px;
+  top: -25px;
+  font-size: 0.75rem;
 }
 
 .name-fields {

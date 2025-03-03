@@ -10,10 +10,14 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword
 } from '@firebase/auth';
-import { doc, setDoc } from '@firebase/firestore';
-import { auth, db } from '../firebase/config';
+import { doc, setDoc, getDoc, updateDoc } from '@firebase/firestore';
+import { auth, db, storage } from '../firebase/config';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const AuthContext = createContext();
 
@@ -72,6 +76,102 @@ export function AuthProvider({ children }) {
     return signInWithPopup(auth, provider);
   }
 
+  async function updateUserProfile(userData) {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('No user logged in');
+
+      // Update displayName if provided
+      if (userData.displayName) {
+        await updateProfile(user, {
+          displayName: userData.displayName
+        });
+      }
+
+      // Update user data in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        ...userData,
+        updatedAt: new Date().toISOString()
+      });
+
+      return user;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  }
+
+  async function uploadProfilePicture(file) {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('No user logged in');
+
+      // Create storage reference
+      const storageRef = ref(storage, `profilePictures/${user.uid}`);
+      
+      // Upload file
+      await uploadBytes(storageRef, file);
+      
+      // Get download URL
+      const photoURL = await getDownloadURL(storageRef);
+      
+      // Update user profile with new photo URL
+      await updateProfile(user, { photoURL });
+      
+      // Update user record in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { 
+        photoURL,
+        updatedAt: new Date().toISOString()
+      });
+
+      return photoURL;
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      throw error;
+    }
+  }
+
+  async function changeUserPassword(currentPassword, newPassword) {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('No user logged in');
+      if (!user.email) throw new Error('User has no email');
+
+      // Reauthenticate user
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      
+      // Update password
+      await updatePassword(user, newPassword);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw error;
+    }
+  }
+
+  async function getUserData() {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('No user logged in');
+      
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        return { uid: user.uid, ...userSnap.data() };
+      } else {
+        throw new Error('User data not found');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      throw error;
+    }
+  }
+
   useEffect(() => {
     // Set persistence to LOCAL
     setPersistence(auth, browserLocalPersistence)
@@ -97,7 +197,11 @@ export function AuthProvider({ children }) {
     logout,
     resetPassword,
     googleSignIn,
-    githubSignIn
+    githubSignIn,
+    updateUserProfile,
+    uploadProfilePicture,
+    changeUserPassword,
+    getUserData
   };
 
   return (

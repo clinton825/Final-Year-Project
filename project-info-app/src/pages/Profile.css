@@ -317,6 +317,30 @@
   border: 1px solid var(--primary-color);
 }
 
+.error-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  margin: 1rem 0;
+  background-color: rgba(var(--error-color-rgb), 0.1);
+  border: 1px solid var(--error-color);
+  border-radius: 0.5rem;
+  color: var(--error-color);
+  text-align: center;
+}
+
+.error-message i {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.error-message p {
+  margin: 0;
+  font-weight: 500;
+}
+
 .validation-error {
   color: #dc3545;
   font-size: 0.875rem;

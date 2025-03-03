@@ -30,6 +30,7 @@ const Profile = () => {
   const [photoFile, setPhotoFile] = useState(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [stats, setStats] = useState(null);
+  const [componentError, setComponentError] = useState(false);
   
   // Fetch user profile data
   useEffect(() => {
@@ -38,6 +39,7 @@ const Profile = () => {
       
       setLoading(true);
       try {
+        console.log("Fetching user profile data for:", currentUser.uid);
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         
         if (userDoc.exists()) {
@@ -49,38 +51,45 @@ const Profile = () => {
           setFirstName(userFirstName);
           setLastName(userLastName);
           
-          // Construct display name from first and last name if available, otherwise use from userData
-          const fullName = userFirstName && userLastName 
-            ? `${userFirstName} ${userLastName}` 
-            : userData.displayName || '';
-          
+          // Set email and photoURL from authentication context or Firestore
           setEmail(currentUser.email || '');
           setPhotoURL(userData.photoURL || '');
           setPhoneNumber(userData.phoneNumber || '');
           setRole(userData.role || '');
         } else {
           // Initialize user document if it doesn't exist
+          console.log("Creating new user document in Firestore");
+          const [firstNamePart, lastNamePart] = (currentUser.displayName || '').split(' ');
+          setFirstName(firstNamePart || '');
+          setLastName(lastNamePart || '');
+          setEmail(currentUser.email || '');
+          setPhotoURL(currentUser.photoURL || '');
+          
           await updateDoc(doc(db, 'users', currentUser.uid), {
-            displayName: currentUser.displayName || '',
+            firstName: firstNamePart || '',
+            lastName: lastNamePart || '',
             email: currentUser.email || '',
             photoURL: currentUser.photoURL || '',
             createdAt: new Date(),
+            updatedAt: new Date(),
+            role: 'user'
           });
         }
-        
-        // Fetch user stats
-        await fetchUserStats();
       } catch (error) {
-        console.error("Error fetching user profile:", error);
-        setMessage({ type: 'error', text: 'Failed to load profile data' });
+        console.error('Error fetching user profile:', error);
+        setComponentError(true);
+        setMessage({ 
+          type: 'error', 
+          text: 'Failed to load profile data. Please try refreshing the page.'
+        });
       } finally {
         setLoading(false);
       }
     };
-
+    
     fetchUserProfile();
   }, [currentUser]);
-  
+
   // Fetch user statistics
   const fetchUserStats = async () => {
     if (!currentUser) return;
@@ -108,7 +117,7 @@ const Profile = () => {
       console.error("Error fetching user stats:", error);
     }
   };
-  
+
   // Handle profile photo change
   const handlePhotoChange = (e) => {
     if (e.target.files[0]) {
@@ -137,7 +146,7 @@ const Profile = () => {
       reader.readAsDataURL(file);
     }
   };
-  
+
   // Direct photo upload function for testing
   const handleDirectPhotoUpload = async () => {
     if (!photoFile) {
@@ -215,7 +224,7 @@ const Profile = () => {
       setLoading(false);
     }
   };
-  
+
   // Helper function to compress images before upload
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
@@ -268,7 +277,7 @@ const Profile = () => {
       };
     });
   };
-  
+
   // Update profile information
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -362,7 +371,7 @@ const Profile = () => {
       setLoading(false);
     }
   };
-  
+
   // Format date for display
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -374,48 +383,13 @@ const Profile = () => {
       minute: '2-digit'
     }).format(date);
   };
-  
-  return (
-    <div className="profile-container">
-      <div className="profile-header">
-        <h1>User Profile</h1>
-        <div className="profile-tabs">
-          <button 
-            className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            <i className="fas fa-user"></i> Profile
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'security' ? 'active' : ''}`}
-            onClick={() => setActiveTab('security')}
-          >
-            <i className="fas fa-lock"></i> Security
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'preferences' ? 'active' : ''}`}
-            onClick={() => setActiveTab('preferences')}
-          >
-            <i className="fas fa-cog"></i> Preferences
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'activity' ? 'active' : ''}`}
-            onClick={() => setActiveTab('activity')}
-          >
-            <i className="fas fa-chart-line"></i> Activity
-          </button>
-        </div>
-      </div>
-      
-      {message.text && (
-        <div className={`alert ${message.type === 'error' ? 'alert-error' : 'alert-success'}`}>
-          {message.text}
-        </div>
-      )}
-      
-      <div className="profile-content">
-        {activeTab === 'profile' && (
-          <div className="profile-section">
+
+  // Render specific tab content based on activeTab
+  const renderTabContent = () => {
+    try {
+      switch(activeTab) {
+        case 'profile':
+          return (
             <div className="profile-card">
               <div className="profile-photo-container">
                 <div className="profile-photo">
@@ -520,21 +494,84 @@ const Profile = () => {
                 </div>
               </form>
             </div>
-          </div>
-        )}
-        
-        {activeTab === 'security' && (
-          <SecurityTab />
-        )}
-        
-        {activeTab === 'preferences' && (
-          <PreferencesTab />
-        )}
-        
-        {activeTab === 'activity' && (
-          <ActivityTab />
-        )}
+          );
+        case 'security':
+          if (typeof SecurityTab === 'undefined') {
+            return <div className="error-message">Security settings currently unavailable</div>;
+          }
+          return <SecurityTab />;
+        case 'preferences':
+          if (typeof PreferencesTab === 'undefined') {
+            return <div className="error-message">Preferences currently unavailable</div>;
+          }
+          return <PreferencesTab />;
+        case 'activity':
+          if (typeof ActivityTab === 'undefined') {
+            return <div className="error-message">Activity history currently unavailable</div>;
+          }
+          return <ActivityTab />;
+        default:
+          return null;
+      }
+    } catch (error) {
+      console.error('Error rendering tab content:', error);
+      return (
+        <div className="error-message">
+          <i className="fas fa-exclamation-triangle"></i>
+          <p>There was an error loading this content. Please try refreshing the page.</p>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="profile-container">
+      <div className="profile-header">
+        <h1>User Profile</h1>
+        <div className="profile-tabs">
+          <button 
+            className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            <i className="fas fa-user"></i> Profile
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'security' ? 'active' : ''}`}
+            onClick={() => setActiveTab('security')}
+          >
+            <i className="fas fa-lock"></i> Security
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'preferences' ? 'active' : ''}`}
+            onClick={() => setActiveTab('preferences')}
+          >
+            <i className="fas fa-cog"></i> Preferences
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'activity' ? 'active' : ''}`}
+            onClick={() => setActiveTab('activity')}
+          >
+            <i className="fas fa-chart-line"></i> Activity
+          </button>
+        </div>
       </div>
+      
+      {message.text && (
+        <div className={`alert ${message.type === 'error' ? 'alert-error' : 'alert-success'}`}>
+          {message.text}
+        </div>
+      )}
+      
+      {componentError ? (
+        <div className="error-message">
+          <i className="fas fa-exclamation-triangle"></i>
+          <p>Failed to load profile data. Please try refreshing the page.</p>
+        </div>
+      ) : (
+        <div className="profile-content">
+          {renderTabContent()}
+        </div>
+      )}
     </div>
   );
 };

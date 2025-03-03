@@ -48,6 +48,9 @@ const Navbar = () => {
               <Link to="/compare" className={`nav-link ${isActive('/compare')}`}>
                 <i className="fas fa-chart-bar"></i> Compare
               </Link>
+              <Link to="/profile" className={`nav-link ${isActive('/profile')}`}>
+                <i className="fas fa-user-circle"></i> Profile
+              </Link>
               <button 
                 onClick={handleShowGuide} 
                 className="help-button"

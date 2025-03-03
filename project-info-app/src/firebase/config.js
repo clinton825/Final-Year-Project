@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from '@firebase/auth';
 import { getFirestore, enableIndexedDbPersistence, connectFirestoreEmulator, CACHE_SIZE_UNLIMITED } from '@firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   // Use environment variables if available, otherwise use the hardcoded values
@@ -16,6 +17,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // Enable offline persistence with better configuration
 enableIndexedDbPersistence(db, {
@@ -42,4 +44,4 @@ enableIndexedDbPersistence(db, {
 //   connectFirestoreEmulator(db, 'localhost', 8080);
 // }
 
-export { auth, db };
+export { auth, db, storage };

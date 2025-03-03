@@ -8,9 +8,11 @@ import SignUp from './components/auth/SignUp';
 import ProjectDetails from './pages/ProjectDetails';
 import ProjectComparison from './pages/ProjectComparison';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import OnboardingProvider, { useOnboarding } from './contexts/OnboardingContext';
+import PreferencesProvider from './contexts/PreferencesContext';
 import WelcomeGuide from './components/onboarding/WelcomeGuide';
 import './App.css';
 
@@ -52,6 +54,7 @@ const AppContent = () => {
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
           <Route path="/compare" element={<ProtectedRoute element={<ProjectComparison />} />} />
           <Route path="/project/:planning_id" element={<ProtectedRoute element={<ProjectDetails />} />} />
+          <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
         </Routes>
       </main>
       <Footer compact={isComparisonPage} />
@@ -64,13 +67,15 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <AuthProvider>
-      <ThemeProvider>
+    <ThemeProvider>
+      <AuthProvider>
         <OnboardingProvider>
-          <AppContent />
+          <PreferencesProvider>
+            <AppContent />
+          </PreferencesProvider>
         </OnboardingProvider>
-      </ThemeProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

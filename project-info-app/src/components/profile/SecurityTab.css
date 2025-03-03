@@ -1,0 +1,341 @@
+.security-tab {
+  padding: 1.5rem;
+}
+
+.security-tab h2 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-color);
+}
+
+.security-subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.security-section {
+  margin-bottom: 2.5rem;
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.security-section h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--text-color);
+  font-size: 1.1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+.section-description {
+  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.alert {
+  padding: 0.8rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.alert-error {
+  background-color: var(--error-light);
+  color: var(--error-color);
+}
+
+.alert-success {
+  background-color: var(--success-light);
+  color: var(--success-color);
+}
+
+.alert i {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.password-input-wrapper {
+  position: relative;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  font-size: 1rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.password-input-wrapper input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.3);
+}
+
+.password-strength-bar {
+  height: 4px;
+  background-color: var(--input-border);
+  border-radius: 2px;
+  margin-top: 0.5rem;
+  overflow: hidden;
+}
+
+.strength-indicator {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.password-strength-bar.weak .strength-indicator {
+  background-color: var(--error-color);
+}
+
+.password-strength-bar.medium .strength-indicator {
+  background-color: var(--warning);
+}
+
+.password-strength-bar.strong .strength-indicator {
+  background-color: var(--success-color);
+}
+
+.password-feedback {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.password-feedback.error {
+  color: var(--error-color);
+}
+
+.strong-password {
+  color: var(--success-color);
+}
+
+.btn {
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn i {
+  margin-right: 0.5rem;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+}
+
+.btn-secondary {
+  background-color: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+}
+
+.btn-secondary:hover {
+  background-color: var(--button-secondary-hover);
+}
+
+.btn-danger {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: var(--error-dark);
+}
+
+.btn-text {
+  background: none;
+  color: var(--text-secondary);
+  padding: 0.5rem;
+}
+
+.btn-text:hover {
+  color: var(--text-color);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.two-factor-status {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.status-label {
+  font-weight: 500;
+  margin-right: 0.5rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.8rem;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-badge i {
+  margin-right: 0.3rem;
+}
+
+.status-badge.enabled {
+  background-color: var(--success-light);
+  color: var(--success-color);
+}
+
+.status-badge.not-enabled {
+  background-color: var(--warning-light);
+  color: var(--warning-dark);
+}
+
+.session-list {
+  margin-bottom: 1rem;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.8rem;
+  background-color: var(--card-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.session-item.current {
+  border: 1px solid var(--primary-color-light);
+  background-color: rgba(var(--primary-rgb), 0.05);
+}
+
+.session-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--primary-color-light);
+  color: var(--primary-color);
+  margin-right: 1rem;
+}
+
+.session-details {
+  flex: 1;
+}
+
+.session-device {
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+}
+
+.session-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+}
+
+.session-location {
+  margin-right: 1rem;
+}
+
+.session-time {
+  font-style: italic;
+}
+
+.session-actions {
+  margin-left: 1rem;
+}
+
+.security-alerts {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.security-alerts h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--text-color);
+  font-size: 1.1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+.nothing-to-report {
+  display: flex;
+  align-items: center;
+  color: var(--success-color);
+}
+
+.nothing-to-report i {
+  margin-right: 0.5rem;
+  font-size: 1.2rem;
+}
+
+@media (max-width: 768px) {
+  .session-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .session-icon {
+    margin-bottom: 0.8rem;
+  }
+  
+  .session-actions {
+    margin-left: 0;
+    margin-top: 1rem;
+    align-self: flex-start;
+  }
+}
