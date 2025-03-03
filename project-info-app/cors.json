@@ -1,0 +1,14 @@
+[
+  {
+    "origin": [
+      "http://localhost:3000", 
+      "https://infrastructure-project--app.web.app", 
+      "https://infrastructure-project--app.firebaseapp.com",
+      "https://final-year-project-ebon.vercel.app/",
+      "https://*.vercel.app"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Content-Length", "Content-Encoding", "Access-Control-Allow-Origin"],
+    "maxAgeSeconds": 3600
+  }
+]
