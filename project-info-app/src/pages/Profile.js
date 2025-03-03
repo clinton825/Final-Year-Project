@@ -32,10 +32,37 @@ const Profile = () => {
   const [stats, setStats] = useState(null);
   const [componentError, setComponentError] = useState(false);
   
-  // Fetch user profile data
+  // Monitor online/offline status
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!currentUser) return;
+    const handleOnline = () => {
+      console.log('App is online - attempting to reconnect to Firebase');
+      // Force refresh data when we come back online
+      if (currentUser) {
+        setLoading(true);
+        setMessage(null);
+        setComponentError(false);
+        // Delay slightly to allow connection to stabilize
+        setTimeout(() => {
+          fetchUserProfile(currentUser.uid);
+        }, 1000);
+      }
+    };
+    
+    const handleOffline = () => {
+      console.log('App is offline - Firebase operations may fail');
+      setMessage({
+        type: 'warning',
+        text: 'You are currently offline. Some features may not be available.'
+      });
+    };
+
+    // Function to fetch user profile with improved error handling
+    const fetchUserProfile = async (uid) => {
+      if (!uid) {
+        console.log('No user ID provided for profile fetch');
+        setLoading(false);
+        return;
+      }
       
       setLoading(true);
       let retryCount = 0;
@@ -43,11 +70,19 @@ const Profile = () => {
       
       const attemptFetch = async () => {
         try {
-          console.log("Fetching user profile data for:", currentUser.uid);
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          console.log(`Fetching user profile data for: ${uid} (attempt ${retryCount + 1})`);
+          
+          // Check if we're online first
+          if (!navigator.onLine) {
+            console.warn('Browser reports offline status - fetch may fail');
+          }
+          
+          // Get user document
+          const userDoc = await getDoc(doc(db, 'users', uid));
           
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            console.log('User document retrieved successfully:', userData);
             
             // Set display name from first name and last name if available
             const userFirstName = userData.firstName || '';
@@ -60,9 +95,13 @@ const Profile = () => {
             setPhotoURL(userData.photoURL || currentUser.photoURL || '');
             setPhoneNumber(userData.phoneNumber || '');
             setRole(userData.role || '');
+            
+            // Clear any error messages
+            setMessage(null);
+            setComponentError(false);
           } else {
+            console.log(`User document does not exist for ID: ${uid}, creating new document`);
             // Initialize user document if it doesn't exist
-            console.log("Creating new user document in Firestore");
             const [firstNamePart, lastNamePart] = (currentUser.displayName || '').split(' ');
             setFirstName(firstNamePart || '');
             setLastName(lastNamePart || '');
@@ -70,7 +109,7 @@ const Profile = () => {
             setPhotoURL(currentUser.photoURL || '');
             
             try {
-              await setDoc(doc(db, 'users', currentUser.uid), {
+              await setDoc(doc(db, 'users', uid), {
                 firstName: firstNamePart || '',
                 lastName: lastNamePart || '',
                 email: currentUser.email || '',
@@ -83,22 +122,24 @@ const Profile = () => {
             } catch (createError) {
               console.error("Error creating user document:", createError);
               // Continue execution even if document creation fails
+              if (retryCount < maxRetries) {
+                retryCount++;
+                return false; // Signal to retry
+              }
             }
           }
           
           // Fetch was successful
           return true;
         } catch (error) {
-          console.error('Error fetching user profile (attempt ' + (retryCount + 1) + '):', error);
-          if (error.code === 'unavailable' || error.code === 'failed-precondition' || error.message.includes('offline')) {
-            // Specific handling for offline-related errors
-            if (retryCount < maxRetries) {
-              console.log(`Retrying (${retryCount + 1}/${maxRetries})...`);
-              retryCount++;
-              // Exponential backoff: wait longer between each retry
-              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
-              return false; // Signal to retry
-            }
+          console.error(`Error fetching user profile (attempt ${retryCount + 1}):`, error);
+          
+          if (retryCount < maxRetries) {
+            console.log(`Retrying (${retryCount + 1}/${maxRetries})...`);
+            retryCount++;
+            // Exponential backoff: wait longer between each retry
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+            return false; // Signal to retry
           }
           
           // Either we've exhausted retries or it's not a retriable error
@@ -120,7 +161,27 @@ const Profile = () => {
       setLoading(false);
     };
     
-    fetchUserProfile();
+    // Set up online/offline listeners
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Initial check and fetch
+    if (navigator.onLine) {
+      if (currentUser) {
+        fetchUserProfile(currentUser.uid);
+      } else {
+        setLoading(false);
+      }
+    } else {
+      handleOffline();
+      setLoading(false);
+    }
+    
+    // Clean up listeners
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [currentUser]);
 
   // Fetch user statistics
