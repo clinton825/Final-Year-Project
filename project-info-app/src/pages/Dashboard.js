@@ -248,22 +248,85 @@ const Dashboard = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (currentUser) {
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userSnapshot = await getDoc(userDocRef);
+    // Function to load user data with enhanced error handling
+    const loadUserData = async () => {
+      if (!currentUser) {
+        console.log('No current user, skipping user data fetch');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Loading user data for dashboard. User ID:', currentUser.uid);
+      console.log('User email:', currentUser.email);
+      console.log('Display name from Auth:', currentUser.displayName);
+      
+      try {
+        // First try to get user data from Firestore
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          const userDocData = userDocSnap.data();
+          console.log('User data from Firestore:', userDocData);
+          setUserData(userDocData);
           
-          if (userSnapshot.exists()) {
-            setUserData(userSnapshot.data());
+          // Also store in localStorage for offline/Vercel usage
+          try {
+            localStorage.setItem(`userData_${currentUser.uid}`, JSON.stringify(userDocData));
+            console.log('Stored user data in localStorage for faster access');
+          } catch (storageError) {
+            console.error('Error storing user data in localStorage:', storageError);
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
+        } else {
+          console.log('No user document found in Firestore, checking localStorage...');
+          
+          // Try localStorage as fallback
+          try {
+            const localData = localStorage.getItem(`userData_${currentUser.uid}`);
+            if (localData) {
+              const parsedData = JSON.parse(localData);
+              console.log('User data from localStorage:', parsedData);
+              setUserData(parsedData);
+            } else {
+              console.log('No user data in localStorage, using Auth data');
+              // Create minimal user data from Auth
+              const minimalUserData = {
+                firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
+                lastName: currentUser.displayName ? currentUser.displayName.split(' ').slice(1).join(' ') : '',
+                email: currentUser.email,
+                uid: currentUser.uid
+              };
+              console.log('Created minimal user data:', minimalUserData);
+              setUserData(minimalUserData);
+            }
+          } catch (localStorageError) {
+            console.error('Error reading from localStorage:', localStorageError);
+            
+            // Fallback to Auth data if everything else fails
+            const fallbackUserData = {
+              firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
+              email: currentUser.email,
+              uid: currentUser.uid
+            };
+            console.log('Using fallback user data:', fallbackUserData);
+            setUserData(fallbackUserData);
+          }
         }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        
+        // Always ensure we have some user data to display
+        const emergencyUserData = {
+          firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
+          email: currentUser.email,
+          uid: currentUser.uid
+        };
+        console.log('Using emergency user data after error:', emergencyUserData);
+        setUserData(emergencyUserData);
       }
     };
     
-    fetchUserData();
+    loadUserData();
   }, [currentUser]);
 
   useEffect(() => {
@@ -333,7 +396,7 @@ const Dashboard = () => {
       
       trackedProjects.forEach(project => {
         // Count by status
-        const status = project.status || project.planning_stage || 'Unknown';
+        const status = project.status || project.planning_stage || project.stage || 'Unknown';
         projectsByStatus[status] = (projectsByStatus[status] || 0) + 1;
         
         // Sum by category
@@ -595,8 +658,8 @@ const Dashboard = () => {
               // Handle Firestore timestamps properly
               timestamp = activityData.timestamp?.toDate ? activityData.timestamp.toDate() : 
                           (activityData.timestamp ? new Date(activityData.timestamp) : new Date());
-            } catch (err) {
-              console.error('Error parsing timestamp:', err);
+            } catch (e) {
+              console.error('Error parsing timestamp:', e);
               timestamp = new Date();
             }
             
@@ -624,8 +687,8 @@ const Dashboard = () => {
                 // Handle Firestore timestamps properly
                 timestamp = activityData.timestamp?.toDate ? activityData.timestamp.toDate() : 
                             (activityData.timestamp ? new Date(activityData.timestamp) : new Date());
-              } catch (err) {
-                console.error('Error parsing timestamp:', err);
+              } catch (e) {
+                console.error('Error parsing timestamp:', e);
                 timestamp = new Date();
               }
               
@@ -934,7 +997,14 @@ const Dashboard = () => {
     <div className="dashboard-container">
       {/* User greeting banner with personalized suggestions */}
       <div className="dashboard-header">
-        <h1>Dashboard {userData && `| Hello, ${userData.firstName || currentUser?.displayName || 'User'}`}</h1>
+        <h1>
+          Dashboard 
+          {currentUser && (
+            <span className="user-greeting">
+              | Hello, {userData?.firstName || currentUser?.displayName?.split(' ')[0] || currentUser?.email?.split('@')[0] || 'User'}
+            </span>
+          )}
+        </h1>
         {isOffline && (
           <div className="offline-indicator">
             You are currently offline. Some features may be limited.
