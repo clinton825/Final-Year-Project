@@ -26,7 +26,7 @@ const Profile = () => {
   
   // UI state
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [message, setMessage] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [stats, setStats] = useState(null);
@@ -650,7 +650,7 @@ const Profile = () => {
         </div>
       </div>
       
-      {message.text && (
+      {message && message.text && (
         <div className={`alert ${message.type === 'error' ? 'alert-error' : 'alert-success'}`}>
           {message.text}
         </div>
