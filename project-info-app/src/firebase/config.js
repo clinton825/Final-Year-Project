@@ -13,6 +13,22 @@ import {
 } from '@firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+// Preload Firebase SDK
+const preloadFirebase = () => {
+  const link = document.createElement('link');
+  link.rel = 'preconnect';
+  link.href = 'https://firestore.googleapis.com';
+  document.head.appendChild(link);
+  
+  const link2 = document.createElement('link');
+  link2.rel = 'preconnect';
+  link2.href = 'https://identitytoolkit.googleapis.com';
+  document.head.appendChild(link2);
+};
+
+// Preload Firebase connections for faster initial load
+preloadFirebase();
+
 const firebaseConfig = {
   // Use environment variables if available, otherwise use the hardcoded values
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCYCGXsttUJHV0QStjs_sOvgmdoisFVu-o",
@@ -48,9 +64,10 @@ const configureAuthPersistence = async () => {
   }
 };
 
+// Start persistence configuration immediately but don't wait for it
 configureAuthPersistence();
 
-// Initialize Firestore with optimized settings for Vercel deployment and offline support
+// Initialize Firestore with optimized settings for faster loading
 let db;
 try {
   console.log('Initializing Firestore with persistent cache...');
@@ -61,7 +78,7 @@ try {
     })
   });
   
-  // Enable offline persistence with better error handling
+  // Enable offline persistence in the background
   const enableOfflinePersistence = async () => {
     try {
       console.log('Enabling Firestore offline persistence...');
@@ -80,7 +97,10 @@ try {
     }
   };
   
-  enableOfflinePersistence();
+  // Start persistence setup but don't block rendering
+  setTimeout(() => {
+    enableOfflinePersistence();
+  }, 1000);
   
 } catch (error) {
   console.error('Error initializing Firestore with persistent cache:', error);
@@ -126,6 +146,5 @@ window.addEventListener('offline', () => {
 
 // Log Firebase connection status for debugging
 console.log("Firebase app initialized with project ID:", firebaseConfig.projectId);
-console.log("Firebase auth domain:", firebaseConfig.authDomain);
 
 export { auth, db, storage };

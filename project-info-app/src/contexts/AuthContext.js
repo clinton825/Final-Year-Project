@@ -233,128 +233,101 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const userDataCache = {};
+
   async function getUserData() {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.warn('No authenticated user found');
-        return null;
-      }
-
-      // First check if there's network connectivity
-      if (!navigator.onLine) {
-        console.log('Device is offline, attempting to use localStorage data');
-        const localData = getLocalUserData();
-        if (localData && localData.uid === user.uid) {
-          console.log('Successfully retrieved user data from localStorage while offline');
-          return localData;
-        } else {
-          console.warn('No matching user data found in localStorage while offline');
-          throw new Error('Cannot retrieve user data while offline and no cached data exists');
-        }
-      }
-
-      // If online, try Firestore first
-      console.log('Fetching user data from Firestore for:', user.uid);
-      let retryCount = 0;
-      const maxRetries = 3;
-      
-      while (retryCount < maxRetries) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            // Store in localStorage for offline access
-            storeUserDataLocally({
-              uid: user.uid,
-              ...userData
-            });
-            console.log('Successfully retrieved and cached user data from Firestore');
-            return userData;
-          } else {
-            console.warn('User document does not exist in Firestore');
-            break; // No need to retry if doc doesn't exist
-          }
-        } catch (firestoreError) {
-          retryCount++;
-          console.warn(`Firestore fetch attempt ${retryCount} failed:`, firestoreError);
-          
-          if (retryCount >= maxRetries) {
-            console.error('All Firestore retry attempts failed');
-            throw firestoreError;
-          }
-          
-          // Wait before retrying (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
-        }
-      }
-      
-      // Try localStorage as fallback if Firestore doesn't have the data
-      const localData = getLocalUserData();
-      if (localData && localData.uid === user.uid) {
-        console.log('Using localStorage data as fallback after Firestore issues');
-        return localData;
-      }
-      
-      // If no data exists anywhere, create basic profile
-      const basicProfile = {
-        firstName: user.displayName ? user.displayName.split(' ')[0] : '',
-        lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : '',
-        email: user.email || '',
-        photoURL: user.photoURL || '',
-        role: 'user',
-        createdAt: new Date().toISOString()
-      };
-      
-      // Attempt to save this basic profile
-      try {
-        await setDoc(doc(db, 'users', user.uid), basicProfile);
-        console.log('Created new user profile in Firestore');
-        storeUserDataLocally({
-          uid: user.uid,
-          ...basicProfile
-        });
-        return basicProfile;
-      } catch (error) {
-        console.error('Failed to create user profile in Firestore:', error);
-        // Still store locally even if Firestore save failed
-        storeUserDataLocally({
-          uid: user.uid,
-          ...basicProfile
-        });
-        return basicProfile; // Return anyway for UI display
-      }
-    } catch (error) {
-      console.error('Error in getUserData:', error);
-      
-      // Final fallback - try localStorage one last time
-      try {
-        const localData = getLocalUserData();
-        if (localData && localData.uid === auth.currentUser?.uid) {
-          console.log('Using localStorage data after all other attempts failed');
-          return localData;
-        }
-      } catch (localStorageError) {
-        console.error('Even localStorage fallback failed:', localStorageError);
-      }
-      
-      // If all attempts fail, return a minimal profile to prevent UI errors
-      if (auth.currentUser) {
-        const emergencyProfile = {
-          firstName: auth.currentUser.displayName ? auth.currentUser.displayName.split(' ')[0] : 'User',
-          lastName: auth.currentUser.displayName ? auth.currentUser.displayName.split(' ').slice(1).join(' ') : '',
-          email: auth.currentUser.email || '',
-          photoURL: auth.currentUser.photoURL || '',
-          role: 'user',
-          createdAt: new Date().toISOString(),
-          isEmergencyProfile: true // Flag to indicate this is a fallback profile
-        };
-        return emergencyProfile;
-      }
-      
+    if (!currentUser) {
+      console.log('No current user found, cannot get user data');
       return null;
     }
+    
+    // Check if we have cached data in memory first (fastest)
+    if (userDataCache[currentUser.uid]) {
+      console.log('Using in-memory cached user data');
+      return userDataCache[currentUser.uid];
+    }
+    
+    // Initialize a promise that will be resolved with localStorage data
+    // but can be superseded by Firestore data
+    let resolveWithLocalData;
+    const localDataPromise = new Promise(resolve => {
+      resolveWithLocalData = resolve;
+    });
+    
+    // Start loading from localStorage immediately (non-blocking)
+    let localData = null;
+    try {
+      const storedData = localStorage.getItem(`userData_${currentUser.uid}`);
+      if (storedData) {
+        localData = JSON.parse(storedData);
+        console.log('Found user data in localStorage');
+        
+        // Cache the data in memory for future use
+        userDataCache[currentUser.uid] = localData;
+        
+        // We'll resolve with this data if Firestore takes too long
+        setTimeout(() => {
+          resolveWithLocalData(localData);
+        }, 500); // If Firestore takes more than 500ms, use localStorage data
+      }
+    } catch (error) {
+      console.error('Error retrieving data from localStorage:', error);
+    }
+    
+    // Start Firestore request in parallel
+    try {
+      console.log('Attempting to fetch user data from Firestore');
+      const docRef = doc(db, "users", currentUser.uid);
+      const docSnap = await Promise.race([
+        getDoc(docRef),
+        // If Firestore takes too long, use localStorage data
+        localDataPromise.then(() => null)
+      ]);
+      
+      // If we got Firestore data, use it
+      if (docSnap && docSnap.exists()) {
+        console.log('Successfully retrieved user data from Firestore');
+        const firestoreData = docSnap.data();
+        
+        // Cache the Firestore data
+        userDataCache[currentUser.uid] = firestoreData;
+        
+        // Also update localStorage for future offline access
+        try {
+          localStorage.setItem(`userData_${currentUser.uid}`, JSON.stringify(firestoreData));
+          console.log('User data cached to localStorage');
+        } catch (error) {
+          console.error('Error caching user data to localStorage:', error);
+        }
+        
+        return firestoreData;
+      } else if (localData) {
+        // If Firestore failed but we have localStorage data, use that
+        console.log('Using localStorage data as Firestore fetch failed or timed out');
+        return localData;
+      }
+    } catch (error) {
+      console.error('Error fetching user data from Firestore:', error);
+      
+      // If Firestore failed but we have localStorage data, use that
+      if (localData) {
+        console.log('Falling back to localStorage data due to Firestore error');
+        return localData;
+      }
+    }
+    
+    // If we reach here, both Firestore and localStorage failed
+    // Create an emergency profile as last resort
+    console.log('Creating emergency profile as both Firestore and localStorage failed');
+    const emergencyProfile = {
+      firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
+      lastName: currentUser.displayName ? currentUser.displayName.split(' ').slice(1).join(' ') : '',
+      email: currentUser.email,
+      photoURL: currentUser.photoURL,
+      isEmergencyProfile: true
+    };
+    
+    return emergencyProfile;
   }
 
   async function reauthenticateUser(currentPassword) {

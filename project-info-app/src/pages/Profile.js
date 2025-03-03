@@ -38,34 +38,18 @@ const Profile = () => {
       console.log('App is online - attempting to reconnect to Firebase');
       setMessage({
         type: 'info',
-        text: 'Connection restored. Attempting to retrieve your profile data...'
+        text: 'Connection restored. Retrieving your profile data...'
       });
       if (currentUser) {
         setLoading(true);
         setComponentError(false);
-        // Delay slightly to allow connection to stabilize
+        // Reduced delay to improve perceived performance
         setTimeout(() => {
           fetchUserProfile();
-        }, 1000);
+        }, 300); // Reduced from 1000ms to 300ms
       }
     };
     
-    const handleOffline = () => {
-      console.log('App is offline - Firebase operations may fail');
-      setMessage({
-        type: 'warning',
-        text: 'You are currently offline. Some features may not be available.'
-      });
-      
-      // Try to load from localStorage when offline
-      if (!loadFromLocalStorage()) {
-        setMessage({
-          type: 'error',
-          text: 'Unable to load profile data while offline. Please reconnect to the internet.'
-        });
-      }
-    };
-
     // Function to get user data with Firestore first, localStorage as fallback
     const fetchUserProfile = async () => {
       if (!currentUser) {
@@ -74,9 +58,16 @@ const Profile = () => {
         return;
       }
       
-      setLoading(true);
+      // Try localStorage first for immediate display while Firestore loads
+      const hasLocalData = loadFromLocalStorage();
+      if (hasLocalData) {
+        // If we have local data, show it immediately but keep loading
+        // This creates a progressive loading experience
+        setLoading(false);
+      }
+      
       let retryAttempt = 0;
-      const maxRetries = 2;
+      const maxRetries = 1; // Reduced from 2 to 1 for faster loading
       
       const attemptFetch = async () => {
         try {
@@ -102,11 +93,12 @@ const Profile = () => {
                 type: 'warning',
                 text: 'Limited connectivity. Only basic profile information is available.'
               });
-            } else {
-              // Clear any error messages
+            } else if (!hasLocalData) {
+              // Only clear messages if we didn't already show local data
               setMessage(null);
             }
             setComponentError(false);
+            setLoading(false);
             return true;
           } else {
             throw new Error('Could not retrieve user data');
@@ -119,27 +111,33 @@ const Profile = () => {
             console.log(`Retrying profile data fetch (${retryAttempt}/${maxRetries})...`);
             setMessage({
               type: 'info',
-              text: `Attempting to retrieve your profile data (try ${retryAttempt}/${maxRetries})...`
+              text: `Retrieving your profile data (try ${retryAttempt}/${maxRetries})...`
             });
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Reduced wait time between retries
+            await new Promise(resolve => setTimeout(resolve, 800)); // Reduced from 1500ms
             return await attemptFetch();
           }
           
-          // Try local storage as last resort
-          if (!loadFromLocalStorage()) {
+          // If we already have local data, we can just keep using it
+          if (hasLocalData) {
+            setLoading(false);
+            return true;
+          }
+          
+          // Try local storage as last resort if we haven't already
+          if (!hasLocalData && !loadFromLocalStorage()) {
             setComponentError(true);
             setMessage({ 
               type: 'error', 
               text: 'Failed to load profile data. Please try refreshing the page.'
             });
           }
+          setLoading(false);
           return false;
         }
       };
       
       await attemptFetch();
-      setLoading(false);
     };
     
     // Function to load profile data from localStorage
