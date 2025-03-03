@@ -36,9 +36,12 @@ const Profile = () => {
   useEffect(() => {
     const handleOnline = () => {
       console.log('App is online - attempting to reconnect to Firebase');
+      setMessage({
+        type: 'info',
+        text: 'Connection restored. Attempting to retrieve your profile data...'
+      });
       if (currentUser) {
         setLoading(true);
-        setMessage(null);
         setComponentError(false);
         // Delay slightly to allow connection to stabilize
         setTimeout(() => {
@@ -55,7 +58,12 @@ const Profile = () => {
       });
       
       // Try to load from localStorage when offline
-      loadFromLocalStorage();
+      if (!loadFromLocalStorage()) {
+        setMessage({
+          type: 'error',
+          text: 'Unable to load profile data while offline. Please reconnect to the internet.'
+        });
+      }
     };
 
     // Function to get user data with Firestore first, localStorage as fallback
@@ -67,44 +75,71 @@ const Profile = () => {
       }
       
       setLoading(true);
+      let retryAttempt = 0;
+      const maxRetries = 2;
       
-      try {
-        console.log('Fetching user profile data for user:', currentUser.uid);
-        
-        // Try to get user data from Firestore with fallback to localStorage
-        const userData = await getUserData();
-        
-        if (userData) {
-          console.log('User data retrieved successfully:', userData);
+      const attemptFetch = async () => {
+        try {
+          console.log('Fetching user profile data for user:', currentUser.uid);
           
-          // Set user profile data
-          setFirstName(userData.firstName || '');
-          setLastName(userData.lastName || '');
-          setEmail(currentUser.email || '');
-          setPhotoURL(userData.photoURL || currentUser.photoURL || '');
-          setPhoneNumber(userData.phoneNumber || '');
-          setRole(userData.role || '');
+          // Try to get user data from Firestore with fallback to localStorage
+          const userData = await getUserData();
           
-          // Clear any error messages
-          setMessage(null);
-          setComponentError(false);
-        } else {
-          throw new Error('Could not retrieve user data');
+          if (userData) {
+            console.log('User data retrieved successfully:', userData.firstName);
+            
+            // Set user profile data
+            setFirstName(userData.firstName || '');
+            setLastName(userData.lastName || '');
+            setEmail(currentUser.email || '');
+            setPhotoURL(userData.photoURL || currentUser.photoURL || '');
+            setPhoneNumber(userData.phoneNumber || '');
+            setRole(userData.role || '');
+            
+            // Show fallback notification if using emergency profile
+            if (userData.isEmergencyProfile) {
+              setMessage({
+                type: 'warning',
+                text: 'Limited connectivity. Only basic profile information is available.'
+              });
+            } else {
+              // Clear any error messages
+              setMessage(null);
+            }
+            setComponentError(false);
+            return true;
+          } else {
+            throw new Error('Could not retrieve user data');
+          }
+        } catch (error) {
+          console.error('Error fetching user profile (attempt ' + (retryAttempt + 1) + '):', error);
+          
+          if (retryAttempt < maxRetries) {
+            retryAttempt++;
+            console.log(`Retrying profile data fetch (${retryAttempt}/${maxRetries})...`);
+            setMessage({
+              type: 'info',
+              text: `Attempting to retrieve your profile data (try ${retryAttempt}/${maxRetries})...`
+            });
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            return await attemptFetch();
+          }
+          
+          // Try local storage as last resort
+          if (!loadFromLocalStorage()) {
+            setComponentError(true);
+            setMessage({ 
+              type: 'error', 
+              text: 'Failed to load profile data. Please try refreshing the page.'
+            });
+          }
+          return false;
         }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        
-        // Try local storage as last resort
-        if (!loadFromLocalStorage()) {
-          setComponentError(true);
-          setMessage({ 
-            type: 'error', 
-            text: 'Failed to load profile data. Please try refreshing the page.'
-          });
-        }
-      } finally {
-        setLoading(false);
-      }
+      };
+      
+      await attemptFetch();
+      setLoading(false);
     };
     
     // Function to load profile data from localStorage
@@ -123,9 +158,17 @@ const Profile = () => {
           setPhoneNumber(localData.phoneNumber || '');
           setRole(localData.role || '');
           
+          const timestamp = localData.localStorageTimestamp 
+            ? new Date(localData.localStorageTimestamp) 
+            : null;
+          
+          const timeAgo = timestamp 
+            ? Math.round((new Date() - timestamp) / (1000 * 60)) 
+            : null;
+            
           setMessage({
             type: 'warning',
-            text: 'Using cached profile data. Some information may not be up to date.'
+            text: `Using cached profile data${timeAgo ? ` from ${timeAgo} minutes ago` : ''}. Some information may not be up to date.`
           });
           
           return true;
@@ -150,6 +193,10 @@ const Profile = () => {
       }
     } else {
       setLoading(false);
+      setMessage({
+        type: 'error',
+        text: 'You must be logged in to view this page.'
+      });
     }
     
     // Clean up listeners
@@ -594,52 +641,74 @@ const Profile = () => {
   };
 
   return (
-    <div className="profile-container">
-      <div className="profile-header">
-        <h1>User Profile</h1>
-        <div className="profile-tabs">
-          <button 
-            className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            <i className="fas fa-user"></i> Profile
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'security' ? 'active' : ''}`}
-            onClick={() => setActiveTab('security')}
-          >
-            <i className="fas fa-lock"></i> Security
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'preferences' ? 'active' : ''}`}
-            onClick={() => setActiveTab('preferences')}
-          >
-            <i className="fas fa-cog"></i> Preferences
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'activity' ? 'active' : ''}`}
-            onClick={() => setActiveTab('activity')}
-          >
-            <i className="fas fa-chart-line"></i> Activity
-          </button>
+    <div className={`profile-container ${theme}`}>
+      {loading ? (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <p>Loading profile data...</p>
         </div>
-      </div>
-      
-      {message && message.text && (
-        <div className={`alert ${message.type === 'error' ? 'alert-error' : 'alert-success'}`}>
-          {message.text}
-        </div>
-      )}
-      
-      {componentError ? (
-        <div className="error-message">
-          <i className="fas fa-exclamation-triangle"></i>
-          <p>Failed to load profile data. Please try refreshing the page.</p>
+      ) : componentError ? (
+        <div className="error-container">
+          <div className="error-icon">
+            <i className="fas fa-exclamation-triangle"></i>
+          </div>
+          <h2>Failed to load profile data</h2>
+          <p>We're having trouble connecting to our servers. Please try:</p>
+          <ul>
+            <li>Checking your internet connection</li>
+            <li>Refreshing the page</li>
+            <li>Logging out and back in</li>
+          </ul>
+          <button 
+            className="retry-button"
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </button>
         </div>
       ) : (
-        <div className="profile-content">
-          {renderTabContent()}
-        </div>
+        <>
+          {message && (
+            <div className={`message-banner ${message.type}`}>
+              <span>{message.text}</span>
+              <button onClick={() => setMessage(null)}>×</button>
+            </div>
+          )}
+          
+          <div className="profile-header">
+            <h1>User Profile</h1>
+            <div className="profile-tabs">
+              <button 
+                className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
+                onClick={() => setActiveTab('profile')}
+              >
+                <i className="fas fa-user"></i> Profile
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'security' ? 'active' : ''}`}
+                onClick={() => setActiveTab('security')}
+              >
+                <i className="fas fa-lock"></i> Security
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'preferences' ? 'active' : ''}`}
+                onClick={() => setActiveTab('preferences')}
+              >
+                <i className="fas fa-cog"></i> Preferences
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'activity' ? 'active' : ''}`}
+                onClick={() => setActiveTab('activity')}
+              >
+                <i className="fas fa-chart-line"></i> Activity
+              </button>
+            </div>
+          </div>
+          
+          <div className="profile-content">
+            {renderTabContent()}
+          </div>
+        </>
       )}
     </div>
   );

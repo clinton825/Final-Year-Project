@@ -21,20 +21,20 @@
     ],
     "headers": [
       {
-        "source": "**/*.@(js|css|json|html)",
+        "source": "**/*.@(js|css|jpeg|jpg|gif|png|svg|webp|eot|otf|ttf|ttc|woff|woff2)",
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "max-age=604800"
+            "value": "public, max-age=31536000, immutable"
           }
         ]
       },
       {
-        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico|eot|otf|ttf|ttc|woff|woff2|font.css)",
+        "source": "**/*.@(html|json)",
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "max-age=31536000"
+            "value": "public, max-age=0, must-revalidate"
           }
         ]
       },
@@ -42,20 +42,28 @@
         "source": "**",
         "headers": [
           {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "X-XSS-Protection",
+            "value": "1; mode=block"
+          },
+          {
             "key": "Access-Control-Allow-Origin",
             "value": "*"
           },
           {
             "key": "Access-Control-Allow-Methods",
-            "value": "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            "value": "GET,POST,PUT,DELETE,OPTIONS,PATCH"
           },
           {
             "key": "Access-Control-Allow-Headers",
-            "value": "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control"
-          },
-          {
-            "key": "Access-Control-Max-Age",
-            "value": "3600"
+            "value": "X-Requested-With, Content-Type, Accept, Authorization, Origin, Cache-Control"
           }
         ]
       }
