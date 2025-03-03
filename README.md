@@ -41,6 +41,15 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
   - Complete contact information
   - Interactive website links
 - Modern, responsive design features:
+### UI Navigation Improvements (March 2025)
+- Enhanced the navigation bar with improved layout and styling
+- Added active state highlighting to indicate the current page
+- Refined button styling for help and logout buttons
+- Improved theme toggle with better animations and visual feedback
+- Ensured consistent spacing and alignment across all navigation elements
+- Added hover effects for better user interaction feedback
+- Enhanced dark mode compatibility in the navigation bar
+
   - Card-based layout with consistent spacing
   - Grid system for responsive design
   - Smooth transitions and animations

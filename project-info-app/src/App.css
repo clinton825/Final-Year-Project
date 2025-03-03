@@ -9,6 +9,7 @@
   --text-secondary: #6c757d;
   --border-color: #dee2e6;
   --accent-color: #4a90e2;
+  --accent-color-rgb: 74, 144, 226;  /* RGB values for the accent color */
   --accent-color-hover: #3a7bc8;
   --error-color: #dc3545;
   --success-color: #28a745;
@@ -58,6 +59,7 @@
   --text-secondary: #cccccc;
   --border-color: #3a3a3a;
   --accent-color: #60a5fa;
+  --accent-color-rgb: 96, 165, 250;  /* RGB values for the accent color */
   --accent-color-hover: #90c1ff;
   --error-color: #ff6b6b;
   --success-color: #5cdb95;
@@ -270,11 +272,11 @@ body {
 .form-input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+  box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.2);
 }
 
 [data-theme='dark'] .form-input:focus {
-  box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.3);
+  box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.3);
 }
 
 /* Alerts */

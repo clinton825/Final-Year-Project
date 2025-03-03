@@ -1,0 +1,104 @@
+.tooltip-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  max-width: 250px;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Position variants */
+.tooltip-top {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+}
+
+.tooltip-bottom {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+}
+
+.tooltip-left {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(-8px);
+}
+
+.tooltip-right {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(8px);
+}
+
+/* Arrows */
+.tooltip:after {
+  content: '';
+  position: absolute;
+  border-style: solid;
+  border-width: 5px;
+}
+
+.tooltip-top:after {
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+}
+
+.tooltip-bottom:after {
+  bottom: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-color: transparent transparent rgba(0, 0, 0, 0.8) transparent;
+}
+
+.tooltip-left:after {
+  left: 100%;
+  top: 50%;
+  margin-top: -5px;
+  border-color: transparent transparent transparent rgba(0, 0, 0, 0.8);
+}
+
+.tooltip-right:after {
+  right: 100%;
+  top: 50%;
+  margin-top: -5px;
+  border-color: transparent rgba(0, 0, 0, 0.8) transparent transparent;
+}
+
+/* Dark mode support */
+body.dark-theme .tooltip {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #333;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .tooltip-top:after {
+  border-color: rgba(255, 255, 255, 0.9) transparent transparent transparent;
+}
+
+body.dark-theme .tooltip-bottom:after {
+  border-color: transparent transparent rgba(255, 255, 255, 0.9) transparent;
+}
+
+body.dark-theme .tooltip-left:after {
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.9);
+}
+
+body.dark-theme .tooltip-right:after {
+  border-color: transparent rgba(255, 255, 255, 0.9) transparent transparent;
+}

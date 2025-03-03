@@ -414,6 +414,17 @@ const Home = () => {
         </div>
       )}
 
+      {currentUser && (
+        <div className="tracked-status">
+          <i className={`fas fa-info-circle status-icon ${showTrackedProjects ? 'tracked' : ''}`}></i>
+          <span>
+            {showTrackedProjects 
+              ? `Showing ${displayedProjects.length} tracked projects` 
+              : `Showing all available projects (${trackedProjectIds.size} tracked projects are marked with a green indicator)`}
+          </span>
+        </div>
+      )}
+
       <div className="projects-container">
         {displayedProjects.map((project) => {
           const projectLocation = 
@@ -428,7 +439,7 @@ const Home = () => {
           return (
             <div key={project.planning_id} className={`project-card ${!currentUser ? 'limited-view' : ''} ${
               expandedCards.has(project.planning_id) ? 'expanded' : ''
-            }`}> 
+            } ${trackedProjectIds.has(project.planning_id) ? 'tracked' : ''}`}> 
               <div className="project-card-content">
                 <div className="project-header">
                   <h3>{project.planning_title}</h3>

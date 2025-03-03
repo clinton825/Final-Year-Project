@@ -1,7 +1,7 @@
 .navbar {
   background-color: var(--header-bg);
   box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
-  padding: 15px 0;
+  padding: 12px 0;
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -48,38 +48,48 @@
 
 .navbar-brand:hover {
   color: var(--accent-color);
+  transform: translateY(-1px);
 }
 
 .navbar-brand i {
-  margin-right: 10px;
+  margin-right: 12px;
   color: var(--accent-color);
+  font-size: 1.2em;
 }
 
 .navbar-links {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .nav-link {
   color: var(--text-primary);
   text-decoration: none;
-  margin: 0 15px;
+  margin: 0 12px;
   font-weight: 500;
   position: relative;
-  padding: 5px 0;
+  padding: 8px 4px;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
+  border-radius: 4px;
 }
 
 .nav-link:hover {
   color: var(--accent-color);
+  background-color: rgba(var(--accent-color-rgb), 0.05);
+}
+
+.nav-link.active {
+  color: var(--accent-color);
+  font-weight: 600;
 }
 
 .nav-link::after {
   content: '';
   position: absolute;
-  bottom: 0;
+  bottom: 4px;
   left: 0;
   width: 0;
   height: 2px;
@@ -92,7 +102,8 @@
 }
 
 .nav-link i {
-  margin-right: 6px;
+  margin-right: 8px;
+  font-size: 1rem;
 }
 
 .auth-buttons {
@@ -149,23 +160,63 @@
   display: flex;
   align-items: center;
   transition: all 0.3s ease;
+  margin-left: 8px;
 }
 
 .logout-button:hover {
   background-color: rgba(220, 53, 69, 0.1);
   color: #dc3545;
   transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.logout-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);
 }
 
 .logout-button i {
-  margin-right: 6px;
+  margin-right: 8px;
+}
+
+/* Add specific styling for the help button */
+.help-button {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+  padding: 8px 12px;
+  position: relative;
+  border-radius: 4px;
+}
+
+.help-button i {
+  margin-right: 8px;
+  font-size: 1.1rem;
+  color: var(--accent-color);
+}
+
+.help-button:hover {
+  color: var(--accent-color);
+  background-color: rgba(var(--accent-color-rgb), 0.05);
+}
+
+.help-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb), 0.3);
 }
 
 .action-area {
   display: flex;
   align-items: center;
   margin-left: auto;
-  gap: 0.5rem;
+  gap: 12px;
 }
 
 .theme-toggle-button {
@@ -182,17 +233,18 @@
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   overflow: hidden;
-  margin-left: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .theme-toggle-button:hover {
   transform: rotate(12deg) scale(1.1);
   background-color: var(--bg-tertiary);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .theme-toggle-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(var(--accent-color-rgb), 0.3);
 }
 
 .theme-toggle-button i {

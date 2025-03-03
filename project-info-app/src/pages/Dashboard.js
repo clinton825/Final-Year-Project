@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { getDatabase, ref, set } from "firebase/database";
 import { getAuth } from "firebase/auth";
 import NotesList from '../components/notes/NotesList';
+import GettingStartedWidget from '../components/onboarding/GettingStartedWidget';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import './Dashboard.css';
 
 // Export the updateDashboardCache function
@@ -107,6 +109,7 @@ export const updateDashboardCache = async (currentUser, trackedProjects, setDash
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
+  const { completedTasks, checkTaskCompleted } = useOnboarding();
   const navigate = useNavigate();
   const [trackedProjects, setTrackedProjects] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -938,6 +941,11 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+      
+      {/* Getting Started Widget - only show based on onboarding status */}
+      {(!completedTasks || completedTasks.length < 4) && (
+        <GettingStartedWidget />
+      )}
       
       {/* Summary section with key metrics */}
       {trackedProjects.length > 0 && (

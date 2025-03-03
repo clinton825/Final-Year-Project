@@ -10,6 +10,8 @@ import ProjectComparison from './pages/ProjectComparison';
 import Dashboard from './pages/Dashboard';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import OnboardingProvider, { useOnboarding } from './contexts/OnboardingContext';
+import WelcomeGuide from './components/onboarding/WelcomeGuide';
 import './App.css';
 
 // Protected route component
@@ -26,6 +28,11 @@ const PublicRoute = ({ element }) => {
 
 const AppContent = () => {
   const { currentUser, loading } = useAuth();
+  const { showWelcomeGuide } = useOnboarding();
+  const location = window.location;
+  
+  // Determine if we should use compact footer for certain pages
+  const isComparisonPage = location.pathname === '/compare';
 
   if (loading) {
     return <div className="loading-spinner">Loading...</div>;
@@ -47,7 +54,10 @@ const AppContent = () => {
           <Route path="/project/:planning_id" element={<ProtectedRoute element={<ProjectDetails />} />} />
         </Routes>
       </main>
-      <Footer />
+      <Footer compact={isComparisonPage} />
+      
+      {/* Welcome Guide */}
+      {currentUser && showWelcomeGuide && <WelcomeGuide />}
     </div>
   );
 };
@@ -56,7 +66,9 @@ const App = () => {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <AppContent />
+        <OnboardingProvider>
+          <AppContent />
+        </OnboardingProvider>
       </ThemeProvider>
     </AuthProvider>
   );

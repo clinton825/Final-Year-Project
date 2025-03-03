@@ -1,0 +1,40 @@
+.feature-highlight {
+  position: relative;
+}
+
+.feature-highlight.highlighting {
+  z-index: 10;
+}
+
+.feature-highlight.highlighting.pulsate::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.4);
+  animation: highlightPulse 2s infinite;
+  pointer-events: none;
+}
+
+@keyframes highlightPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+/* Dark mode support */
+body.dark-theme .feature-highlight.highlighting.pulsate::after {
+  box-shadow: 0 0 0 2px rgba(90, 103, 216, 0.4);
+}

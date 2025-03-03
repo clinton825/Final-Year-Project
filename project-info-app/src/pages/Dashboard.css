@@ -1361,6 +1361,7 @@ section h2 {
   justify-content: center;
   border-radius: 50%;
   color: white;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
 
 .summary-card.total-projects i {
@@ -1824,4 +1825,91 @@ section h2 {
   margin-top: auto;
   padding-top: 0.5rem;
   gap: 0.5rem;
+}
+
+/* Onboarding Components Integration Styles */
+.onboarding-container {
+  margin-bottom: 1.5rem;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+[data-theme='dark'] .onboarding-container {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Style to ensure the getting started widget integrates well with the dashboard */
+.dashboard-container .getting-started-widget {
+  margin-bottom: 2rem;
+  background-color: var(--card-bg-color);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .dashboard-container .getting-started-widget {
+  background-color: var(--card-bg-color-dark);
+  border: 1px solid var(--border-color-dark);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Style for feature highlights on the dashboard */
+.dashboard-feature-highlight {
+  position: relative;
+  z-index: 10;
+}
+
+.dashboard-feature-highlight::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 8px;
+  background: rgba(var(--accent-color-rgb), 0.1);
+  animation: pulse 2s infinite;
+  z-index: -1;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--accent-color-rgb), 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(var(--accent-color-rgb), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--accent-color-rgb), 0);
+  }
+}
+
+/* Welcome guide integration in dashboard */
+.welcome-guide-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-guide-container {
+  background-color: var(--card-bg-color);
+  border-radius: 12px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  position: relative;
+}
+
+[data-theme='dark'] .welcome-guide-container {
+  background-color: var(--card-bg-color-dark);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }

@@ -165,22 +165,27 @@ const ProjectComparison = () => {
   };
 
   const renderTimeline = () => (
-    <div className="chart timeline-chart">
+    <div className="chart">
       <h4>
         <span className="icon">📅</span>
-        Project Timeline
+        Project Timeline Comparison
       </h4>
-      <div className="timeline-container">
-        {prepareTimelineData().map((project, index) => (
-          <div key={index} className="timeline-item">
-            <h5>{project.name}</h5>
-            <div className="timeline-dates">
-              <div>Application: {format(parseISO(project.applicationDate), 'MMM dd, yyyy')}</div>
-              {project.startDate && <div>Start: {format(parseISO(project.startDate), 'MMM dd, yyyy')}</div>}
-              {project.completionDate && <div>Expected Completion: {format(parseISO(project.completionDate), 'MMM dd, yyyy')}</div>}
+      <div className="timeline-section">
+        <div className="timeline-container">
+          {selectedProjects.map(project => (
+            <div key={project.planning_id} className="timeline-item">
+              <h5>{project.planning_title}</h5>
+              <div className="timeline-dates">
+                <p><strong>Application:</strong> {project.planning_application_date ? format(parseISO(project.planning_application_date), 'MMM dd, yyyy') : 'N/A'}</p>
+                <p><strong>Start:</strong> {project.planning_start_date ? format(parseISO(project.planning_start_date), 'MMM dd, yyyy') : 'N/A'}</p>
+                <p><strong>Expected Completion:</strong> {project.planning_completion_date ? format(parseISO(project.planning_completion_date), 'MMM dd, yyyy') : 'N/A'}</p>
+                {project.planning_actual_completion_date && (
+                  <p><strong>Actual Completion:</strong> {format(parseISO(project.planning_actual_completion_date), 'MMM dd, yyyy')}</p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
