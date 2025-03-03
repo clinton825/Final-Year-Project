@@ -32,6 +32,37 @@ const Profile = () => {
   const [stats, setStats] = useState(null);
   const [componentError, setComponentError] = useState(false);
   
+  // Function to load profile data from localStorage
+  const loadFromLocalStorage = () => {
+    try {
+      const localData = getLocalUserData();
+      
+      if (localData && localData.uid === currentUser?.uid) {
+        console.log('Loading profile data from localStorage');
+        
+        // Set user profile data from localStorage
+        setFirstName(localData.firstName || '');
+        setLastName(localData.lastName || '');
+        setEmail(currentUser.email || '');
+        setPhotoURL(localData.photoURL || currentUser.photoURL || '');
+        setPhoneNumber(localData.phoneNumber || '');
+        setRole(localData.role || '');
+        
+        // Show fallback notification
+        setMessage({
+          type: 'info',
+          text: 'Using cached profile data. Some information may not be up to date.'
+        });
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error loading data from localStorage:', error);
+      return false;
+    }
+  };
+
   // Monitor online/offline status and load profile data
   useEffect(() => {
     const handleOnline = () => {
@@ -47,6 +78,25 @@ const Profile = () => {
         setTimeout(() => {
           fetchUserProfile();
         }, 300); // Reduced from 1000ms to 300ms
+      }
+    };
+    
+    const handleOffline = () => {
+      console.log('App is offline - Firebase operations may fail');
+      setMessage({
+        type: 'warning',
+        text: 'You are currently offline. Some features may not be available.'
+      });
+      
+      // Try to load from localStorage when offline
+      if (currentUser) {
+        const hasLocalData = loadFromLocalStorage();
+        if (!hasLocalData) {
+          setMessage({
+            type: 'error',
+            text: 'Unable to load profile data while offline. Please reconnect to the internet.'
+          });
+        }
       }
     };
     
@@ -140,44 +190,6 @@ const Profile = () => {
       await attemptFetch();
     };
     
-    // Function to load profile data from localStorage
-    const loadFromLocalStorage = () => {
-      try {
-        const localData = getLocalUserData();
-        
-        if (localData && localData.uid === currentUser?.uid) {
-          console.log('Loading profile data from localStorage');
-          
-          // Set user profile data from localStorage
-          setFirstName(localData.firstName || '');
-          setLastName(localData.lastName || '');
-          setEmail(currentUser.email || '');
-          setPhotoURL(localData.photoURL || currentUser.photoURL || '');
-          setPhoneNumber(localData.phoneNumber || '');
-          setRole(localData.role || '');
-          
-          const timestamp = localData.localStorageTimestamp 
-            ? new Date(localData.localStorageTimestamp) 
-            : null;
-          
-          const timeAgo = timestamp 
-            ? Math.round((new Date() - timestamp) / (1000 * 60)) 
-            : null;
-            
-          setMessage({
-            type: 'warning',
-            text: `Using cached profile data${timeAgo ? ` from ${timeAgo} minutes ago` : ''}. Some information may not be up to date.`
-          });
-          
-          return true;
-        }
-        return false;
-      } catch (error) {
-        console.error('Error loading from localStorage:', error);
-        return false;
-      }
-    };
-    
     // Set up online/offline listeners
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -202,7 +214,7 @@ const Profile = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [currentUser, getUserData, getLocalUserData]);
+  }, [currentUser, getUserData]);
 
   // Fetch user statistics
   const fetchUserStats = async () => {
