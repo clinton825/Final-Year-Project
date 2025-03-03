@@ -7,11 +7,19 @@
       "source": "/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, Content-Type, Accept, Authorization" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS, PATCH" },
+        { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, Content-Type, Accept, Authorization, Origin, Cache-Control" },
+        { "key": "Access-Control-Max-Age", "value": "3600" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    },
+    {
+      "source": "/.well-known/(.*)",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     }
   ],
@@ -29,5 +37,13 @@
     { "src": "/reset-password", "dest": "/index.html" },
     { "src": "/help", "dest": "/index.html" },
     { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  ],
+  "env": {
+    "REACT_APP_FIREBASE_API_KEY": "AIzaSyCYCGXsttUJHV0QStjs_sOvgmdoisFVu-o",
+    "REACT_APP_FIREBASE_AUTH_DOMAIN": "infrastructure-project--app.firebaseapp.com",
+    "REACT_APP_FIREBASE_PROJECT_ID": "infrastructure-project--app",
+    "REACT_APP_FIREBASE_STORAGE_BUCKET": "infrastructure-project--app.appspot.com",
+    "REACT_APP_FIREBASE_MESSAGING_SENDER_ID": "845897639432",
+    "REACT_APP_FIREBASE_APP_ID": "1:845897639432:web:9e14b96fc048c7bd6313bd"
+  }
 }

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from '@firebase/auth';
+import { getAuth, browserSessionPersistence, setPersistence } from '@firebase/auth';
 import { 
   getFirestore, 
   enableIndexedDbPersistence, 
@@ -25,13 +25,36 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// Initialize Firestore with improved settings for multi-region and offline support
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-    cacheSizeBytes: CACHE_SIZE_UNLIMITED
-  })
-});
+// Set session persistence fallback for environments where local persistence fails (like Vercel)
+const configureAuthPersistence = async () => {
+  try {
+    console.log('Configuring auth persistence...');
+    // Try to use browser local persistence first
+    await setPersistence(auth, browserSessionPersistence);
+    console.log('Auth persistence set to session');
+  } catch (error) {
+    console.error('Error setting auth persistence:', error);
+  }
+};
+
+configureAuthPersistence();
+
+// Initialize Firestore with optimized settings for Vercel deployment
+let db;
+try {
+  console.log('Initializing Firestore with persistent cache...');
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+      cacheSizeBytes: CACHE_SIZE_UNLIMITED
+    })
+  });
+} catch (error) {
+  console.error('Error initializing Firestore with persistent cache:', error);
+  console.log('Falling back to default Firestore configuration');
+  // Fallback to standard initialization if persistent cache fails
+  db = getFirestore(app);
+}
 
 const storage = getStorage(app);
 
@@ -39,15 +62,7 @@ const storage = getStorage(app);
 console.log("Firebase app initialized with project ID:", firebaseConfig.projectId);
 console.log("Firebase auth domain:", firebaseConfig.authDomain);
 
-// For local development - uncomment to use emulator
-// if (window.location.hostname === 'localhost') {
-//   connectFirestoreEmulator(db, 'localhost', 8080);
-// }
-
-// Add retry logic for failed connections
-let connectionAttempts = 0;
-const MAX_CONNECTION_ATTEMPTS = 3;
-
+// Handle online/offline state
 window.addEventListener('online', () => {
   console.log('Network connection restored. Reconnecting to Firebase...');
   // Firebase should reconnect automatically
