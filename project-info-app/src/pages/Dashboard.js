@@ -112,19 +112,17 @@ const Dashboard = () => {
   const { completedTasks, checkTaskCompleted } = useOnboarding();
   const navigate = useNavigate();
   const [trackedProjects, setTrackedProjects] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [userData, setUserData] = useState(null);
   const [dashboardSettings, setDashboardSettings] = useState({
     layout: 'grid',
-    visibleWidgets: ['trackedProjects', 'recentActivity', 'projectStats'],
+    visibleWidgets: ['trackedProjects', 'projectStats'],
     theme: 'system',
     defaultView: 'all'
   });
   const [dashboardCache, setDashboardCache] = useState(null);
-  const [savingSettings, setSavingSettings] = useState(false);
   const [chartData, setChartData] = useState({
     categories: [],
     values: []
@@ -229,7 +227,6 @@ const Dashboard = () => {
       setIsOffline(false);
       if (currentUser) {
         fetchTrackedProjects();
-        fetchRecentActivity();
       }
     };
 
@@ -511,7 +508,6 @@ const Dashboard = () => {
       if (!currentUser) return;
       
       console.log('Saving dashboard settings:', newSettings);
-      setSavingSettings(true);
       
       // Make sure we don't remove trackedProjects from visible widgets
       if (newSettings.visibleWidgets && !newSettings.visibleWidgets.includes('trackedProjects')) {
@@ -539,8 +535,6 @@ const Dashboard = () => {
       console.log('Dashboard settings saved successfully');
     } catch (error) {
       console.error('Error saving dashboard settings:', error);
-    } finally {
-      setSavingSettings(false);
     }
   };
 
@@ -624,97 +618,6 @@ const Dashboard = () => {
       console.error('Error in fetchTrackedProjects:', error);
       setError('An unexpected error occurred. Please refresh the page or try again later.');
       setLoading(false);
-    }
-  };
-
-  const fetchRecentActivity = async () => {
-    try {
-      if (!currentUser) {
-        setRecentActivity([]);
-        return;
-      }
-      
-      console.log('Fetching recent activity for user:', currentUser.uid);
-      
-      const q = query(
-        collection(db, 'activity'),
-        where('userId', '==', currentUser.uid),
-        orderBy('timestamp', 'desc'),
-        limit(10)
-      );
-      
-      try {
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          console.log('Recent activity snapshot size:', snapshot.size);
-          
-          const activities = [];
-          snapshot.forEach(doc => {
-            const activityData = doc.data();
-            console.log('Recent activity data:', activityData);
-            
-            // Improved timestamp handling 
-            let timestamp;
-            try {
-              // Handle Firestore timestamps properly
-              timestamp = activityData.timestamp?.toDate ? activityData.timestamp.toDate() : 
-                          (activityData.timestamp ? new Date(activityData.timestamp) : new Date());
-            } catch (e) {
-              console.error('Error parsing timestamp:', e);
-              timestamp = new Date();
-            }
-            
-            activities.push({ 
-              id: doc.id, 
-              ...activityData,
-              timestamp: timestamp 
-            });
-          });
-          
-          setRecentActivity(activities);
-          console.log('Recent activity set:', activities.length, 'activities');
-          setLoading(false);
-        }, (error) => {
-          console.error('Error in recent activity snapshot:', error);
-          getDocs(q).then((snapshot) => {
-            const activities = [];
-            snapshot.forEach(doc => {
-              const activityData = doc.data();
-              console.log('Recent activity data:', activityData);
-              
-              // Improved timestamp handling 
-              let timestamp;
-              try {
-                // Handle Firestore timestamps properly
-                timestamp = activityData.timestamp?.toDate ? activityData.timestamp.toDate() : 
-                            (activityData.timestamp ? new Date(activityData.timestamp) : new Date());
-              } catch (e) {
-                console.error('Error parsing timestamp:', e);
-                timestamp = new Date();
-              }
-              
-              activities.push({ 
-                id: doc.id, 
-                ...activityData,
-                timestamp: timestamp 
-              });
-            });
-            
-            setRecentActivity(activities);
-            setLoading(false);
-          }).catch(err => {
-            console.error('Fallback fetch also failed:', err);
-            setError('Failed to load your recent activity. Please try again later.');
-            setLoading(false);
-          });
-        });
-        
-        return () => unsubscribe();
-      } catch (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error('Error fetching recent activity:', error);
-      setError('Failed to load your recent activity. Please try again later.');
     }
   };
 
@@ -973,12 +876,11 @@ const Dashboard = () => {
   useEffect(() => {
     const dashboardData = {
       projects: trackedProjects,
-      recentActivity: recentActivity,
       lastUpdated: new Date().toISOString(),
     };
 
     saveUserDashboardData(dashboardData);
-  }, [trackedProjects, recentActivity]);
+  }, [trackedProjects]);
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -995,21 +897,28 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
-      {/* User greeting banner with personalized suggestions */}
+      {/* Top navigation bar with user info and actions */}
       <div className="dashboard-header">
-        <h1>
-          Dashboard 
-          {currentUser && (
-            <span className="user-greeting">
-              | Hello, {userData?.firstName || currentUser?.displayName?.split(' ')[0] || currentUser?.email?.split('@')[0] || 'User'}
-            </span>
+        <div className="header-left">
+          <h1>
+            Dashboard 
+            {currentUser && (
+              <span className="user-greeting">
+                | Hello, {userData?.firstName || currentUser?.displayName?.split(' ')[0] || currentUser?.email?.split('@')[0] || 'User'}
+              </span>
+            )}
+          </h1>
+        </div>
+        <div className="header-right">
+          {isOffline && (
+            <div className="offline-indicator">
+              <i className="fas fa-wifi-slash"></i> Offline Mode
+            </div>
           )}
-        </h1>
-        {isOffline && (
-          <div className="offline-indicator">
-            You are currently offline. Some features may be limited.
-          </div>
-        )}
+          <button className="refresh-btn" onClick={fetchTrackedProjects} title="Refresh Dashboard">
+            <i className="fas fa-sync-alt"></i>
+          </button>
+        </div>
       </div>
       
       {/* Getting Started Widget - only show based on onboarding status */}
@@ -1017,21 +926,25 @@ const Dashboard = () => {
         <GettingStartedWidget />
       )}
       
-      {/* Summary section with key metrics */}
+      {/* Summary section with key metrics in a cleaner, more professional layout */}
       {trackedProjects.length > 0 && (
         <div className="dashboard-summary">
           <div className="summary-card total-projects">
-            <i className="fas fa-clipboard-list"></i>
+            <div className="card-icon">
+              <i className="fas fa-clipboard-list"></i>
+            </div>
             <div className="summary-data">
-              <span className="summary-value">{trackedProjects.length}</span>
-              <span className="summary-label">Tracked Projects</span>
+              <h3 className="summary-value">{trackedProjects.length}</h3>
+              <p className="summary-label">Tracked Projects</p>
             </div>
           </div>
           
           <div className="summary-card total-value">
-            <i className="fas fa-euro-sign"></i>
+            <div className="card-icon">
+              <i className="fas fa-euro-sign"></i>
+            </div>
             <div className="summary-data">
-              <span className="summary-value">
+              <h3 className="summary-value">
                 €{trackedProjects.reduce((total, project) => {
                   const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
                   let numValue = 0;
@@ -1042,277 +955,221 @@ const Dashboard = () => {
                   }
                   return total + numValue;
                 }, 0).toLocaleString()}
-              </span>
-              <span className="summary-label">Total Value</span>
+              </h3>
+              <p className="summary-label">Total Value</p>
             </div>
           </div>
           
-          <div className="summary-card user-activity">
-            <i className="fas fa-user-clock"></i>
+          <div className="summary-card last-updated">
+            <div className="card-icon">
+              <i className="fas fa-calendar-check"></i>
+            </div>
             <div className="summary-data">
-              <span className="summary-value">{recentActivity.length}</span>
-              <span className="summary-label">Recent Activities</span>
+              <h3 className="summary-value">
+                {new Date().toLocaleDateString()}
+              </h3>
+              <p className="summary-label">Last Updated</p>
             </div>
           </div>
         </div>
       )}
       
-      {/* Dashboard settings controls */}
+      {/* Dashboard controls in a cleaner interface */}
       <div className="dashboard-controls">
-        <button 
-          onClick={toggleDashboardLayout}
-          className="dashboard-control-btn"
-          title={`Switch to ${dashboardSettings.layout === 'grid' ? 'list' : 'grid'} layout`}
-        >
-          <i className={`fas fa-${dashboardSettings.layout === 'grid' ? 'list' : 'th'}`}></i>
-          <span className="control-label">Layout</span>
-        </button>
+        <div className="controls-section">
+          <h3 className="section-title">Layout Options</h3>
+          <div className="controls-buttons">
+            <button 
+              onClick={toggleDashboardLayout}
+              className="dashboard-control-btn"
+              title={`Switch to ${dashboardSettings.layout === 'grid' ? 'list' : 'grid'} layout`}
+            >
+              <i className={`fas fa-${dashboardSettings.layout === 'grid' ? 'list' : 'th'}`}></i>
+              <span className="control-label">{dashboardSettings.layout === 'grid' ? 'List' : 'Grid'} View</span>
+            </button>
+          </div>
+        </div>
         
-        {/* Widget visibility toggles - clarified purpose */}
-        <div className="widget-toggles">
-          <span className="toggle-label">Show/Hide:</span>
-          <button 
-            onClick={() => toggleWidgetVisibility('trackedProjects')}
-            className="dashboard-control-btn active"
-            title="Projects Section (Always Visible)"
-          >
-            <i className="fas fa-bookmark"></i>
-            <span className="control-label">Projects</span>
-          </button>
-          
-          <button 
-            onClick={() => toggleWidgetVisibility('recentActivity')}
-            className={`dashboard-control-btn ${dashboardSettings.visibleWidgets.includes('recentActivity') ? 'active' : ''}`}
-            title="Toggle Activity Widget"
-          >
-            <i className="fas fa-history"></i>
-            <span className="control-label">Activity</span>
-          </button>
-          
-          <button 
-            onClick={() => toggleWidgetVisibility('projectStats')}
-            className={`dashboard-control-btn ${dashboardSettings.visibleWidgets.includes('projectStats') ? 'active' : ''}`}
-            title="Toggle Statistics Widget"
-          >
-            <i className="fas fa-chart-pie"></i>
-            <span className="control-label">Stats</span>
-          </button>
+        <div className="controls-section">
+          <h3 className="section-title">Widget Visibility</h3>
+          <div className="controls-buttons">
+            <button 
+              onClick={() => toggleWidgetVisibility('trackedProjects')}
+              className="dashboard-control-btn active"
+              title="Projects Section (Always Visible)"
+            >
+              <i className="fas fa-bookmark"></i>
+              <span className="control-label">Projects</span>
+            </button>
+            
+            <button 
+              onClick={() => toggleWidgetVisibility('projectStats')}
+              className={`dashboard-control-btn ${dashboardSettings.visibleWidgets.includes('projectStats') ? 'active' : ''}`}
+              title="Toggle Statistics Widget"
+            >
+              <i className="fas fa-chart-pie"></i>
+              <span className="control-label">Statistics</span>
+            </button>
+          </div>
         </div>
       </div>
       
-      {/* Dashboard content with applied settings */}
-      <div className={`dashboard-content layout-${dashboardSettings.layout}`}>
-        {/* Tracked Projects section - always visible */}
-        <section className="tracked-projects">
-          <h2>Tracked Projects</h2>
-          
-          {error && <div className="error-message">{error}</div>}
-          
-          {trackedProjects.length > 0 ? (
-            <div className="projects-list">
-              {trackedProjects.map((project) => {
-                const projectId = project.id || project.projectId || `project-${Math.random().toString(36).substr(2, 9)}`;
-                const projectName = project.projectName || project.name || project.title || project.planning_title || 'Unnamed Project';
-                
-                // Fix the location extraction to use address fields
-                const projectLocation = project.location || 
-                  (project.planning_development_address_1 ? 
-                    [
-                      project.planning_development_address_1, 
-                      project.planning_development_address_2, 
-                      project.planning_development_address_3
-                    ].filter(Boolean).join(', ') : 
-                    (project.planning_location || project.address || 
-                      (project.planning_county ? `${project.planning_county}, ${project.planning_region || ''}`.trim() : '')
-                    )
-                  ) || '';
-                
-                const projectStatus = project.status || project.planning_stage || project.stage || 'Unknown';
-                
-                // Only show one value - remove duplicate display
-                const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
-                let projectValue = '';
-                
-                if (rawValue) {
-                  // If it's already a string with a currency symbol, use it as is
-                  if (typeof rawValue === 'string' && (rawValue.includes('£') || rawValue.includes('$') || rawValue.includes('€'))) {
-                    projectValue = rawValue;
-                  } else {
-                    // Otherwise format it as currency
-                    const numericValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, ''));
-                    if (!isNaN(numericValue)) {
-                      projectValue = `€${numericValue.toLocaleString()}`;
-                    }
-                  }
-                }
-                
-                return (
-                  <div key={projectId} className={`project-card ${dashboardSettings.layout}`}>
-                    <div className="project-card-content">
-                      <div className="project-header">
-                        <h3>{projectName}</h3>
-                      </div>
-                      
-                      {currentUser ? (
-                        <>
-                          <div className="project-details">
-                            <div className="detail-row location-row">
-                              <span><i className="fas fa-map-marker-alt"></i> <strong>Location:</strong> {projectLocation || 'Not specified'}</span>
-                            </div>
-                            <div className="detail-row">
-                              <span><i className="fas fa-euro-sign"></i> <strong>Value:</strong> {projectValue || 'Not specified'}</span>
-                            </div>
-                            <div className="detail-row">
-                              <span><i className="fas fa-info-circle"></i> <strong>Status:</strong> {projectStatus}</span>
-                            </div>
-                            <div className="detail-row">
-                              <span><i className="fas fa-tag"></i> <strong>Category:</strong> {project.planning_category || 'Not specified'}</span>
-                            </div>
-                            {project.planning_subcategory && (
-                              <div className="detail-row">
-                                <span><i className="fas fa-tags"></i> <strong>Subcategory:</strong> {project.planning_subcategory}</span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Project Notes */}
-                          <NotesList 
-                            projectId={project.planning_id || project.id}
-                            notes={projectNotes[project.planning_id || project.id] || []}
-                            onAddNote={addProjectNote}
-                            onUpdateNote={updateProjectNote}
-                            onDeleteNote={deleteProjectNote}
-                          />
-                          
-                          <div className="project-card-actions">
-                            <button 
-                              className="view-details-btn"
-                              onClick={() => navigate(`/project/${project.planning_id || project.projectId}`)}
-                            >
-                              <i className="fas fa-eye"></i> View Details
-                            </button>
-                            
-                            <button 
-                              className="untrack-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                untrackProject(project.id);
-                              }}
-                              title="Remove from tracked projects"
-                            >
-                              <i className="fas fa-times"></i> Untrack
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="login-prompt">
-                          <p>Log in to view project details</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <i className="fas fa-folder-open"></i>
-              <p>You haven't tracked any projects yet.</p>
-              <Link to="/" className="button button-primary">Find Projects</Link>
-            </div>
-          )}
-        </section>
-        
-        {dashboardSettings.visibleWidgets.includes('recentActivity') && (
-          <section className="recent-activity">
-            <h2>Recent Activity</h2>
-            
-            {recentActivity.length > 0 ? (
-              <div className="activity-list">
-                {recentActivity.map(activity => (
-                  <div key={activity.id} className="activity-item">
-                    <div className="activity-icon">
-                      <i className={`fas fa-${
-                        activity.type === 'track' ? 'bookmark' : 
-                        activity.type === 'untrack' ? 'times' :
-                        activity.type === 'search' ? 'search' : 
-                        activity.type === 'view' ? 'eye' : 
-                        activity.type === 'note_add' ? 'sticky-note' :
-                        activity.type === 'note_update' ? 'edit' :
-                        activity.type === 'note_delete' ? 'trash-alt' :
-                        'history'
-                      }`}></i>
-                    </div>
-                    <div className="activity-content">
-                      <p>{activity.description}</p>
-                      <span className="activity-meta">
-                        {activity.timestamp ? 
-                          (() => {
-                            try {
-                              return new Date(activity.timestamp).toLocaleString();
-                            } catch (e) {
-                              console.error('Error formatting timestamp:', e);
-                              return 'Unknown time';
-                            }
-                          })() 
-                          : 'Unknown time'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+      {/* Main dashboard content with improved layout */}
+      <div className="dashboard-main">
+        {/* Left column - Tracked Projects (always visible) */}
+        <div className="dashboard-column projects-column">
+          <div className="dashboard-card">
+            <div className="card-header">
+              <h2><i className="fas fa-bookmark"></i> Tracked Projects</h2>
+              <div className="card-actions">
+                <button className="card-action-btn" onClick={() => navigate('/')} title="Browse Projects">
+                  <i className="fas fa-search"></i>
+                </button>
               </div>
-            ) : (
-              <div className="empty-state">
-                <i className="fas fa-history"></i>
-                <p>No recent activity</p>
-              </div>
-            )}
-          </section>
-        )}
-        
-        {dashboardSettings.visibleWidgets.includes('projectStats') && (
-          <section className="project-stats">
-            <h2>Project Statistics</h2>
+            </div>
             
-            {(dashboardCache && dashboardCache.totalTrackedProjects > 0) || trackedProjects.length > 0 ? (
-              <div className="stats-container">
-                {/* Basic stats cards */}
-                <div className="stat-card">
-                  <div className="stat-icon"><i className="fas fa-bookmark"></i></div>
-                  <div className="stat-content">
-                    <h3 className="stat-title">Tracked Projects</h3>
-                    <p className="stat-value">{dashboardCache?.totalTrackedProjects || trackedProjects.length}</p>
-                  </div>
-                </div>
-                
-                {/* Status distribution stats */}
-                {dashboardCache && Object.entries(dashboardCache.projectsByStatus || {}).length > 0 ? (
-                  Object.entries(dashboardCache.projectsByStatus || {}).map(([status, count]) => (
-                    <div className="stat-card" key={status}>
-                      <div className="stat-icon">
-                        <i className={`fas fa-${
-                          status.toLowerCase().includes('plan') ? 'clipboard' : 
-                          status.toLowerCase().includes('progress') ? 'hammer' : 
-                          status.toLowerCase().includes('complet') ? 'check-circle' : 
-                          'circle'
-                        }`}></i>
-                      </div>
-                      <div className="stat-content">
-                        <h3 className="stat-title">{status}</h3>
-                        <p className="stat-value">{count}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  // Calculate status counts directly from trackedProjects if dashboardCache is not available
-                  (() => {
-                    const statusCounts = trackedProjects.reduce((acc, project) => {
-                      const status = project.status || project.planning_stage || project.stage || 'Unknown';
-                      acc[status] = (acc[status] || 0) + 1;
-                      return acc;
-                    }, {});
+            {error && <div className="error-message">{error}</div>}
+            
+            <div className={`projects-container layout-${dashboardSettings.layout}`}>
+              {trackedProjects.length > 0 ? (
+                <div className="projects-list">
+                  {trackedProjects.map((project) => {
+                    const projectId = project.id || project.projectId || `project-${Math.random().toString(36).substr(2, 9)}`;
+                    const projectName = project.projectName || project.name || project.title || project.planning_title || 'Unnamed Project';
                     
-                    return Object.entries(statusCounts).map(([status, count]) => (
+                    // Fix the location extraction to use address fields
+                    const projectLocation = project.location || 
+                      (project.planning_development_address_1 ? 
+                        [
+                          project.planning_development_address_1, 
+                          project.planning_development_address_2, 
+                          project.planning_development_address_3
+                        ].filter(Boolean).join(', ') : 
+                        (project.planning_location || project.address || 
+                          (project.planning_county ? `${project.planning_county}, ${project.planning_region || ''}`.trim() : '')
+                        )
+                      ) || '';
+                    
+                    const projectStatus = project.status || project.planning_stage || project.stage || 'Unknown';
+                    
+                    // Only show one value - remove duplicate display
+                    const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
+                    let projectValue = '';
+                    
+                    if (rawValue) {
+                      // If it's already a string with a currency symbol, use it as is
+                      if (typeof rawValue === 'string' && (rawValue.includes('£') || rawValue.includes('$') || rawValue.includes('€'))) {
+                        projectValue = rawValue;
+                      } else {
+                        // Otherwise format it as currency
+                        const numericValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, ''));
+                        if (!isNaN(numericValue)) {
+                          projectValue = `€${numericValue.toLocaleString()}`;
+                        }
+                      }
+                    }
+                    
+                    return (
+                      <div key={projectId} className={`project-card ${dashboardSettings.layout}`}>
+                        <div className="project-card-content">
+                          <div className="project-header">
+                            <h3>{projectName}</h3>
+                            <div className="project-status-badge status-${projectStatus.toLowerCase().replace(/\s+/g, '-')}">
+                              {projectStatus}
+                            </div>
+                          </div>
+                          
+                          {currentUser ? (
+                            <>
+                              <div className="project-details">
+                                <div className="detail-row location-row">
+                                  <span><i className="fas fa-map-marker-alt"></i> <strong>Location:</strong> {projectLocation || 'Not specified'}</span>
+                                </div>
+                                <div className="detail-row">
+                                  <span><i className="fas fa-euro-sign"></i> <strong>Value:</strong> {projectValue || 'Not specified'}</span>
+                                </div>
+                                <div className="detail-row">
+                                  <span><i className="fas fa-tag"></i> <strong>Category:</strong> {project.planning_category || 'Not specified'}</span>
+                                </div>
+                                {project.planning_subcategory && (
+                                  <div className="detail-row">
+                                    <span><i className="fas fa-tags"></i> <strong>Subcategory:</strong> {project.planning_subcategory}</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Project Notes */}
+                              <NotesList 
+                                projectId={project.planning_id || project.id}
+                                notes={projectNotes[project.planning_id || project.id] || []}
+                                onAddNote={addProjectNote}
+                                onUpdateNote={updateProjectNote}
+                                onDeleteNote={deleteProjectNote}
+                              />
+                              
+                              <div className="project-card-actions">
+                                <button 
+                                  className="view-details-btn"
+                                  onClick={() => navigate(`/project/${project.planning_id || project.projectId}`)}
+                                >
+                                  <i className="fas fa-eye"></i> View Details
+                                </button>
+                                
+                                <button 
+                                  className="untrack-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    untrackProject(project.id);
+                                  }}
+                                  title="Remove from tracked projects"
+                                >
+                                  <i className="fas fa-times"></i> Untrack
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="login-prompt">
+                              <p>Log in to view project details</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <i className="fas fa-folder-open"></i>
+                  <p>You haven't tracked any projects yet.</p>
+                  <Link to="/" className="button button-primary">Find Projects</Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Right column - Project Statistics */}
+        {dashboardSettings.visibleWidgets.includes('projectStats') && (
+          <div className="dashboard-column stats-column">
+            <div className="dashboard-card">
+              <div className="card-header">
+                <h2><i className="fas fa-chart-pie"></i> Project Statistics</h2>
+              </div>
+              
+              {(dashboardCache && dashboardCache.totalTrackedProjects > 0) || trackedProjects.length > 0 ? (
+                <div className="stats-container">
+                  {/* Basic stats cards */}
+                  <div className="stat-card">
+                    <div className="stat-icon"><i className="fas fa-bookmark"></i></div>
+                    <div className="stat-content">
+                      <h3 className="stat-title">Tracked Projects</h3>
+                      <p className="stat-value">{dashboardCache?.totalTrackedProjects || trackedProjects.length}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Status distribution stats */}
+                  {dashboardCache && Object.entries(dashboardCache.projectsByStatus || {}).length > 0 ? (
+                    Object.entries(dashboardCache.projectsByStatus || {}).map(([status, count]) => (
                       <div className="stat-card" key={status}>
                         <div className="stat-icon">
                           <i className={`fas fa-${
@@ -1327,136 +1184,78 @@ const Dashboard = () => {
                           <p className="stat-value">{count}</p>
                         </div>
                       </div>
-                    ));
-                  })()
-                )}
-                
-                {/* Value by category stats */}
-                {dashboardCache && Object.entries(dashboardCache.valueByCategory || {}).length > 0 ? (
-                  Object.entries(dashboardCache.valueByCategory || {}).map(([category, value]) => (
-                    <div className="stat-card" key={`value-${category}`}>
-                      <div className="stat-icon">
-                        <i className="fas fa-euro-sign"></i>
-                      </div>
-                      <div className="stat-content">
-                        <h3 className="stat-title">{category} Value</h3>
-                        <p className="stat-value">€{value.toLocaleString()}</p>
+                    ))
+                  ) : (
+                    <div className="data-summary">
+                      <h3>Project Status Breakdown</h3>
+                      {trackedProjects.reduce((statuses, project) => {
+                        const status = project.status || project.planning_stage || project.stage || 'Unknown';
+                        statuses[status] = (statuses[status] || 0) + 1;
+                        return statuses;
+                      }, {})
+                      && Object.entries(
+                        trackedProjects.reduce((statuses, project) => {
+                          const status = project.status || project.planning_stage || project.stage || 'Unknown';
+                          statuses[status] = (statuses[status] || 0) + 1;
+                          return statuses;
+                        }, {})
+                      ).map(([status, count]) => (
+                        <div className="status-item" key={status}>
+                          <span className="status-label">{status}</span>
+                          <span className="status-count">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Value distribution stats */}
+                  {dashboardCache && dashboardCache.totalValue ? (
+                    <div className="value-stats">
+                      <h3>Value Distribution</h3>
+                      <div className="value-chart">
+                        {/* Placeholder for future chart */}
+                        <div className="chart-placeholder">
+                          <div className="stat-large">
+                            <span className="stat-label">Total Value</span>
+                            <span className="stat-amount">€{dashboardCache.totalValue.toLocaleString()}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  // Calculate category values directly from trackedProjects if dashboardCache is not available
-                  (() => {
-                    const categoryValues = trackedProjects.reduce((acc, project) => {
-                      const category = project.planning_category || project.category || 'Unknown';
-                      const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
-                      let numValue = 0;
-                      try {
-                        numValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, '')) || 0;
-                      } catch (e) {
-                        numValue = 0;
-                      }
-                      acc[category] = (acc[category] || 0) + numValue;
-                      return acc;
-                    }, {});
-                    
-                    return Object.entries(categoryValues).map(([category, value]) => (
-                      <div className="stat-card" key={`value-${category}`}>
-                        <div className="stat-icon">
-                          <i className="fas fa-euro-sign"></i>
-                        </div>
-                        <div className="stat-content">
-                          <h3 className="stat-title">{category} Value</h3>
-                          <p className="stat-value">€{value.toLocaleString()}</p>
+                  ) : (
+                    <div className="value-stats">
+                      <h3>Value Distribution</h3>
+                      <div className="value-chart">
+                        <div className="stat-large">
+                          <span className="stat-label">Total Value</span>
+                          <span className="stat-amount">
+                            €{trackedProjects.reduce((total, project) => {
+                              const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
+                              let numValue = 0;
+                              try {
+                                numValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, '')) || 0;
+                              } catch (e) {
+                                numValue = 0;
+                              }
+                              return total + numValue;
+                            }, 0).toLocaleString()}
+                          </span>
                         </div>
                       </div>
-                    ));
-                  })()
-                )}
-                
-                {/* Simple bar chart visualization */}
-                <div className="stats-chart">
-                  <h3 className="chart-title">Project Value Distribution</h3>
-                  <div className="chart-container">
-                    {dashboardCache && Object.entries(dashboardCache.valueByCategory || {}).length > 0 ? (
-                      Object.entries(dashboardCache.valueByCategory || {}).map(([category, value]) => {
-                        // Calculate width percentage - cap at 100% for display
-                        const maxValue = Math.max(...Object.values(dashboardCache.valueByCategory || {}));
-                        const percentage = Math.min(100, (value / maxValue) * 100);
-                        
-                        return (
-                          <div className="chart-bar-container" key={`chart-${category}`}>
-                            <div className="chart-label">{category}</div>
-                            <div className="chart-bar-wrapper">
-                              <div 
-                                className="chart-bar" 
-                                style={{width: `${percentage}%`}}
-                                title={`€${value.toLocaleString()}`}
-                              ></div>
-                              <span className="chart-value">€{value.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      // Generate chart directly from trackedProjects if dashboardCache is not available
-                      (() => {
-                        const categoryValues = trackedProjects.reduce((acc, project) => {
-                          const category = project.planning_category || project.category || 'Unknown';
-                          const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
-                          let numValue = 0;
-                          try {
-                            numValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, '')) || 0;
-                          } catch (e) {
-                            numValue = 0;
-                          }
-                          acc[category] = (acc[category] || 0) + numValue;
-                          return acc;
-                        }, {});
-                        
-                        const maxValue = Math.max(...Object.values(categoryValues), 1);
-                        
-                        return Object.entries(categoryValues).map(([category, value]) => {
-                          const percentage = Math.min(100, (value / maxValue) * 100);
-                          
-                          return (
-                            <div className="chart-bar-container" key={`chart-${category}`}>
-                              <div className="chart-label">{category}</div>
-                              <div className="chart-bar-wrapper">
-                                <div 
-                                  className="chart-bar" 
-                                  style={{width: `${percentage}%`}}
-                                  title={`€${value.toLocaleString()}`}
-                                ></div>
-                                <span className="chart-value">€{value.toLocaleString()}</span>
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="empty-state enhanced">
-                <i className="fas fa-chart-bar"></i>
-                <p>No statistics available yet</p>
-                <p className="empty-subtext">Track some projects to generate personalized statistics and insights</p>
-                <Link to="/" className="button button-primary">
-                  <i className="fas fa-search"></i> Find Projects to Track
-                </Link>
-              </div>
-            )}
-          </section>
+              ) : (
+                <div className="empty-state">
+                  <i className="fas fa-chart-bar"></i>
+                  <p>No statistics available yet.</p>
+                  <p className="small-text">Track projects to see statistics</p>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
-      
-      {savingSettings && (
-        <div className="saving-indicator">
-          <i className="fas fa-spinner fa-spin"></i> Saving settings...
-        </div>
-      )}
       
       {error && (
         <div className="error-message">
