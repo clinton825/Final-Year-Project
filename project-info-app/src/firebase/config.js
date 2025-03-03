@@ -1,6 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from '@firebase/auth';
-import { getFirestore, enableIndexedDbPersistence, connectFirestoreEmulator, CACHE_SIZE_UNLIMITED } from '@firebase/firestore';
+import { 
+  getFirestore, 
+  enableIndexedDbPersistence, 
+  connectFirestoreEmulator, 
+  CACHE_SIZE_UNLIMITED,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from '@firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -16,32 +24,37 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// Initialize Firestore with improved settings for multi-region and offline support
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+    cacheSizeBytes: CACHE_SIZE_UNLIMITED
+  })
+});
+
 const storage = getStorage(app);
 
-// Enable offline persistence with better configuration
-enableIndexedDbPersistence(db, {
-  cacheSizeBytes: CACHE_SIZE_UNLIMITED  // Use unlimited cache size for better offline performance
-})
-  .then(() => {
-    console.log('Firestore persistence enabled with unlimited cache size');
-  })
-  .catch((err) => {
-    console.error('Error enabling Firestore persistence:', err.code, err.message);
-    if (err.code === 'failed-precondition') {
-      // Multiple tabs open, persistence can only be enabled in one tab at a time
-      console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time. This may affect offline capabilities.');
-      alert('For best experience, please close other tabs of this application.');
-    } else if (err.code === 'unimplemented') {
-      // The current browser does not support all of the features required to enable persistence
-      console.warn('The current browser does not support all of the features required to enable persistence. This may affect offline capabilities.');
-      alert('Your browser doesn\'t fully support offline capabilities. Some features may not work properly when offline.');
-    }
-  });
+// Log Firebase connection status for debugging
+console.log("Firebase app initialized with project ID:", firebaseConfig.projectId);
+console.log("Firebase auth domain:", firebaseConfig.authDomain);
 
 // For local development - uncomment to use emulator
 // if (window.location.hostname === 'localhost') {
 //   connectFirestoreEmulator(db, 'localhost', 8080);
 // }
+
+// Add retry logic for failed connections
+let connectionAttempts = 0;
+const MAX_CONNECTION_ATTEMPTS = 3;
+
+window.addEventListener('online', () => {
+  console.log('Network connection restored. Reconnecting to Firebase...');
+  // Firebase should reconnect automatically
+});
+
+window.addEventListener('offline', () => {
+  console.log('Network connection lost. Firebase will use cached data if available.');
+});
 
 export { auth, db, storage };

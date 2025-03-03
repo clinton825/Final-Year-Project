@@ -4,11 +4,12 @@
       "http://localhost:3000", 
       "https://infrastructure-project--app.web.app", 
       "https://infrastructure-project--app.firebaseapp.com",
-      "https://final-year-project-ebon.vercel.app/",
-      "https://*.vercel.app"
+      "https://final-year-project-ebon.vercel.app",
+      "https://final-year-project-git-main-clinton825s-projects.vercel.app",
+      "https://final-year-project-du6cfbu94-clinton825s-projects.vercel.app"
     ],
     "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
-    "responseHeader": ["Content-Type", "Content-Length", "Content-Encoding", "Access-Control-Allow-Origin"],
+    "responseHeader": ["Content-Type", "Content-Length", "Content-Encoding", "Access-Control-Allow-Origin", "Authorization", "X-Requested-With"],
     "maxAgeSeconds": 3600
   }
 ]

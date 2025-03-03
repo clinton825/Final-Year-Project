@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db, storage, auth } from '../firebase/config';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile as updateFirebaseProfile } from 'firebase/auth';
 import ActivityTab from '../components/profile/ActivityTab';
@@ -38,53 +38,86 @@ const Profile = () => {
       if (!currentUser) return;
       
       setLoading(true);
-      try {
-        console.log("Fetching user profile data for:", currentUser.uid);
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      const attemptFetch = async () => {
+        try {
+          console.log("Fetching user profile data for:", currentUser.uid);
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           
-          // Set display name from first name and last name if available
-          const userFirstName = userData.firstName || '';
-          const userLastName = userData.lastName || '';
-          setFirstName(userFirstName);
-          setLastName(userLastName);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            
+            // Set display name from first name and last name if available
+            const userFirstName = userData.firstName || '';
+            const userLastName = userData.lastName || '';
+            setFirstName(userFirstName);
+            setLastName(userLastName);
+            
+            // Set email and photoURL from authentication context or Firestore
+            setEmail(currentUser.email || '');
+            setPhotoURL(userData.photoURL || currentUser.photoURL || '');
+            setPhoneNumber(userData.phoneNumber || '');
+            setRole(userData.role || '');
+          } else {
+            // Initialize user document if it doesn't exist
+            console.log("Creating new user document in Firestore");
+            const [firstNamePart, lastNamePart] = (currentUser.displayName || '').split(' ');
+            setFirstName(firstNamePart || '');
+            setLastName(lastNamePart || '');
+            setEmail(currentUser.email || '');
+            setPhotoURL(currentUser.photoURL || '');
+            
+            try {
+              await setDoc(doc(db, 'users', currentUser.uid), {
+                firstName: firstNamePart || '',
+                lastName: lastNamePart || '',
+                email: currentUser.email || '',
+                photoURL: currentUser.photoURL || '',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                role: 'user'
+              });
+              console.log("Successfully created new user document");
+            } catch (createError) {
+              console.error("Error creating user document:", createError);
+              // Continue execution even if document creation fails
+            }
+          }
           
-          // Set email and photoURL from authentication context or Firestore
-          setEmail(currentUser.email || '');
-          setPhotoURL(userData.photoURL || '');
-          setPhoneNumber(userData.phoneNumber || '');
-          setRole(userData.role || '');
-        } else {
-          // Initialize user document if it doesn't exist
-          console.log("Creating new user document in Firestore");
-          const [firstNamePart, lastNamePart] = (currentUser.displayName || '').split(' ');
-          setFirstName(firstNamePart || '');
-          setLastName(lastNamePart || '');
-          setEmail(currentUser.email || '');
-          setPhotoURL(currentUser.photoURL || '');
+          // Fetch was successful
+          return true;
+        } catch (error) {
+          console.error('Error fetching user profile (attempt ' + (retryCount + 1) + '):', error);
+          if (error.code === 'unavailable' || error.code === 'failed-precondition' || error.message.includes('offline')) {
+            // Specific handling for offline-related errors
+            if (retryCount < maxRetries) {
+              console.log(`Retrying (${retryCount + 1}/${maxRetries})...`);
+              retryCount++;
+              // Exponential backoff: wait longer between each retry
+              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+              return false; // Signal to retry
+            }
+          }
           
-          await updateDoc(doc(db, 'users', currentUser.uid), {
-            firstName: firstNamePart || '',
-            lastName: lastNamePart || '',
-            email: currentUser.email || '',
-            photoURL: currentUser.photoURL || '',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            role: 'user'
+          // Either we've exhausted retries or it's not a retriable error
+          setComponentError(true);
+          setMessage({ 
+            type: 'error', 
+            text: 'Failed to load profile data. Please try refreshing the page.'
           });
+          return true; // Signal to stop trying
         }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        setComponentError(true);
-        setMessage({ 
-          type: 'error', 
-          text: 'Failed to load profile data. Please try refreshing the page.'
-        });
-      } finally {
-        setLoading(false);
+      };
+      
+      // Try fetching until success or we give up
+      let fetchComplete = false;
+      while (!fetchComplete && retryCount <= maxRetries) {
+        fetchComplete = await attemptFetch();
       }
+      
+      setLoading(false);
     };
     
     fetchUserProfile();
