@@ -11,7 +11,7 @@ import SecurityTab from '../components/profile/SecurityTab';
 import './Profile.css';
 
 const Profile = () => {
-  const { currentUser, updatePassword, updateEmail } = useAuth();
+  const { currentUser, updatePassword, updateEmail, getUserData, getLocalUserData } = useAuth();
   const { theme } = useTheme();
   
   // User profile state
@@ -32,18 +32,17 @@ const Profile = () => {
   const [stats, setStats] = useState(null);
   const [componentError, setComponentError] = useState(false);
   
-  // Monitor online/offline status
+  // Monitor online/offline status and load profile data
   useEffect(() => {
     const handleOnline = () => {
       console.log('App is online - attempting to reconnect to Firebase');
-      // Force refresh data when we come back online
       if (currentUser) {
         setLoading(true);
         setMessage(null);
         setComponentError(false);
         // Delay slightly to allow connection to stabilize
         setTimeout(() => {
-          fetchUserProfile(currentUser.uid);
+          fetchUserProfile();
         }, 1000);
       }
     };
@@ -54,126 +53,102 @@ const Profile = () => {
         type: 'warning',
         text: 'You are currently offline. Some features may not be available.'
       });
+      
+      // Try to load from localStorage when offline
+      loadFromLocalStorage();
     };
 
-    // Function to fetch user profile with improved error handling
-    const fetchUserProfile = async (uid) => {
-      if (!uid) {
-        console.log('No user ID provided for profile fetch');
+    // Function to get user data with Firestore first, localStorage as fallback
+    const fetchUserProfile = async () => {
+      if (!currentUser) {
+        console.log('No current user, cannot fetch profile');
         setLoading(false);
         return;
       }
       
       setLoading(true);
-      let retryCount = 0;
-      const maxRetries = 3;
       
-      const attemptFetch = async () => {
-        try {
-          console.log(`Fetching user profile data for: ${uid} (attempt ${retryCount + 1})`);
+      try {
+        console.log('Fetching user profile data for user:', currentUser.uid);
+        
+        // Try to get user data from Firestore with fallback to localStorage
+        const userData = await getUserData();
+        
+        if (userData) {
+          console.log('User data retrieved successfully:', userData);
           
-          // Check if we're online first
-          if (!navigator.onLine) {
-            console.warn('Browser reports offline status - fetch may fail');
-          }
+          // Set user profile data
+          setFirstName(userData.firstName || '');
+          setLastName(userData.lastName || '');
+          setEmail(currentUser.email || '');
+          setPhotoURL(userData.photoURL || currentUser.photoURL || '');
+          setPhoneNumber(userData.phoneNumber || '');
+          setRole(userData.role || '');
           
-          // Get user document
-          const userDoc = await getDoc(doc(db, 'users', uid));
-          
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            console.log('User document retrieved successfully:', userData);
-            
-            // Set display name from first name and last name if available
-            const userFirstName = userData.firstName || '';
-            const userLastName = userData.lastName || '';
-            setFirstName(userFirstName);
-            setLastName(userLastName);
-            
-            // Set email and photoURL from authentication context or Firestore
-            setEmail(currentUser.email || '');
-            setPhotoURL(userData.photoURL || currentUser.photoURL || '');
-            setPhoneNumber(userData.phoneNumber || '');
-            setRole(userData.role || '');
-            
-            // Clear any error messages
-            setMessage(null);
-            setComponentError(false);
-          } else {
-            console.log(`User document does not exist for ID: ${uid}, creating new document`);
-            // Initialize user document if it doesn't exist
-            const [firstNamePart, lastNamePart] = (currentUser.displayName || '').split(' ');
-            setFirstName(firstNamePart || '');
-            setLastName(lastNamePart || '');
-            setEmail(currentUser.email || '');
-            setPhotoURL(currentUser.photoURL || '');
-            
-            try {
-              await setDoc(doc(db, 'users', uid), {
-                firstName: firstNamePart || '',
-                lastName: lastNamePart || '',
-                email: currentUser.email || '',
-                photoURL: currentUser.photoURL || '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                role: 'user'
-              });
-              console.log("Successfully created new user document");
-            } catch (createError) {
-              console.error("Error creating user document:", createError);
-              // Continue execution even if document creation fails
-              if (retryCount < maxRetries) {
-                retryCount++;
-                return false; // Signal to retry
-              }
-            }
-          }
-          
-          // Fetch was successful
-          return true;
-        } catch (error) {
-          console.error(`Error fetching user profile (attempt ${retryCount + 1}):`, error);
-          
-          if (retryCount < maxRetries) {
-            console.log(`Retrying (${retryCount + 1}/${maxRetries})...`);
-            retryCount++;
-            // Exponential backoff: wait longer between each retry
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
-            return false; // Signal to retry
-          }
-          
-          // Either we've exhausted retries or it's not a retriable error
+          // Clear any error messages
+          setMessage(null);
+          setComponentError(false);
+        } else {
+          throw new Error('Could not retrieve user data');
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        
+        // Try local storage as last resort
+        if (!loadFromLocalStorage()) {
           setComponentError(true);
           setMessage({ 
             type: 'error', 
             text: 'Failed to load profile data. Please try refreshing the page.'
           });
-          return true; // Signal to stop trying
         }
-      };
-      
-      // Try fetching until success or we give up
-      let fetchComplete = false;
-      while (!fetchComplete && retryCount <= maxRetries) {
-        fetchComplete = await attemptFetch();
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
+    };
+    
+    // Function to load profile data from localStorage
+    const loadFromLocalStorage = () => {
+      try {
+        const localData = getLocalUserData();
+        
+        if (localData && localData.uid === currentUser?.uid) {
+          console.log('Loading profile data from localStorage');
+          
+          // Set user profile data from localStorage
+          setFirstName(localData.firstName || '');
+          setLastName(localData.lastName || '');
+          setEmail(currentUser.email || '');
+          setPhotoURL(localData.photoURL || currentUser.photoURL || '');
+          setPhoneNumber(localData.phoneNumber || '');
+          setRole(localData.role || '');
+          
+          setMessage({
+            type: 'warning',
+            text: 'Using cached profile data. Some information may not be up to date.'
+          });
+          
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error loading from localStorage:', error);
+        return false;
+      }
     };
     
     // Set up online/offline listeners
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     
-    // Initial check and fetch
-    if (navigator.onLine) {
-      if (currentUser) {
-        fetchUserProfile(currentUser.uid);
+    // Initial profile data fetch
+    if (currentUser) {
+      if (navigator.onLine) {
+        fetchUserProfile();
       } else {
-        setLoading(false);
+        handleOffline();
       }
     } else {
-      handleOffline();
       setLoading(false);
     }
     
@@ -182,7 +157,7 @@ const Profile = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [currentUser]);
+  }, [currentUser, getUserData, getLocalUserData]);
 
   // Fetch user statistics
   const fetchUserStats = async () => {
