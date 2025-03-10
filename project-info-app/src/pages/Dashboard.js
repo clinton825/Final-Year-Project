@@ -1252,7 +1252,8 @@ const Dashboard = () => {
         
         {/* Stats column removed from here - moved to top of dashboard */}
         
-        {/* Map View */}
+        {/* Map View - Temporarily disabled until map component is implemented */}
+        {/* Uncomment when ProjectMap component is available
         {dashboardSettings.layout === 'map' && (
           <div className="dashboard-column map-column">
             <ProjectMap 
@@ -1263,6 +1264,7 @@ const Dashboard = () => {
             />
           </div>
         )}
+        */}
       </div>
       
       {error && (
