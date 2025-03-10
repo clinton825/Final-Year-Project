@@ -8,6 +8,7 @@ import { getAuth } from "firebase/auth";
 import NotesList from '../components/notes/NotesList';
 import GettingStartedWidget from '../components/onboarding/GettingStartedWidget';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import ProjectMap from '../components/map/ProjectMap';
 import './Dashboard.css';
 
 // Export the updateDashboardCache function
@@ -117,8 +118,8 @@ const Dashboard = () => {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [userData, setUserData] = useState(null);
   const [dashboardSettings, setDashboardSettings] = useState({
-    layout: 'grid',
-    visibleWidgets: ['trackedProjects', 'projectStats'],
+    layout: 'grid', // 'grid', 'list', or 'map'
+    visibleWidgets: ['trackedProjects'],
     theme: 'system',
     defaultView: 'all'
   });
@@ -132,7 +133,7 @@ const Dashboard = () => {
   // Function to toggle dashboard layout between grid and list
   const toggleDashboardLayout = async () => {
     try {
-      const newLayout = dashboardSettings.layout === 'grid' ? 'list' : 'grid';
+      const newLayout = dashboardSettings.layout === 'grid' ? 'list' : dashboardSettings.layout === 'list' ? 'map' : 'grid';
       console.log('Toggling dashboard layout to:', newLayout);
       await saveDashboardSettings({ layout: newLayout });
     } catch (error) {
@@ -505,34 +506,18 @@ const Dashboard = () => {
 
   const saveDashboardSettings = async (newSettings) => {
     try {
-      if (!currentUser) return;
-      
-      console.log('Saving dashboard settings:', newSettings);
-      
-      // Make sure we don't remove trackedProjects from visible widgets
-      if (newSettings.visibleWidgets && !newSettings.visibleWidgets.includes('trackedProjects')) {
-        console.log('Ensuring trackedProjects remains visible');
-        newSettings.visibleWidgets.push('trackedProjects');
-      }
-      
-      // Create updated settings object
-      const updatedSettings = {
-        ...dashboardSettings,
-        ...newSettings,
-        updatedAt: serverTimestamp()
-      };
-      
-      // Update local state
+      const updatedSettings = { ...dashboardSettings, ...newSettings };
       setDashboardSettings(updatedSettings);
-      
-      // Save to Firestore
-      const settingsDocRef = doc(db, 'userSettings', currentUser.uid);
-      await setDoc(settingsDocRef, {
-        dashboardSettings: updatedSettings,
-        lastUpdated: serverTimestamp()
-      }, { merge: true });
-      
-      console.log('Dashboard settings saved successfully');
+
+      if (currentUser) {
+        // Save to Firestore
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+          dashboardSettings: updatedSettings,
+          updatedAt: serverTimestamp()
+        });
+        console.log('Dashboard settings saved:', updatedSettings);
+      }
     } catch (error) {
       console.error('Error saving dashboard settings:', error);
     }
@@ -982,10 +967,10 @@ const Dashboard = () => {
             <button 
               onClick={toggleDashboardLayout}
               className="dashboard-control-btn"
-              title={`Switch to ${dashboardSettings.layout === 'grid' ? 'list' : 'grid'} layout`}
+              title={`Switch to ${dashboardSettings.layout === 'grid' ? 'list' : dashboardSettings.layout === 'list' ? 'map' : 'grid'} layout`}
             >
-              <i className={`fas fa-${dashboardSettings.layout === 'grid' ? 'list' : 'th'}`}></i>
-              <span className="control-label">{dashboardSettings.layout === 'grid' ? 'List' : 'Grid'} View</span>
+              <i className={`fas fa-${dashboardSettings.layout === 'grid' ? 'list' : dashboardSettings.layout === 'list' ? 'map' : 'th'}`}></i>
+              <span className="control-label">{dashboardSettings.layout === 'grid' ? 'List' : dashboardSettings.layout === 'list' ? 'Map' : 'Grid'} View</span>
             </button>
           </div>
         </div>
@@ -1014,9 +999,126 @@ const Dashboard = () => {
         </div>
       </div>
       
+      {/* Statistics section - moved to top position */}
+      {dashboardSettings.visibleWidgets.includes('projectStats') && (
+        <div className="dashboard-statistics">
+          <div className="dashboard-card stats-card">
+            <div className="card-header">
+              <h2><i className="fas fa-chart-pie"></i> Project Statistics</h2>
+            </div>
+            
+            {(dashboardCache && dashboardCache.totalTrackedProjects > 0) || trackedProjects.length > 0 ? (
+              <div className="stats-container">
+                {/* Basic stats cards */}
+                <div className="stat-card">
+                  <div className="stat-icon"><i className="fas fa-bookmark"></i></div>
+                  <div className="stat-content">
+                    <h3 className="stat-title">Tracked Projects</h3>
+                    <p className="stat-value">{dashboardCache?.totalTrackedProjects || trackedProjects.length}</p>
+                  </div>
+                </div>
+                
+                {/* Status distribution stats */}
+                {dashboardCache && Object.entries(dashboardCache.projectsByStatus || {}).length > 0 ? (
+                  Object.entries(dashboardCache.projectsByStatus || {}).map(([status, count]) => (
+                    <div className="stat-card" key={status}>
+                      <div className="stat-icon">
+                        <i className={`fas fa-${
+                          status.toLowerCase().includes('plan') ? 'clipboard' : 
+                          status.toLowerCase().includes('progress') ? 'hammer' : 
+                          status.toLowerCase().includes('complet') ? 'check-circle' : 
+                          'circle'
+                        }`}></i>
+                      </div>
+                      <div className="stat-content">
+                        <h3 className="stat-title">{status}</h3>
+                        <p className="stat-value">{count}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="data-summary">
+                    <h3>Project Status Breakdown</h3>
+                    {Object.entries(
+                      trackedProjects.reduce((statuses, project) => {
+                        const status = project.status || project.planning_stage || project.stage || 'Unknown';
+                        statuses[status] = (statuses[status] || 0) + 1;
+                        return statuses;
+                      }, {})
+                    ).map(([status, count]) => (
+                      <div className="status-item" key={status}>
+                        <span className="status-name">{status}</span>
+                        <span className="status-count">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Value distribution */}
+                <div className="value-distribution">
+                  <h3>Project Value Distribution</h3>
+                  <div className="chart-container">
+                    {/* If we have chart data, use it */}
+                    {chartData && chartData.categories && chartData.categories.length > 0 ? (
+                      <div className="bar-chart">
+                        {chartData.categories.map((category, index) => {
+                          const percentage = chartData.values[index] / Math.max(...chartData.values) * 100;
+                          return (
+                            <div className="chart-item" key={category}>
+                              <div className="chart-label">{category}</div>
+                              <div className="chart-bar-container">
+                                <div 
+                                  className="chart-bar" 
+                                  style={{width: `${percentage}%`}}
+                                  title={`€${chartData.values[index].toLocaleString()}`}
+                                ></div>
+                              </div>
+                              <div className="chart-value">€{chartData.values[index].toLocaleString()}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : dashboardCache && Object.entries(dashboardCache.valueByCategory || {}).length > 0 ? (
+                      <div className="bar-chart">
+                        {Object.entries(dashboardCache.valueByCategory || {}).map(([category, value]) => {
+                          const maxValue = Math.max(...Object.values(dashboardCache.valueByCategory));
+                          const percentage = value / maxValue * 100;
+                          return (
+                            <div className="chart-item" key={category}>
+                              <div className="chart-label">{category}</div>
+                              <div className="chart-bar-container">
+                                <div 
+                                  className="chart-bar" 
+                                  style={{width: `${percentage}%`}}
+                                  title={`€${value.toLocaleString()}`}
+                                ></div>
+                              </div>
+                              <div className="chart-value">€{value.toLocaleString()}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="empty-chart-message">
+                        <p>Not enough data to display value distribution</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <i className="fas fa-chart-bar"></i>
+                <p>Track projects to see statistics</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Main dashboard content with improved layout */}
       <div className="dashboard-main">
-        {/* Left column - Tracked Projects (always visible) */}
+        {/* Projects column - Tracked Projects (always visible) */}
         <div className="dashboard-column projects-column">
           <div className="dashboard-card">
             <div className="card-header">
@@ -1148,111 +1250,17 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Right column - Project Statistics */}
-        {dashboardSettings.visibleWidgets.includes('projectStats') && (
-          <div className="dashboard-column stats-column">
-            <div className="dashboard-card">
-              <div className="card-header">
-                <h2><i className="fas fa-chart-pie"></i> Project Statistics</h2>
-              </div>
-              
-              {(dashboardCache && dashboardCache.totalTrackedProjects > 0) || trackedProjects.length > 0 ? (
-                <div className="stats-container">
-                  {/* Basic stats cards */}
-                  <div className="stat-card">
-                    <div className="stat-icon"><i className="fas fa-bookmark"></i></div>
-                    <div className="stat-content">
-                      <h3 className="stat-title">Tracked Projects</h3>
-                      <p className="stat-value">{dashboardCache?.totalTrackedProjects || trackedProjects.length}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Status distribution stats */}
-                  {dashboardCache && Object.entries(dashboardCache.projectsByStatus || {}).length > 0 ? (
-                    Object.entries(dashboardCache.projectsByStatus || {}).map(([status, count]) => (
-                      <div className="stat-card" key={status}>
-                        <div className="stat-icon">
-                          <i className={`fas fa-${
-                            status.toLowerCase().includes('plan') ? 'clipboard' : 
-                            status.toLowerCase().includes('progress') ? 'hammer' : 
-                            status.toLowerCase().includes('complet') ? 'check-circle' : 
-                            'circle'
-                          }`}></i>
-                        </div>
-                        <div className="stat-content">
-                          <h3 className="stat-title">{status}</h3>
-                          <p className="stat-value">{count}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="data-summary">
-                      <h3>Project Status Breakdown</h3>
-                      {trackedProjects.reduce((statuses, project) => {
-                        const status = project.status || project.planning_stage || project.stage || 'Unknown';
-                        statuses[status] = (statuses[status] || 0) + 1;
-                        return statuses;
-                      }, {})
-                      && Object.entries(
-                        trackedProjects.reduce((statuses, project) => {
-                          const status = project.status || project.planning_stage || project.stage || 'Unknown';
-                          statuses[status] = (statuses[status] || 0) + 1;
-                          return statuses;
-                        }, {})
-                      ).map(([status, count]) => (
-                        <div className="status-item" key={status}>
-                          <span className="status-label">{status}</span>
-                          <span className="status-count">{count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Value distribution stats */}
-                  {dashboardCache && dashboardCache.totalValue ? (
-                    <div className="value-stats">
-                      <h3>Value Distribution</h3>
-                      <div className="value-chart">
-                        {/* Placeholder for future chart */}
-                        <div className="chart-placeholder">
-                          <div className="stat-large">
-                            <span className="stat-label">Total Value</span>
-                            <span className="stat-amount">€{dashboardCache.totalValue.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="value-stats">
-                      <h3>Value Distribution</h3>
-                      <div className="value-chart">
-                        <div className="stat-large">
-                          <span className="stat-label">Total Value</span>
-                          <span className="stat-amount">
-                            €{trackedProjects.reduce((total, project) => {
-                              const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
-                              let numValue = 0;
-                              try {
-                                numValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, '')) || 0;
-                              } catch (e) {
-                                numValue = 0;
-                              }
-                              return total + numValue;
-                            }, 0).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="empty-state">
-                  <i className="fas fa-chart-bar"></i>
-                  <p>No statistics available yet.</p>
-                  <p className="small-text">Track projects to see statistics</p>
-                </div>
-              )}
-            </div>
+        {/* Stats column removed from here - moved to top of dashboard */}
+        
+        {/* Map View */}
+        {dashboardSettings.layout === 'map' && (
+          <div className="dashboard-column map-column">
+            <ProjectMap 
+              projects={trackedProjects} 
+              onProjectClick={(project) => {
+                navigate(`/project/${project.id}`);
+              }}
+            />
           </div>
         )}
       </div>
