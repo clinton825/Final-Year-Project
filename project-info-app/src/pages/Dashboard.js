@@ -8,7 +8,7 @@ import { getAuth } from "firebase/auth";
 import NotesList from '../components/notes/NotesList';
 import GettingStartedWidget from '../components/onboarding/GettingStartedWidget';
 import { useOnboarding } from '../contexts/OnboardingContext';
-import ProjectMap from '../components/map/ProjectMap';
+// import ProjectMap from '../components/map/ProjectMap'; // Temporarily commented out until component is available
 import './Dashboard.css';
 
 // Export the updateDashboardCache function
