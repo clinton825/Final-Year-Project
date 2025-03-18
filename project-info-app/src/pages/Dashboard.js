@@ -8,6 +8,7 @@ import { getAuth } from "firebase/auth";
 import NotesList from '../components/notes/NotesList';
 import GettingStartedWidget from '../components/onboarding/GettingStartedWidget';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import DashboardVisualizations from '../components/visualization/DashboardVisualizations';
 // import ProjectMap from '../components/map/ProjectMap'; // Temporarily commented out until component is available
 import './Dashboard.css';
 
@@ -119,7 +120,7 @@ const Dashboard = () => {
   const [userData, setUserData] = useState(null);
   const [dashboardSettings, setDashboardSettings] = useState({
     layout: 'grid', // 'grid', 'list', or 'map'
-    visibleWidgets: ['trackedProjects'],
+    visibleWidgets: ['trackedProjects', 'visualizations'],
     theme: 'system',
     defaultView: 'all'
   });
@@ -911,53 +912,7 @@ const Dashboard = () => {
         <GettingStartedWidget />
       )}
       
-      {/* Summary section with key metrics in a cleaner, more professional layout */}
-      {trackedProjects.length > 0 && (
-        <div className="dashboard-summary">
-          <div className="summary-card total-projects">
-            <div className="card-icon">
-              <i className="fas fa-clipboard-list"></i>
-            </div>
-            <div className="summary-data">
-              <h3 className="summary-value">{trackedProjects.length}</h3>
-              <p className="summary-label">Tracked Projects</p>
-            </div>
-          </div>
-          
-          <div className="summary-card total-value">
-            <div className="card-icon">
-              <i className="fas fa-euro-sign"></i>
-            </div>
-            <div className="summary-data">
-              <h3 className="summary-value">
-                €{trackedProjects.reduce((total, project) => {
-                  const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
-                  let numValue = 0;
-                  try {
-                    numValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, '')) || 0;
-                  } catch (e) {
-                    numValue = 0;
-                  }
-                  return total + numValue;
-                }, 0).toLocaleString()}
-              </h3>
-              <p className="summary-label">Total Value</p>
-            </div>
-          </div>
-          
-          <div className="summary-card last-updated">
-            <div className="card-icon">
-              <i className="fas fa-calendar-check"></i>
-            </div>
-            <div className="summary-data">
-              <h3 className="summary-value">
-                {new Date().toLocaleDateString()}
-              </h3>
-              <p className="summary-label">Last Updated</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Summary metrics are now part of the DashboardVisualizations component */}
       
       {/* Dashboard controls in a cleaner interface */}
       <div className="dashboard-controls">
@@ -988,128 +943,36 @@ const Dashboard = () => {
             </button>
             
             <button 
-              onClick={() => toggleWidgetVisibility('projectStats')}
-              className={`dashboard-control-btn ${dashboardSettings.visibleWidgets.includes('projectStats') ? 'active' : ''}`}
-              title="Toggle Statistics Widget"
+              onClick={() => toggleWidgetVisibility('visualizations')}
+              className={`dashboard-control-btn ${dashboardSettings.visibleWidgets.includes('visualizations') ? 'active' : ''}`}
+              title="Toggle Analytics Visualizations"
             >
               <i className="fas fa-chart-pie"></i>
-              <span className="control-label">Statistics</span>
+              <span className="control-label">Analytics</span>
             </button>
           </div>
         </div>
       </div>
       
-      {/* Statistics section - moved to top position */}
-      {dashboardSettings.visibleWidgets.includes('projectStats') && (
+      {/* Enhanced Visualizations Section with Integrated Summary Statistics */}
+      {dashboardSettings.visibleWidgets.includes('visualizations') && (
         <div className="dashboard-statistics">
           <div className="dashboard-card stats-card">
             <div className="card-header">
-              <h2><i className="fas fa-chart-pie"></i> Project Statistics</h2>
+              <h2><i className="fas fa-chart-pie"></i> Project Analytics</h2>
             </div>
             
             {(dashboardCache && dashboardCache.totalTrackedProjects > 0) || trackedProjects.length > 0 ? (
-              <div className="stats-container">
-                {/* Basic stats cards */}
-                <div className="stat-card">
-                  <div className="stat-icon"><i className="fas fa-bookmark"></i></div>
-                  <div className="stat-content">
-                    <h3 className="stat-title">Tracked Projects</h3>
-                    <p className="stat-value">{dashboardCache?.totalTrackedProjects || trackedProjects.length}</p>
-                  </div>
-                </div>
-                
-                {/* Status distribution stats */}
-                {dashboardCache && Object.entries(dashboardCache.projectsByStatus || {}).length > 0 ? (
-                  Object.entries(dashboardCache.projectsByStatus || {}).map(([status, count]) => (
-                    <div className="stat-card" key={status}>
-                      <div className="stat-icon">
-                        <i className={`fas fa-${
-                          status.toLowerCase().includes('plan') ? 'clipboard' : 
-                          status.toLowerCase().includes('progress') ? 'hammer' : 
-                          status.toLowerCase().includes('complet') ? 'check-circle' : 
-                          'circle'
-                        }`}></i>
-                      </div>
-                      <div className="stat-content">
-                        <h3 className="stat-title">{status}</h3>
-                        <p className="stat-value">{count}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="data-summary">
-                    <h3>Project Status Breakdown</h3>
-                    {Object.entries(
-                      trackedProjects.reduce((statuses, project) => {
-                        const status = project.status || project.planning_stage || project.stage || 'Unknown';
-                        statuses[status] = (statuses[status] || 0) + 1;
-                        return statuses;
-                      }, {})
-                    ).map(([status, count]) => (
-                      <div className="status-item" key={status}>
-                        <span className="status-name">{status}</span>
-                        <span className="status-count">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Value distribution */}
-                <div className="value-distribution">
-                  <h3>Project Value Distribution</h3>
-                  <div className="chart-container">
-                    {/* If we have chart data, use it */}
-                    {chartData && chartData.categories && chartData.categories.length > 0 ? (
-                      <div className="bar-chart">
-                        {chartData.categories.map((category, index) => {
-                          const percentage = chartData.values[index] / Math.max(...chartData.values) * 100;
-                          return (
-                            <div className="chart-item" key={category}>
-                              <div className="chart-label">{category}</div>
-                              <div className="chart-bar-container">
-                                <div 
-                                  className="chart-bar" 
-                                  style={{width: `${percentage}%`}}
-                                  title={`€${chartData.values[index].toLocaleString()}`}
-                                ></div>
-                              </div>
-                              <div className="chart-value">€{chartData.values[index].toLocaleString()}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : dashboardCache && Object.entries(dashboardCache.valueByCategory || {}).length > 0 ? (
-                      <div className="bar-chart">
-                        {Object.entries(dashboardCache.valueByCategory || {}).map(([category, value]) => {
-                          const maxValue = Math.max(...Object.values(dashboardCache.valueByCategory));
-                          const percentage = value / maxValue * 100;
-                          return (
-                            <div className="chart-item" key={category}>
-                              <div className="chart-label">{category}</div>
-                              <div className="chart-bar-container">
-                                <div 
-                                  className="chart-bar" 
-                                  style={{width: `${percentage}%`}}
-                                  title={`€${value.toLocaleString()}`}
-                                ></div>
-                              </div>
-                              <div className="chart-value">€{value.toLocaleString()}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="empty-chart-message">
-                        <p>Not enough data to display value distribution</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <DashboardVisualizations 
+                dashboardCache={dashboardCache}
+                trackedProjects={trackedProjects}
+                loading={loading}
+                visibleWidgets={['projectDistribution', 'valueDistribution']}
+              />
             ) : (
               <div className="empty-state">
                 <i className="fas fa-chart-bar"></i>
-                <p>Track projects to see statistics</p>
+                <p>Track projects to see analytics</p>
               </div>
             )}
           </div>
@@ -1118,6 +981,8 @@ const Dashboard = () => {
       
       {/* Main dashboard content with improved layout */}
       <div className="dashboard-main">
+
+
         {/* Projects column - Tracked Projects (always visible) */}
         <div className="dashboard-column projects-column">
           <div className="dashboard-card">
