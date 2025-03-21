@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200px" height="200px" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a6cf7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0ea5e9;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8faff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f0f7ff;stop-opacity:1" />
+    </linearGradient>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+      <feOffset dx="1" dy="1" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.2" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+    <!-- Modern circular background -->
+    <circle fill="url(#bgGradient)" cx="100" cy="100" r="95" filter="url(#dropShadow)"></circle>
+    
+    <!-- City skyline group -->
+    <g transform="translate(25, 30)" filter="url(#dropShadow)">
+      <!-- Main buildings with better architecture -->
+      <!-- Central tall building (skyscraper) -->
+      <path d="M70,140 L70,30 L100,15 L130,30 L130,140 Z" fill="url(#logoGradient)" />
+      
+      <!-- Left medium building with curved top -->
+      <path d="M40,140 L40,60 L55,50 C60,45 65,45 70,50 L70,140 Z" fill="url(#logoGradient)" opacity="0.9" />
+      
+      <!-- Right building (commercial style) -->
+      <path d="M130,140 L130,50 L145,55 L145,70 L155,75 L155,140 Z" fill="url(#logoGradient)" opacity="0.85" />
+      
+      <!-- Far left small building -->
+      <path d="M20,140 L20,90 L40,80 L40,140 Z" fill="url(#logoGradient)" opacity="0.7" />
+      
+      <!-- Far right small building -->
+      <path d="M155,140 L155,80 L170,85 L170,140 Z" fill="url(#logoGradient)" opacity="0.75" />
+      
+      <!-- Windows in main building (more professional pattern) -->
+      <rect fill="#FFFFFF" opacity="0.8" x="80" y="35" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="90" y="35" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="100" y="35" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="110" y="35" width="5" height="8" rx="1"></rect>
+      
+      <rect fill="#FFFFFF" opacity="0.8" x="80" y="50" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="90" y="50" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="100" y="50" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="110" y="50" width="5" height="8" rx="1"></rect>
+      
+      <rect fill="#FFFFFF" opacity="0.8" x="80" y="65" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="90" y="65" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="100" y="65" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="110" y="65" width="5" height="8" rx="1"></rect>
+      
+      <rect fill="#FFFFFF" opacity="0.8" x="80" y="80" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="90" y="80" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="100" y="80" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="110" y="80" width="5" height="8" rx="1"></rect>
+      
+      <rect fill="#FFFFFF" opacity="0.8" x="80" y="95" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="90" y="95" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="100" y="95" width="5" height="8" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="110" y="95" width="5" height="8" rx="1"></rect>
+      
+      <!-- Left building windows -->
+      <rect fill="#FFFFFF" opacity="0.7" x="45" y="65" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="55" y="65" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="45" y="80" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="55" y="80" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="45" y="95" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="55" y="95" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="45" y="110" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="55" y="110" width="4" height="6" rx="1"></rect>
+      
+      <!-- Right building windows -->
+      <rect fill="#FFFFFF" opacity="0.7" x="135" y="65" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="145" y="80" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="135" y="95" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="145" y="95" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="135" y="110" width="4" height="6" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.7" x="145" y="110" width="4" height="6" rx="1"></rect>
+      
+      <!-- Doors -->
+      <rect fill="#FFFFFF" opacity="0.9" x="90" y="115" width="15" height="25" rx="2"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="50" y="125" width="10" height="15" rx="1"></rect>
+      <rect fill="#FFFFFF" opacity="0.8" x="140" y="125" width="10" height="15" rx="1"></rect>
+      
+      <!-- Ground/foundation -->
+      <path d="M10,140 L190,140 C190,145 10,145 10,140 Z" fill="url(#logoGradient)" opacity="0.6" />
+      
+      <!-- Data visualization elements (subtle graph lines) -->
+      <line x1="25" y1="155" x2="175" y2="155" stroke="#4a6cf7" stroke-width="1.5" opacity="0.4" stroke-dasharray="2,2" />
+      
+      <!-- Data points -->
+      <circle cx="40" cy="155" r="2" fill="#4a6cf7" opacity="0.7" />
+      <circle cx="70" cy="155" r="2" fill="#4a6cf7" opacity="0.7" />
+      <circle cx="100" cy="155" r="2" fill="#4a6cf7" opacity="0.7" />
+      <circle cx="130" cy="155" r="2" fill="#4a6cf7" opacity="0.7" />
+      <circle cx="160" cy="155" r="2" fill="#4a6cf7" opacity="0.7" />
+    </g>
+    
+    <!-- Subtle accent decorations -->
+    <circle cx="100" cy="100" r="95" stroke="url(#logoGradient)" stroke-width="2" opacity="0.2" fill="none"></circle>
+  </g>
+</svg>
