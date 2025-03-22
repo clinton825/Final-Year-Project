@@ -10,8 +10,8 @@ const OnboardingContext = createContext();
 const DEFAULT_ONBOARDING_TASKS = {
   track_project: {
     name: 'Track your first project',
-    description: 'Find and track a project from the home page',
-    linkTo: '/',
+    description: 'Find and track a project from the projects page',
+    linkTo: '/projects',
     linkText: 'Find projects',
     completed: false
   },

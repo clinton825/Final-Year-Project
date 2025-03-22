@@ -1,0 +1,72 @@
+/* Styling for the Getting Started toggle buttons */
+.widget-container {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.widget-toggle-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary, #333);
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.widget-toggle-btn:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.show-getting-started-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--accent-color-light, #e6effd);
+  color: var(--accent-color, #0047CC);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 71, 204, 0.1);
+}
+
+.show-getting-started-btn:hover {
+  background-color: var(--accent-color-lighter, #d1e2fc);
+  box-shadow: 0 2px 6px rgba(0, 71, 204, 0.2);
+}
+
+.show-getting-started-btn i {
+  font-size: 16px;
+}
+
+/* Dark mode support */
+[data-theme='dark'] .widget-toggle-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #f8f9fa);
+}
+
+[data-theme='dark'] .widget-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .show-getting-started-btn {
+  background-color: rgba(0, 71, 204, 0.2);
+  color: #4f8aff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .show-getting-started-btn:hover {
+  background-color: rgba(0, 71, 204, 0.3);
+}

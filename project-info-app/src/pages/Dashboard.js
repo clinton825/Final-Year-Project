@@ -11,21 +11,20 @@ import { useOnboarding } from '../contexts/OnboardingContext';
 import DashboardVisualizations from '../components/visualization/DashboardVisualizations';
 // import ProjectMap from '../components/map/ProjectMap'; // Temporarily commented out until component is available
 import './Dashboard.css';
+import './GettingStartedToggle.css';
 
 // Export the updateDashboardCache function
 export const updateDashboardCache = async (currentUser, trackedProjects, setDashboardCache) => {
   try {
     if (!currentUser) {
-      console.log('No current user, skipping dashboard cache update');
       return;
     }
     
-    console.log('Updating dashboard cache for user:', currentUser.uid);
-    console.log('Projects to analyze:', trackedProjects);
-    
     // Safety check for trackedProjects
     if (!trackedProjects || !Array.isArray(trackedProjects)) {
-      console.error('Invalid tracked projects data for cache update');
+      if (setDashboardCache) {
+        setDashboardCache({isLoading: false, totalTrackedProjects: 0});
+      }
       return;
     }
     
@@ -118,6 +117,7 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [userData, setUserData] = useState(null);
+  const [showGettingStarted, setShowGettingStarted] = useState(false); // Default to hidden
   const [dashboardSettings, setDashboardSettings] = useState({
     layout: 'grid', // 'grid', 'list', or 'map'
     visibleWidgets: ['trackedProjects', 'visualizations'],
@@ -180,46 +180,36 @@ const Dashboard = () => {
         return;
       }
       
-      console.log('Untracking project with document ID:', docId);
+      // Immediately show loading state for better UX
+      setDashboardCache(prev => prev ? {...prev, isLoading: true} : {isLoading: true});
       
       // Delete from trackedProjects collection
       const projectRef = doc(db, 'trackedProjects', docId);
       await deleteDoc(projectRef);
       
-      // Update local state to remove the project
-      const updatedProjects = trackedProjects.filter(p => {
-        const pId = p.id || `${p.userId}_${p.projectId}`;
-        return pId !== docId;
-      });
+      // Find the project in the tracked projects to get its ID for activity logging
+      const projectToUntrack = trackedProjects.find(p => p.id === docId);
+      const projectId = projectToUntrack?.projectId || projectToUntrack?.planning_id || docId.split('_')[1] || 'unknown';
       
-      setTrackedProjects(updatedProjects);
+      // Log activity (don't await this to keep UI responsive)
+      addDoc(collection(db, 'activity'), {
+        userId: currentUser.uid,
+        type: 'untrack',
+        projectId: projectId,
+        description: 'Untracked a project',
+        timestamp: serverTimestamp()
+      }).catch(err => console.error('Error logging untrack activity:', err));
       
-      // Log activity
-      try {
-        // Find the project in the tracked projects to get its ID
-        const projectToUntrack = trackedProjects.find(p => p.id === docId);
-        const projectId = projectToUntrack?.projectId || projectToUntrack?.planning_id || docId.split('_')[1] || 'unknown';
-        
-        await addDoc(collection(db, 'activity'), {
-          userId: currentUser.uid,
-          type: 'untrack',
-          projectId: projectId,
-          description: 'Untracked a project',
-          timestamp: serverTimestamp()
-        });
-      } catch (err) {
-        console.error('Error logging untrack activity:', err);
-      }
+      // Show success message (don't use alert as it blocks UI)
+      // The onSnapshot listener will automatically update the UI
       
-      // Update dashboard cache with the updated projects list
-      await updateDashboardCache(currentUser, updatedProjects, setDashboardCache);
-      
-      // Show success message
-      alert('Project successfully untracked');
-      
+      // Note: We don't need to manually update trackedProjects state or call updateDashboardCache
+      // because the Firestore onSnapshot listener will trigger these updates automatically
     } catch (error) {
       console.error('Error untracking project:', error);
       alert('Error untracking project: ' + error.message);
+      // Reset loading state if there was an error
+      setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
     }
   };
 
@@ -509,6 +499,11 @@ const Dashboard = () => {
     try {
       const updatedSettings = { ...dashboardSettings, ...newSettings };
       setDashboardSettings(updatedSettings);
+      
+      // Update the Getting Started visibility state if it's in the settings
+      if ('showGettingStarted' in newSettings) {
+        setShowGettingStarted(newSettings.showGettingStarted);
+      }
 
       if (currentUser) {
         // Save to Firestore
@@ -528,52 +523,54 @@ const Dashboard = () => {
     try {
       if (!currentUser) {
         console.log('No current user, skipping tracked projects fetch');
+        setLoading(false);
         return;
       }
       
-      console.log('Fetching tracked projects for user:', currentUser.uid);
+      console.log('Starting to fetch tracked projects for user:', currentUser.uid);
+      setLoading(true); // Set loading state at the beginning
+      setDashboardCache(prev => prev ? {...prev, isLoading: true} : {isLoading: true});
       
+      // Create a query for tracked projects - IMPORTANT: we need to query by userId field, not by document ID
       const q = query(
         collection(db, 'trackedProjects'),
         where('userId', '==', currentUser.uid)
       );
       
       try {
+        // Get initial data
+        console.log('Executing initial query for tracked projects...');
         const initialSnapshot = await getDocs(q);
-        console.log('Initial tracked projects snapshot size:', initialSnapshot.size);
         
         if (!initialSnapshot.empty) {
+          console.log(`Found ${initialSnapshot.size} tracked projects`);
+          
           const projects = [];
           initialSnapshot.forEach(doc => {
             const projectData = doc.data();
-            console.log('Project data from Firestore:', projectData);
-            
             projects.push({
               id: doc.id,
               ...projectData
             });
           });
           
-          console.log('All projects:', projects);
+          console.log('Setting tracked projects:', projects);
           setTrackedProjects(projects);
-          console.log('Initial tracked projects set:', projects.length, 'projects');
+          setError(null); // Clear any previous errors
+          setLoading(false);
+          setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
         } else {
-          console.log('No tracked projects found for user:', currentUser.uid);
-          const allProjectsQuery = query(collection(db, 'trackedProjects'));
-          const allProjectsSnapshot = await getDocs(allProjectsQuery);
-          console.log('Total projects in collection:', allProjectsSnapshot.size);
-          
-          if (allProjectsSnapshot.size > 0) {
-            const sampleDoc = allProjectsSnapshot.docs[0];
-            console.log('Sample project structure:', sampleDoc.data());
-            console.log('Sample project userId:', sampleDoc.data().userId);
-            console.log('Current user ID for comparison:', currentUser.uid);
-          }
+          // No projects yet
+          console.log('No tracked projects found in the database');
+          setTrackedProjects([]);
+          setLoading(false);
+          setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
         }
         
+        // Set up real-time listener
+        console.log('Setting up real-time listener for tracked projects...');
         const unsubscribe = onSnapshot(q, 
           (snapshot) => {
-            console.log('Real-time tracked projects snapshot size:', snapshot.size);
             const projects = [];
             snapshot.forEach(doc => {
               const projectData = doc.data();
@@ -583,13 +580,16 @@ const Dashboard = () => {
               });
             });
             
-            console.log('Updated projects list:', projects);
+            console.log('Real-time update - tracked projects:', projects);
             setTrackedProjects(projects);
+            setLoading(false);
+            setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
           }, 
           (error) => {
             console.error('Error in tracked projects snapshot:', error);
             setError('Failed to load your tracked projects. Please refresh the page or try again later.');
             setLoading(false);
+            setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
           }
         );
         
@@ -597,13 +597,14 @@ const Dashboard = () => {
       } catch (error) {
         console.error('Error fetching tracked projects:', error);
         setError('Failed to load tracked projects. Please try again later.');
-      } finally {
         setLoading(false);
+        setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
       }
     } catch (error) {
-      console.error('Error in fetchTrackedProjects:', error);
-      setError('An unexpected error occurred. Please refresh the page or try again later.');
+      console.error('Top-level error in fetchTrackedProjects:', error);
+      setError('An unexpected error occurred. Please refresh the page.');
       setLoading(false);
+      setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
     }
   };
 
@@ -907,9 +908,25 @@ const Dashboard = () => {
         </div>
       </div>
       
-      {/* Getting Started Widget - only show based on onboarding status */}
-      {(!completedTasks || completedTasks.length < 4) && (
-        <GettingStartedWidget />
+      {/* Getting Started Widget - only show if the user has opted to see it */}
+      {showGettingStarted && (!completedTasks || completedTasks.length < 4) && (
+        <div className="widget-container">
+          <GettingStartedWidget />
+          <button 
+            className="widget-toggle-btn" 
+            onClick={() => saveDashboardSettings({ showGettingStarted: false })}>
+            <i className="fas fa-times"></i> Hide Getting Started
+          </button>
+        </div>
+      )}
+      
+      {/* Show button to enable Getting Started if hidden */}
+      {!showGettingStarted && (!completedTasks || completedTasks.length < 4) && (
+        <button 
+          className="show-getting-started-btn" 
+          onClick={() => saveDashboardSettings({ showGettingStarted: true })}>
+          <i className="fas fa-rocket"></i> Show Getting Started Guide
+        </button>
       )}
       
       {/* Summary metrics are now part of the DashboardVisualizations component */}
@@ -960,13 +977,18 @@ const Dashboard = () => {
           <div className="dashboard-card stats-card">
             <div className="card-header">
               <h2><i className="fas fa-chart-pie"></i> Project Analytics</h2>
+              {dashboardCache?.isLoading && (
+                <span className="analytics-loading-indicator">
+                  <i className="fas fa-sync fa-spin"></i> Updating
+                </span>
+              )}
             </div>
             
             {(dashboardCache && dashboardCache.totalTrackedProjects > 0) || trackedProjects.length > 0 ? (
               <DashboardVisualizations 
                 dashboardCache={dashboardCache}
                 trackedProjects={trackedProjects}
-                loading={loading}
+                loading={loading || dashboardCache?.isLoading}
                 visibleWidgets={['projectDistribution', 'valueDistribution']}
               />
             ) : (
@@ -989,8 +1011,9 @@ const Dashboard = () => {
             <div className="card-header">
               <h2><i className="fas fa-bookmark"></i> Tracked Projects</h2>
               <div className="card-actions">
-                <button className="card-action-btn" onClick={() => navigate('/')} title="Browse Projects">
+                <button className="card-action-btn" onClick={() => navigate('/projects')} title="Find Projects">
                   <i className="fas fa-search"></i>
+                  <span className="action-label">Find Projects</span>
                 </button>
               </div>
             </div>
@@ -1108,7 +1131,7 @@ const Dashboard = () => {
                 <div className="empty-state">
                   <i className="fas fa-folder-open"></i>
                   <p>You haven't tracked any projects yet.</p>
-                  <Link to="/" className="button button-primary">Find Projects</Link>
+                  <Link to="/projects" className="button button-primary">Find Projects</Link>
                 </div>
               )}
             </div>
