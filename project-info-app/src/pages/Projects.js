@@ -2,18 +2,20 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
-import './Home.css';  // Reusing the same styles for now
+import { collection, addDoc, doc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import './Home.css';
 import { updateDashboardCache } from '../pages/Dashboard';
 import config from '../config';
 
 const Projects = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
   const [displayedProjects, setDisplayedProjects] = useState([]);
   const [projectsToShow, setProjectsToShow] = useState(21);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [searchPerformed, setSearchPerformed] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
@@ -22,56 +24,8 @@ const Projects = () => {
   const [valueRange, setValueRange] = useState({ min: '', max: '' });
   const [expandedCards, setExpandedCards] = useState(new Set());
   const [trackedProjectIds, setTrackedProjectIds] = useState(new Set());
-  const [showTrackedProjects, setShowTrackedProjects] = useState(false);
-  const navigate = useNavigate();
 
-  // Fetch the user's tracked projects to filter them out
-  const fetchTrackedProjects = async () => {
-    try {
-      if (!currentUser) return;
-      
-      const q = query(
-        collection(db, 'trackedProjects'),
-        where('userId', '==', currentUser.uid)
-      );
-      
-      const snapshot = await getDocs(q);
-      const trackedIds = new Set();
-      
-      snapshot.forEach(doc => {
-        const projectData = doc.data();
-        // Extract the planning_id from potentially compound IDs (user_id:planning_id)
-        let planningId = null;
-        
-        if (projectData.planning_id) {
-          // The planning_id might be a compound ID
-          if (projectData.planning_id.includes(':')) {
-            // Extract the actual planning_id from the compound ID
-            planningId = projectData.planning_id.split(':')[1];
-          } else {
-            planningId = projectData.planning_id;
-          }
-          
-          if (planningId) {
-            trackedIds.add(planningId);
-          }
-        }
-      });
-      
-      setTrackedProjectIds(trackedIds);
-      console.log('Tracked project IDs:', Array.from(trackedIds));
-    } catch (error) {
-      console.error('Error fetching tracked projects:', error);
-    }
-  };
-
-  useEffect(() => {
-    // Only fetch tracked projects on mount, not all projects
-    if (currentUser) {
-      fetchTrackedProjects();
-    }
-  }, [currentUser]); // Removed fetchTrackedProjects from dependency array
-  
+  // Fetch subcategories when category changes
   useEffect(() => {
     if (selectedCategory) {
       fetchSubcategories(selectedCategory);
@@ -81,21 +35,13 @@ const Projects = () => {
     }
   }, [selectedCategory]);
 
-  useEffect(() => {
+  // Apply filters to projects when any filter changes or when projects are loaded
+  const applyFilters = () => {
+    if (projects.length === 0) return [];
+    
     let filtered = [...projects];
 
-    // Filter out tracked projects unless showTrackedProjects is true
-    if (currentUser && !showTrackedProjects && trackedProjectIds.size > 0) {
-      filtered = filtered.filter(project => {
-        // The project's planning_id should not be in our tracked IDs set
-        // Need to check both raw ID and potential compound ID (user_id:planning_id)
-        const planningId = project.planning_id;
-        const compoundId = `${currentUser.uid}:${planningId}`;
-        
-        return !trackedProjectIds.has(planningId) && !trackedProjectIds.has(compoundId);
-      });
-    }
-
+    // Apply search term filter
     if (searchTerm.trim()) {
       const searchTermLower = searchTerm.toLowerCase();
       filtered = filtered.filter(project => {
@@ -131,11 +77,19 @@ const Projects = () => {
       });
     }
 
-    setFilteredProjects(filtered);
-    setDisplayedProjects(filtered.slice(0, projectsToShow));
-  }, [searchTerm, selectedCategory, selectedSubcategory, projects, valueRange, projectsToShow, trackedProjectIds, showTrackedProjects, currentUser]);
+    return filtered;
+  };
 
   const fetchProjects = async (searchParams = {}) => {
+    // Check if this is an empty search (no parameters provided)
+    // If it is and no explicit search was requested, don't fetch anything
+    const isEmptySearch = Object.values(searchParams).every(param => !param);
+    if (isEmptySearch) {
+      // Only proceed with empty search if explicitly requested
+      if (!window.__FORCE_EMPTY_SEARCH__) {
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     
@@ -151,9 +105,14 @@ const Projects = () => {
       if (searchParams.minValue) queryParams.push(`minValue=${encodeURIComponent(searchParams.minValue)}`);
       if (searchParams.maxValue) queryParams.push(`maxValue=${encodeURIComponent(searchParams.maxValue)}`);
       
+      // Add pagination to reduce data load
+      queryParams.push(`limit=50`); // Limit to 50 projects at a time
+      
       if (queryParams.length > 0) {
         url += `?${queryParams.join('&')}`;
       }
+      
+      console.log('Fetching projects from URL:', url);
       
       const response = await fetch(url);
       if (!response.ok) {
@@ -161,11 +120,32 @@ const Projects = () => {
       }
       
       const data = await response.json();
-      setProjects(data.projects);
+      console.log('API response data:', data);
+      
+      const projectsData = data.projects || [];
+      console.log(`Received ${projectsData.length} projects from API`);
+      
+      setProjects(projectsData);
+      
+      // If no projects were returned, set an appropriate message
+      if (projectsData.length === 0) {
+        setError('No projects found matching your search criteria. Try adjusting your filters.');
+        setDisplayedProjects([]);
+        setFilteredProjects([]);
+        setSearchPerformed(true);
+        setLoading(false);
+        return;
+      }
+      
+      // Apply filters and update displayed projects directly using the fetched data
+      let filtered = [...projectsData];
+      setFilteredProjects(filtered);
+      setDisplayedProjects(filtered.slice(0, projectsToShow));
+      setSearchPerformed(true);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching projects:', error);
-      setError(error.message);
+      setError(error.message || 'Failed to load projects. Please try again.');
       setLoading(false);
     }
   };
@@ -186,7 +166,7 @@ const Projects = () => {
 
   const handleProjectClick = (planningId) => {
     if (!currentUser) {
-      navigate('/login', { state: { from: '/projects' } });
+      navigate('/login', { state: { from: '/' } });
       return;
     }
     navigate(`/project/${encodeURIComponent(planningId)}`);
@@ -195,6 +175,13 @@ const Projects = () => {
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
     setSelectedSubcategory('');
+    
+    // Fetch subcategories if a category is selected
+    if (category) {
+      fetchSubcategories(category);
+    } else {
+      setSubcategories([]);
+    }
   };
 
   const handleSubcategoryChange = (subcategory) => {
@@ -203,32 +190,41 @@ const Projects = () => {
 
   const handleValueRangeChange = (type) => (e) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    // Allow empty values or valid numbers
+    setValueRange(prev => ({
+      ...prev,
+      [type]: value
+    }));
+    
+    // If min is greater than max, adjust max
+    if (type === 'min' && valueRange.max && parseFloat(value) > parseFloat(valueRange.max)) {
       setValueRange(prev => ({
         ...prev,
-        [type]: value
+        max: value
       }));
     }
   };
 
-    const loadMoreProjects = () => {
-    setProjectsToShow(prev => prev + 21);
+  const toggleDescription = (projectId, event) => {
+    event.stopPropagation();
+    const newExpandedCards = new Set(expandedCards);
+    if (newExpandedCards.has(projectId)) {
+      newExpandedCards.delete(projectId);
+    } else {
+      newExpandedCards.add(projectId);
+    }
+    setExpandedCards(newExpandedCards);
   };
-  
-  // Handle search/filter form submission
+
   const handleSearch = (e) => {
-    if (e) e.preventDefault();
-    
-    // Collect all search parameters
+    e.preventDefault();
     const searchParams = {
-      searchTerm,
+      searchTerm: searchTerm,
       category: selectedCategory,
       subcategory: selectedSubcategory,
       minValue: valueRange.min,
       maxValue: valueRange.max
     };
-    
-    // Fetch projects with the search parameters
     fetchProjects(searchParams);
   };
 
@@ -237,326 +233,203 @@ const Projects = () => {
     setSelectedCategory('');
     setSelectedSubcategory('');
     setValueRange({ min: '', max: '' });
-    setProjectsToShow(21);
+    // Reset search state but don't fetch new projects
+    setSearchPerformed(false);
     setProjects([]);
     setFilteredProjects([]);
     setDisplayedProjects([]);
-    // Not automatically fetching projects anymore
+    setError(null);
   };
 
-  // Toggle project description expansion
-  const toggleDescription = (projectId, e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setExpandedCards(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(projectId)) {
-        newSet.delete(projectId);
-      } else {
-        newSet.add(projectId);
-      }
-      return newSet;
-    });
+  const loadMoreProjects = () => {
+    const newProjectsToShow = projectsToShow + 20;
+    setProjectsToShow(newProjectsToShow);
+    setDisplayedProjects(filteredProjects.slice(0, newProjectsToShow));
   };
 
-  // Helper function to truncate text
-  const truncateDescription = (description, maxLength = 150) => {
-    if (!description) return '';
-    if (description.length <= maxLength) return description;
-    return `${description.substring(0, maxLength)}...`;
-  };
 
-  const trackProject = async (projectData) => {
-    try {
-      if (!currentUser) {
-        console.log('No user logged in');
-        return;
-      }
-      
-      // Check if project is already tracked
-      const projectId = projectData.planning_id;
-      if (trackedProjectIds.has(projectId)) {
-        console.log('Project already tracked:', projectId);
-        alert('This project is already being tracked.');
-        return;
-      }
-      
-      // Add user ID and timestamp to the project data
-      const trackingData = {
-        ...projectData,
-        userId: currentUser.uid,
-        trackedAt: serverTimestamp()
-      };
-      
-      // Add to trackedProjects collection
-      const projectRef = await addDoc(collection(db, 'trackedProjects'), trackingData);
-      console.log('Project tracked:', projectRef.id);
-      
-      // Log activity
-      try {
-        await addDoc(collection(db, 'activity'), {
-          userId: currentUser.uid,
-          type: 'track',
-          projectId: projectData.planning_id || projectData.id,
-          description: `Tracked project: ${projectData.planning_title || projectData.title || 'Unnamed project'}`,
-          timestamp: serverTimestamp()
-        });
-      } catch (err) {
-        console.error('Error logging track activity:', err);
-      }
-
-      // Get all tracked projects for this user to update the dashboard cache
-      const trackedProjectsQuery = query(
-        collection(db, 'trackedProjects'),
-        where('userId', '==', currentUser.uid)
-      );
-      
-      const trackedProjectsSnapshot = await getDocs(trackedProjectsQuery);
-      const trackedProjects = trackedProjectsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Update dashboard cache with the current user's tracked projects
-      await updateDashboardCache(currentUser, trackedProjects, null);
-      
-      // Update local state to reflect the newly tracked project
-      setTrackedProjectIds(prev => {
-        const newSet = new Set(prev);
-        newSet.add(projectId);
-        return newSet;
-      });
-      
-      alert('Project tracked successfully!');
-    } catch (error) {
-      console.error('Error tracking project:', error);
-      alert('Error tracking project: ' + error.message);
+  useEffect(() => {
+    if (projects.length > 0) {
+      const filtered = applyFilters();
+      setFilteredProjects(filtered);
+      setDisplayedProjects(filtered.slice(0, projectsToShow));
     }
-  };
+  }, [searchTerm, selectedCategory, selectedSubcategory, valueRange, projects, projectsToShow]);
 
-  if (loading) {
-    return <div className="loading">Loading projects...</div>;
+  // Loading state
+  if (loading && searchPerformed) {
+    return (
+      <div className="home-container">
+        <div className="header">
+          <h1>Explore Projects</h1>
+          <p>Search and filter infrastructure projects across the country</p>
+        </div>
+        
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading projects... This may take a few moments.</p>
+        </div>
+      </div>
+    );
   }
 
+  // Main render
   return (
-    <div className="projects-container">
-      <div className="page-header">
+    <div className="home-container">
+      <div className="header">
         <h1>Explore Projects</h1>
         <p>Search and filter infrastructure projects across the country</p>
       </div>
 
-      <form onSubmit={handleSearch} className="search-container">
-        <input
-          type="text"
-          placeholder={currentUser ? "Search by town or project stage..." : "Log in to search projects"}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="search-input"
-          disabled={!currentUser}
-        />
-        {currentUser && (
-          <button type="submit" className="search-button">
-            <i className="fas fa-search"></i> Search Projects
-          </button>
-        )}
-      </form>
+      <div className="filters-section">
+        <form onSubmit={handleSearch}>
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Search by town or project stage..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            <button 
+              type="submit" 
+              className="search-button"
+              onClick={() => {
+                // Allow empty searches when user explicitly clicks search
+                window.__FORCE_EMPTY_SEARCH__ = true;
+                setTimeout(() => {
+                  window.__FORCE_EMPTY_SEARCH__ = false;
+                }, 100);
+              }}
+            >
+              Search Projects
+            </button>
+          </div>
 
-      <div className="search-filters">
-        <select
-          value={selectedCategory}
-          onChange={(e) => handleCategoryChange(e.target.value)}
-          className="filter-select"
-          disabled={!currentUser}
-        >
-          <option value="">Select Category</option>
-          <option value="Residential">Residential</option>
-          <option value="Commercial & Retail">Commercial & Retail</option>
-          <option value="Industrial">Industrial</option>
-        </select>
+          <div className="filters-row">
+            <select
+              id="category-select"
+              value={selectedCategory}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">All Categories</option>
+              <option value="Residential">Residential</option>
+              <option value="Commercial & Retail">Commercial & Retail</option>
+              <option value="Industrial">Industrial</option>
+              <option value="Mixed Use">Mixed Use</option>
+              <option value="Infrastructure">Infrastructure</option>
+            </select>
 
-        {currentUser && selectedCategory && subcategories.length > 0 && (
-          <select
-            value={selectedSubcategory}
-            onChange={(e) => handleSubcategoryChange(e.target.value)}
-            className="filter-select"
-          >
-            <option value="">Select Subcategory</option>
-            {subcategories.map((subcategory, index) => (
-              <option key={index} value={subcategory}>
-                {subcategory}
-              </option>
-            ))}
-          </select>
-        )}
+            <select
+              id="subcategory-select"
+              value={selectedSubcategory}
+              onChange={(e) => handleSubcategoryChange(e.target.value)}
+              className="filter-select"
+              disabled={!selectedCategory || subcategories.length === 0}
+            >
+              <option value="">All Subcategories</option>
+              {subcategories.map((subcategory, index) => (
+                <option key={index} value={subcategory}>
+                  {subcategory}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div className="value-range-inputs">
-          <input
-            type="text"
-            placeholder="Min Value (€)"
-            value={valueRange.min}
-            onChange={handleValueRangeChange('min')}
-            className="value-input"
-            disabled={!currentUser}
-          />
-          <span className="value-separator">to</span>
-          <input
-            type="text"
-            placeholder="Max Value (€)"
-            value={valueRange.max}
-            onChange={handleValueRangeChange('max')}
-            className="value-input"
-            disabled={!currentUser}
-          />
-        </div>
+          <div className="value-range-container">
+            <div className="value-input-group">
+              <input
+                type="number"
+                placeholder="Min Value (€)"
+                value={valueRange.min}
+                onChange={(e) => handleValueRangeChange('min')(e)}
+                className="value-input"
+                min="0"
+                step="0.1"
+              />
+              <span className="value-separator">to</span>
+              <input
+                type="number"
+                placeholder="Max Value (€)"
+                value={valueRange.max}
+                onChange={(e) => handleValueRangeChange('max')(e)}
+                className="value-input"
+                min="0"
+                step="0.1"
+              />
+            </div>
+          </div>
+
+          {(searchTerm || selectedCategory || selectedSubcategory || valueRange.min || valueRange.max) && (
+            <button type="button" onClick={clearFilters} className="clear-filters-btn">
+              Clear Filters
+            </button>
+          )}
+        </form>
       </div>
 
-      {error && (
-        <div className="error-banner">
-          <div className="error-message">
-            <span className="error-icon">⚠️</span>
-            <span>{error}</span>
-          </div>
-          <button className="retry-button" onClick={() => handleSearch()}>Retry</button>
+      {error && <div className="error">{error}</div>}
+
+      {!searchPerformed ? (
+        <div className="empty-state">
+          <h3>Start Your Search</h3>
+          <p>Use the search box and filters above to find projects</p>
         </div>
-      )}
-
-      {currentUser && (searchTerm || selectedCategory || selectedSubcategory || valueRange.min || valueRange.max) && (
-        <button onClick={clearFilters} className="clear-filters-btn">
-          Clear All Filters
-        </button>
-      )}
-
-      {currentUser && (
-        <div className="show-tracked-projects-toggle">
-          <input
-            type="checkbox"
-            id="show-tracked-projects"
-            checked={showTrackedProjects}
-            onChange={() => setShowTrackedProjects(prev => !prev)}
-          />
-          <label htmlFor="show-tracked-projects">Show Tracked Projects</label>
-          {!showTrackedProjects && trackedProjectIds.size > 0 && (
-            <span className="tracked-count-badge">
-              {trackedProjectIds.size} project{trackedProjectIds.size !== 1 ? 's' : ''} hidden
-            </span>
-          )}
+      ) : searchPerformed && displayedProjects.length === 0 ? (
+        <div className="empty-state">
+          <h3>No Projects Found</h3>
+          <p>Try adjusting your search criteria or filters</p>
         </div>
-      )}
-
-      {currentUser && (
-        <div className="tracked-status">
-          <i className={`fas fa-info-circle status-icon ${showTrackedProjects ? 'tracked' : ''}`}></i>
-          <span>
-            {showTrackedProjects 
-              ? `Showing ${displayedProjects.length} tracked projects` 
-              : `Showing all available projects (${trackedProjectIds.size} tracked projects are marked with a green indicator)`}
-          </span>
-        </div>
-      )}
-
-      <div className="projects-list">
-        {displayedProjects.map((project) => {
-          const projectLocation = 
-            project.planning_development_address_1 || 
-            project.planning_development_address_2 || 
-            project.planning_development_address_3 || 
-            `${project.planning_region}, ${project.planning_county}` || 
-            'Location not specified';
-
-          const projectStatus = project.planning_stage || 'Status not available';
-
-          return (
-            <div key={project.planning_id} className={`project-card ${!currentUser ? 'limited-view' : ''} ${
-              expandedCards.has(project.planning_id) ? 'expanded' : ''
-            } ${trackedProjectIds.has(project.planning_id) ? 'tracked' : ''}`}> 
-              <div className="project-card-content">
-                <div className="project-header">
-                  <h3>{project.planning_title}</h3>
+      ) : displayedProjects.length > 0 ? (
+        <>
+          <div className="projects-container">
+            {displayedProjects.map((project) => (
+              <div key={project.id} className="project-card" onClick={() => handleProjectClick(project.id)}>
+                <div className="project-card-header">
+                  <h3>{project.planning_development_address_1}</h3>
                 </div>
-                
                 <div className="project-card-body">
-                  <p className="project-description">
-                    {project.planning_description?.substring(0, 150)}
-                    {project.planning_description?.length > 150 ? '...' : ''}
-                  </p>
-
-                  {currentUser ? (
-                    <>
-                      <div className="project-details">
-                        <div className="detail-row">
-                          <span><strong>Location:</strong> {projectLocation}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span><strong>Value:</strong> €{project.planning_value.toLocaleString()}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span><strong>Status:</strong> {projectStatus}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span><strong>Category:</strong> {project.planning_category}</span>
-                        </div>
-
-                        {project.planning_subcategory && (
-                          <div className="detail-row">
-                            <span><strong>Subcategory:</strong> {project.planning_subcategory}</span>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="login-prompt">
-                      <p>Log in to view project details</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="project-card-footer">
-                  <div className="project-actions">
-                    <button 
-                      className="view-details-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleProjectClick(project.planning_id);
-                      }}
-                    >
-                      <i className="fas fa-eye"></i> View Details
-                    </button>
-                    
-                    {currentUser && !trackedProjectIds.has(project.planning_id) && (
-                      <button 
-                        className="track-project-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          trackProject(project);
-                        }}
+                  <div className="project-brief">
+                    <p className={expandedCards.has(project.id) ? 'expanded' : ''}>
+                      {project.planning_description || 'No description available'}
+                    </p>
+                    {project.planning_description && project.planning_description.length > 150 && (
+                      <button
+                        className="read-more-btn"
+                        onClick={(e) => toggleDescription(project.id, e)}
                       >
-                        <i className="fas fa-bookmark"></i> Track Project
-                      </button>
-                    )}
-                    
-                    {currentUser && trackedProjectIds.has(project.planning_id) && (
-                      <button 
-                        className="tracked-project-btn"
-                        disabled
-                      >
-                        <i className="fas fa-check"></i> Tracked
+                        {expandedCards.has(project.id) ? 'Read Less' : 'Read More'}
                       </button>
                     )}
                   </div>
+                  <div className="project-meta">
+                    <div className="meta-row">
+                      <span>Category:</span>
+                      <span>{project.planning_category || 'N/A'}</span>
+                    </div>
+                    <div className="meta-row">
+                      <span>Stage:</span>
+                      <span>{project.planning_stage || 'N/A'}</span>
+                    </div>
+                    <div className="meta-row">
+                      <span>Value:</span>
+                      <span>{project.planning_value || 'N/A'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
+          {displayedProjects.length < filteredProjects.length && (
+            <div className="load-more-container">
+              <button onClick={loadMoreProjects} className="load-more-btn">
+                Load More Projects
+              </button>
             </div>
-          );
-        })}
-      </div>
-
-      {currentUser && filteredProjects.length > displayedProjects.length && (
-        <div className="load-more-container">
-          <button onClick={loadMoreProjects} className="load-more-btn">
-            Load More Projects
-          </button>
-        </div>
-      )}
+          )}
+        </>
+      ) : null}
     </div>
   );
 };
