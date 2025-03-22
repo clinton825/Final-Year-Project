@@ -1,0 +1,24 @@
+/* Tracked badge styles */
+.tracked-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0047CC;
+  background-color: rgba(0, 71, 204, 0.1);
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: default;
+}
+
+.tracked-badge i {
+  margin-right: 5px;
+  font-size: 12px;
+}
+
+/* Dark mode support */
+[data-theme='dark'] .tracked-badge {
+  background-color: rgba(61, 111, 208, 0.2);
+  color: #4f8aff;
+}

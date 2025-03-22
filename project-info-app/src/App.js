@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
+import Projects from './pages/Projects';
 import Login from './components/auth/Login';
 import SignUp from './components/auth/SignUp';
 import ProjectDetails from './pages/ProjectDetails';
@@ -52,6 +53,7 @@ const AppContent = () => {
           
           {/* Protected routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
+          <Route path="/projects" element={<ProtectedRoute element={<Projects />} />} />
           <Route path="/compare" element={<ProtectedRoute element={<ProjectComparison />} />} />
           <Route path="/project/:planning_id" element={<ProtectedRoute element={<ProjectDetails />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />

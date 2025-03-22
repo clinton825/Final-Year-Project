@@ -40,8 +40,8 @@ const AuthHandler = () => {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       }
       
-      // Navigate to home after successful authentication
-      navigate('/');
+      // Navigate to dashboard after successful authentication
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -63,8 +63,8 @@ const AuthHandler = () => {
         role: 'user'
       });
       
-      // Navigate to home after successful authentication
-      navigate('/');
+      // Navigate to dashboard after successful authentication
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message);
     }

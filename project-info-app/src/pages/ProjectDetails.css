@@ -11,10 +11,21 @@
   margin-bottom: 2rem;
 }
 
+.project-title-section {
+  display: flex;
+  flex-direction: column;
+}
+
 .project-header h1 {
-  margin: 0;
+  margin: 0 0 0.5rem 0;
   font-size: 2rem;
   color: #333;
+}
+
+.project-id-display {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 0.5rem;
 }
 
 .back-button {
@@ -65,14 +76,7 @@
   background: #cc3333;
 }
 
-.track-button::before {
-  content: '⭐';
-  font-size: 1.2em;
-}
-
-.track-button.tracked::before {
-  content: '✕';
-}
+/* Removed the ::before content since we're using Font Awesome icons */
 
 .details-grid {
   display: grid;

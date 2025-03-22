@@ -6,6 +6,9 @@ import { db } from '../firebase/config';
 import config from '../config';
 import './ProjectDetails.css';
 
+// For debugging
+const API_BASE_URL = config.API_URL || 'http://localhost:8080';
+
 const ProjectDetails = () => {
   const { planning_id } = useParams();
   const navigate = useNavigate();
@@ -17,23 +20,17 @@ const ProjectDetails = () => {
   const [success, setSuccess] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [actualPlanningId, setActualPlanningId] = useState(null);
+  const [debugInfo, setDebugInfo] = useState({});
+  const [stakeholders, setStakeholders] = useState([]);
 
   useEffect(() => {
-    // Check if planning_id is a Firestore document ID (format: userId_planningId)
-    if (planning_id && planning_id.includes('_')) {
-      // If it's a compound ID from Firestore, extract the actual planning_id
-      const parts = planning_id.split('_');
-      if (parts.length >= 2) {
-        const extractedPlanningId = parts[1]; // The planning_id is the second part
-        console.log('Extracted planning_id from compound ID:', extractedPlanningId);
-        setActualPlanningId(extractedPlanningId);
-      } else {
-        setActualPlanningId(planning_id);
-      }
-    } else {
-      // It's already a plain planning_id
-      setActualPlanningId(planning_id);
-    }
+    console.log('ProjectDetails mounted with planning_id:', planning_id);
+    // Always log the raw planning_id for debugging
+    setDebugInfo(prev => ({ ...prev, rawPlanningId: planning_id }));
+    
+    // Use the planning_id directly - this is what's passed from Projects.js
+    // No need to extract from compound ID as we're now using the direct ID
+    setActualPlanningId(planning_id);
   }, [planning_id]);
 
   useEffect(() => {
@@ -58,17 +55,69 @@ const ProjectDetails = () => {
   const fetchProjectDetails = async () => {
     try {
       setLoading(true);
-      // Use the extracted or original planning_id for API calls
-      const response = await fetch(`${config.API_URL}/api/project/${actualPlanningId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch project details');
+      // Log for debugging
+      console.log(`Fetching project details from: ${API_BASE_URL}/api/project/${actualPlanningId}`);
+      setDebugInfo(prev => ({ ...prev, apiUrl: `${API_BASE_URL}/api/project/${actualPlanningId}` }));
+      
+      // Check if we have a valid ID before making the API call
+      if (!actualPlanningId) {
+        throw new Error('No project ID available');
       }
+      
+      // Make the API call
+      const response = await fetch(`${API_BASE_URL}/api/project/${actualPlanningId}`);
+      
+      // Log the response status for debugging
+      console.log('API response status:', response.status);
+      setDebugInfo(prev => ({ ...prev, apiResponseStatus: response.status }));
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch project details. Status: ${response.status}`);
+      }
+      
       const data = await response.json();
-      console.log('Fetched project data:', data.project);
-      setProject(data.project);
+      console.log('Fetched project data:', data);
+      setDebugInfo(prev => ({ ...prev, projectData: data }));
+      
+      // Set the project data
+      if (data.project) {
+        setProject(data.project);
+        
+        // If we have stakeholders data, set it
+        if (data.project.stakeholders) {
+          setStakeholders(data.project.stakeholders);
+        } else {
+          // Mock stakeholders data for demo/testing
+          setStakeholders([
+            { name: 'Developer', organization: 'XYZ Development Ltd', role: 'Primary Developer' },
+            { name: 'Local Council', organization: 'City Planning Department', role: 'Approval Authority' },
+            { name: 'Community Representative', organization: 'Local Community Board', role: 'Community Liaison' }
+          ]);
+        }
+      } else {
+        // If no project data is returned
+        setProject({
+          planning_id: actualPlanningId,
+          planning_development_address_1: 'Project Address',
+          planning_category: 'Category not available',
+          planning_stage: 'Stage not available',
+          planning_value: 'Value not available',
+          planning_description: 'No description available for this project.'
+        });
+      }
     } catch (error) {
       console.error('Error fetching project details:', error);
-      setError('Failed to load project details. Please try again later.');
+      setError(`Failed to load project details: ${error.message}`);
+      
+      // Set fallback data for display purposes
+      setProject({
+        planning_id: actualPlanningId,
+        planning_development_address_1: 'Project Address',
+        planning_category: 'Category not available',
+        planning_stage: 'Stage not available',
+        planning_value: 'Value not available',
+        planning_description: 'No description available for this project.'
+      });
     } finally {
       setLoading(false);
     }
@@ -211,7 +260,7 @@ const ProjectDetails = () => {
   };
 
   const handleBack = () => {
-    navigate('/');
+    navigate('/projects');
   };
 
   const renderOverviewTab = () => (
@@ -219,7 +268,7 @@ const ProjectDetails = () => {
       <div className="details-grid">
         <div className="detail-item">
           <h3>Planning ID</h3>
-          <p>{project.planning_id}</p>
+          <p>{project.planning_id || actualPlanningId || 'N/A'}</p>
         </div>
         <div className="detail-item">
           <h3>Name</h3>
@@ -315,10 +364,11 @@ const ProjectDetails = () => {
 
   const renderStakeholdersTab = () => (
     <div className="stakeholders-section">
+      {/* First check if we have companies data from the API */}
       {project.companies && project.companies.length > 0 ? (
         project.companies.map((company, index) => (
           <div key={index} className="stakeholder-group">
-            <h3>{company.planning_company_type_name.company_type_name}</h3>
+            <h3>{company.planning_company_type_name?.company_type_name || 'Company'}</h3>
             <div className="stakeholder-card">
               <div className="stakeholder-header">
                 <h4>{company.company_name}</h4>
@@ -346,8 +396,27 @@ const ProjectDetails = () => {
             </div>
           </div>
         ))
+      ) : stakeholders && stakeholders.length > 0 ? (
+        /* If no companies data but we have stakeholders from our fallback/mock data */
+        <div className="stakeholders-list">
+          {stakeholders.map((stakeholder, index) => (
+            <div key={index} className="stakeholder-card">
+              <div className="stakeholder-icon">
+                <i className="fas fa-user-tie"></i>
+              </div>
+              <div className="stakeholder-details">
+                <h3>{stakeholder.name || 'Unnamed Stakeholder'}</h3>
+                <p className="stakeholder-org">{stakeholder.organization || 'Organization not specified'}</p>
+                <p className="stakeholder-role">{stakeholder.role || 'Role not specified'}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
-        <p className="no-data">No stakeholder information available</p>
+        <div className="empty-stakeholders">
+          <i className="fas fa-users-slash"></i>
+          <p>No stakeholder information available for this project.</p>
+        </div>
       )}
     </div>
   );
@@ -390,15 +459,19 @@ const ProjectDetails = () => {
         </div>
       )}
       <button className="back-button" onClick={handleBack}>
-        Back to Projects
+        <i className="fas fa-arrow-left"></i> Back to Projects
       </button>
 
       <div className="project-header">
-        <h1>{project.planning_name}</h1>
+        <div className="project-title-section">
+          <h1>{project.planning_name || project.planning_title || project.planning_development_address_1 || 'Unnamed Project'}</h1>
+          <div className="project-id-display">Project ID: {project.planning_id || actualPlanningId || 'N/A'}</div>
+        </div>
         <button 
           className={`track-button ${isTracked ? 'tracked' : ''}`}
           onClick={handleTrackToggle}
         >
+          <i className={`fas ${isTracked ? 'fa-bell-slash' : 'fa-bell'}`}></i>
           {isTracked ? 'Untrack Project' : 'Track Project'}
         </button>
       </div>

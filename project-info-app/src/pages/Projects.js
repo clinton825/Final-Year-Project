@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
 import { collection, addDoc, doc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import './Home.css';
+import './tracked-badge.css';
 import { updateDashboardCache } from '../pages/Dashboard';
 import config from '../config';
 
@@ -35,6 +36,40 @@ const Projects = () => {
     }
   }, [selectedCategory]);
 
+  // Fetch tracked projects when user logs in
+  useEffect(() => {
+    if (currentUser) {
+      fetchTrackedProjects();
+    }
+  }, [currentUser]);
+
+  // Fetch tracked projects from Firestore
+  const fetchTrackedProjects = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const q = query(
+        collection(db, 'trackedProjects'),
+        where('userId', '==', currentUser.uid)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const trackedIds = new Set();
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.planning_id) {
+          trackedIds.add(data.planning_id);
+        }
+      });
+      
+      console.log('Tracked project IDs:', Array.from(trackedIds));
+      setTrackedProjectIds(trackedIds);
+    } catch (error) {
+      console.error('Error fetching tracked projects:', error);
+    }
+  };
+  
   // Apply filters to projects when any filter changes or when projects are loaded
   const applyFilters = () => {
     if (projects.length === 0) return [];
@@ -169,6 +204,12 @@ const Projects = () => {
       navigate('/login', { state: { from: '/' } });
       return;
     }
+    // Make sure we have a valid planning ID
+    if (!planningId) {
+      console.error('No planning ID provided for project navigation');
+      return;
+    }
+    console.log('Navigating to project with planning_id:', planningId);
     navigate(`/project/${encodeURIComponent(planningId)}`);
   };
 
@@ -206,7 +247,16 @@ const Projects = () => {
   };
 
   const toggleDescription = (projectId, event) => {
+    // Prevent navigating to project details when clicking read more
     event.stopPropagation();
+    
+    // Make sure we have a valid ID to toggle
+    if (!projectId) {
+      console.error('No project ID provided for toggling description');
+      return;
+    }
+    
+    // Create a new Set to avoid direct state mutation
     const newExpandedCards = new Set(expandedCards);
     if (newExpandedCards.has(projectId)) {
       newExpandedCards.delete(projectId);
@@ -384,22 +434,32 @@ const Projects = () => {
       ) : displayedProjects.length > 0 ? (
         <>
           <div className="projects-container">
-            {displayedProjects.map((project) => (
-              <div key={project.id} className="project-card" onClick={() => handleProjectClick(project.id)}>
+            {displayedProjects.map((project, index) => (
+              <div key={project.planning_id || `project-${index}`} className="project-card">
                 <div className="project-card-header">
                   <h3>{project.planning_development_address_1}</h3>
+                  <div className="project-card-header-right">
+                    <div className="project-id">
+                      <span>Project ID:</span> {project.planning_id || 'N/A'}
+                      {trackedProjectIds.has(project.planning_id) && (
+                        <span className="tracked-badge" title="You are tracking this project">
+                          <i className="fas fa-bookmark"></i> Tracked
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="project-card-body">
                   <div className="project-brief">
-                    <p className={expandedCards.has(project.id) ? 'expanded' : ''}>
+                    <p className={expandedCards.has(project.planning_id) ? 'expanded' : ''}>
                       {project.planning_description || 'No description available'}
                     </p>
                     {project.planning_description && project.planning_description.length > 150 && (
                       <button
                         className="read-more-btn"
-                        onClick={(e) => toggleDescription(project.id, e)}
+                        onClick={(e) => toggleDescription(project.planning_id, e)}
                       >
-                        {expandedCards.has(project.id) ? 'Read Less' : 'Read More'}
+                        {expandedCards.has(project.planning_id) ? 'Read Less' : 'Read More'}
                       </button>
                     )}
                   </div>
@@ -416,6 +476,14 @@ const Projects = () => {
                       <span>Value:</span>
                       <span>{project.planning_value || 'N/A'}</span>
                     </div>
+                  </div>
+                  <div className="project-actions">
+                    <button 
+                      onClick={() => handleProjectClick(project.planning_id)} 
+                      className="view-details-btn"
+                    >
+                      <i className="fas fa-info-circle"></i> View Project Details
+                    </button>
                   </div>
                 </div>
               </div>

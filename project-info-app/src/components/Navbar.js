@@ -36,14 +36,19 @@ const Navbar = () => {
         </Link>
         
         <div className="navbar-links">
-          <Link to="/" className={`nav-link ${isActive('/')}`}>
-            <i className="fas fa-home"></i> Home
-          </Link>
+          {!currentUser && (
+            <Link to="/" className={`nav-link ${isActive('/')}`}>
+              <i className="fas fa-home"></i> Home
+            </Link>
+          )}
           
           {currentUser && (
             <>
               <Link to="/dashboard" className={`nav-link ${isActive('/dashboard')}`}>
                 <i className="fas fa-tachometer-alt"></i> Dashboard
+              </Link>
+              <Link to="/projects" className={`nav-link ${isActive('/projects')}`}>
+                <i className="fas fa-project-diagram"></i> Projects
               </Link>
               <Link to="/compare" className={`nav-link ${isActive('/compare')}`}>
                 <i className="fas fa-chart-bar"></i> Compare
