@@ -10,6 +10,7 @@ import ProjectDetails from './pages/ProjectDetails';
 import ProjectComparison from './pages/ProjectComparison';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
+import Analytics from './pages/Analytics';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import OnboardingProvider, { useOnboarding } from './contexts/OnboardingContext';
@@ -57,6 +58,7 @@ const AppContent = () => {
           <Route path="/compare" element={<ProtectedRoute element={<ProjectComparison />} />} />
           <Route path="/project/:planning_id" element={<ProtectedRoute element={<ProjectDetails />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
+          <Route path="/analytics" element={<ProtectedRoute element={<Analytics />} />} />
         </Routes>
       </main>
       <Footer compact={isComparisonPage} />

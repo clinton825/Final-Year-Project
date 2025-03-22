@@ -8,8 +8,8 @@ import { getAuth } from "firebase/auth";
 import NotesList from '../components/notes/NotesList';
 import GettingStartedWidget from '../components/onboarding/GettingStartedWidget';
 import { useOnboarding } from '../contexts/OnboardingContext';
-import DashboardVisualizations from '../components/visualization/DashboardVisualizations';
-// import ProjectMap from '../components/map/ProjectMap'; // Temporarily commented out until component is available
+import DashboardLayout from '../components/dashboard/DashboardLayout';
+import { FaCog, FaHome, FaSave, FaTimes, FaUndo } from 'react-icons/fa';
 import './Dashboard.css';
 import './GettingStartedToggle.css';
 
@@ -35,54 +35,38 @@ export const updateDashboardCache = async (currentUser, trackedProjects, setDash
         project.planning_stage || 
         project.status || 
         project.stage || 
-        project.projectStatus || 
         'Unknown';
       
-      // Clean up status name for display
-      const cleanStatus = status.trim();
-      
-      // Increment counter for this status
-      acc[cleanStatus] = (acc[cleanStatus] || 0) + 1;
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {});
     
-    // Calculate project values by category
+    // Calculate value by category
     const valueByCategory = trackedProjects.reduce((acc, project) => {
       // Get category from any of several possible fields
       const category = 
-        project.planning_category || 
         project.category || 
+        project.planning_category || 
         project.type || 
-        'Unknown';
+        'Other';
       
-      // Clean up category name for display
-      const cleanCategory = category.trim();
-      
-      // Get value from any of several possible fields and convert to number
-      const rawValue = 
+      // Get value from any of several possible fields
+      let value = 
         project.projectValue || 
         project.planning_value || 
         project.value || 
-        project.budget || 
         0;
       
-      // Convert string values to numbers, handle parsing errors
-      let numericValue = 0;
-      try {
-        // Remove currency symbols, commas, etc
-        const sanitized = String(rawValue).replace(/[^0-9.-]+/g, '');
-        numericValue = parseFloat(sanitized) || 0;
-      } catch (e) {
-        console.warn('Value parsing error:', e);
-        numericValue = 0;
+      // Handle string values (with currency symbols)
+      if (typeof value === 'string') {
+        value = parseFloat(value.replace(/[^0-9.-]+/g, '')) || 0;
       }
       
-      // Add this value to the accumulator
-      acc[cleanCategory] = (acc[cleanCategory] || 0) + numericValue;
+      acc[category] = (acc[category] || 0) + Number(value);
       return acc;
     }, {});
     
-    // Create dashboard cache
+    // Create cache object
     const cacheData = {
       userId: currentUser.uid,
       totalTrackedProjects: trackedProjects.length,
@@ -91,20 +75,29 @@ export const updateDashboardCache = async (currentUser, trackedProjects, setDash
       lastUpdated: serverTimestamp()
     };
     
-    console.log('Dashboard cache data prepared:', cacheData);
+    console.log('Updating dashboard cache with data:', cacheData);
+    
+    if (setDashboardCache) {
+      setDashboardCache({
+        ...cacheData,
+        isLoading: false
+      });
+    }
     
     // Store in Firestore
-    const cacheDocRef = doc(db, 'dashboardCache', currentUser.uid);
-    await setDoc(cacheDocRef, cacheData);
-    
-    // Update local state
-    if (setDashboardCache) {
-      setDashboardCache(cacheData);
+    try {
+      const cacheDocRef = doc(db, 'dashboardCache', currentUser.uid);
+      await setDoc(cacheDocRef, cacheData);
+      
+      console.log('Dashboard cache updated successfully');
+      return true;
+    } catch (error) {
+      console.error('Error updating dashboard cache in Firestore:', error);
+      return false;
     }
-    console.log('Dashboard cache updated successfully');
-    
   } catch (error) {
-    console.error('Error updating dashboard cache:', error);
+    console.error('Error in updateDashboardCache:', error);
+    return false;
   }
 };
 
@@ -119,135 +112,295 @@ const Dashboard = () => {
   const [userData, setUserData] = useState(null);
   const [showGettingStarted, setShowGettingStarted] = useState(false); // Default to hidden
   const [dashboardSettings, setDashboardSettings] = useState({
-    layout: 'grid', // 'grid', 'list', or 'map'
-    visibleWidgets: ['trackedProjects', 'visualizations'],
-    theme: 'system',
-    defaultView: 'all'
+    layout: 'grid', // grid, list, or map
+    visibleWidgets: ['trackedProjects', 'visualizations', 'notes']
   });
   const [dashboardCache, setDashboardCache] = useState(null);
+  const [expandedNotesProjects, setExpandedNotesProjects] = useState([]);
   const [chartData, setChartData] = useState({
     categories: [],
     values: []
   });
   const [projectNotes, setProjectNotes] = useState({});
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [userRole, setUserRole] = useState('standard');
 
   // Function to toggle dashboard layout between grid and list
   const toggleDashboardLayout = async () => {
-    try {
-      const newLayout = dashboardSettings.layout === 'grid' ? 'list' : dashboardSettings.layout === 'list' ? 'map' : 'grid';
-      console.log('Toggling dashboard layout to:', newLayout);
-      await saveDashboardSettings({ layout: newLayout });
-    } catch (error) {
-      console.error('Error toggling dashboard layout:', error);
+    const newLayout = dashboardSettings.layout === 'grid' ? 'list' : 
+                      dashboardSettings.layout === 'list' ? 'map' : 'grid';
+    
+    console.log(`Toggling dashboard layout from ${dashboardSettings.layout} to ${newLayout}`);
+    
+    const updatedSettings = {
+      ...dashboardSettings,
+      layout: newLayout
+    };
+    
+    setDashboardSettings(updatedSettings);
+    
+    // Save to Firestore if user is logged in
+    if (currentUser) {
+      try {
+        const settingsDocRef = doc(db, 'userSettings', currentUser.uid);
+        await setDoc(settingsDocRef, {
+          dashboardSettings: updatedSettings
+        }, { merge: true });
+        
+        console.log('Dashboard layout preference saved to Firestore');
+      } catch (error) {
+        console.error('Error saving dashboard layout preference:', error);
+      }
     }
   };
 
   // Function to toggle widget visibility
   const toggleWidgetVisibility = async (widgetName) => {
-    try {
-      const currentVisibleWidgets = [...dashboardSettings.visibleWidgets];
-      const widgetIndex = currentVisibleWidgets.indexOf(widgetName);
-      
-      // Don't allow hiding trackedProjects
+    console.log(`Toggling visibility for widget: ${widgetName}`);
+    
+    const isCurrentlyVisible = dashboardSettings.visibleWidgets.includes(widgetName);
+    let updatedVisibleWidgets;
+    
+    if (isCurrentlyVisible) {
+      // Remove widget from visible list (except trackedProjects which should always be visible)
       if (widgetName === 'trackedProjects') {
-        console.log('Cannot hide trackedProjects widget');
-        alert('The Projects section cannot be hidden');
+        console.log('trackedProjects widget cannot be hidden');
         return;
       }
       
-      if (widgetIndex > -1) {
-        // Widget is currently visible, remove it
-        currentVisibleWidgets.splice(widgetIndex, 1);
-      } else {
-        // Widget is currently hidden, add it
-        currentVisibleWidgets.push(widgetName);
+      updatedVisibleWidgets = dashboardSettings.visibleWidgets.filter(w => w !== widgetName);
+    } else {
+      // Add widget to visible list
+      updatedVisibleWidgets = [...dashboardSettings.visibleWidgets, widgetName];
+    }
+    
+    const updatedSettings = {
+      ...dashboardSettings,
+      visibleWidgets: updatedVisibleWidgets
+    };
+    
+    setDashboardSettings(updatedSettings);
+    
+    // Save to Firestore if user is logged in
+    if (currentUser) {
+      try {
+        const settingsDocRef = doc(db, 'userSettings', currentUser.uid);
+        await setDoc(settingsDocRef, {
+          dashboardSettings: updatedSettings
+        }, { merge: true });
+        
+        console.log('Widget visibility settings saved to Firestore');
+      } catch (error) {
+        console.error('Error saving widget visibility settings:', error);
       }
-      
-      console.log('Toggling widget visibility for:', widgetName, 'New state:', currentVisibleWidgets);
-      await saveDashboardSettings({ visibleWidgets: currentVisibleWidgets });
-    } catch (error) {
-      console.error('Error toggling widget visibility:', error);
     }
   };
 
-  // Function to untrack a project
-  const untrackProject = async (docId) => {
+  // Format currency helper function
+  const formatCurrency = (value) => {
+    if (!value) return '€0';
+    
+    // If it's already a string with a currency symbol, return it as is
+    if (typeof value === 'string' && (value.includes('€') || value.includes('$') || value.includes('£'))) {
+      return value;
+    }
+    
+    // Otherwise format it
     try {
-      if (!currentUser) return;
-      
-      // First confirm with the user
-      if (!window.confirm('Are you sure you want to untrack this project?')) {
-        return;
-      }
-      
-      // Immediately show loading state for better UX
-      setDashboardCache(prev => prev ? {...prev, isLoading: true} : {isLoading: true});
-      
-      // Delete from trackedProjects collection
-      const projectRef = doc(db, 'trackedProjects', docId);
-      await deleteDoc(projectRef);
-      
-      // Find the project in the tracked projects to get its ID for activity logging
-      const projectToUntrack = trackedProjects.find(p => p.id === docId);
-      const projectId = projectToUntrack?.projectId || projectToUntrack?.planning_id || docId.split('_')[1] || 'unknown';
-      
-      // Log activity (don't await this to keep UI responsive)
-      addDoc(collection(db, 'activity'), {
-        userId: currentUser.uid,
-        type: 'untrack',
-        projectId: projectId,
-        description: 'Untracked a project',
-        timestamp: serverTimestamp()
-      }).catch(err => console.error('Error logging untrack activity:', err));
-      
-      // Show success message (don't use alert as it blocks UI)
-      // The onSnapshot listener will automatically update the UI
-      
-      // Note: We don't need to manually update trackedProjects state or call updateDashboardCache
-      // because the Firestore onSnapshot listener will trigger these updates automatically
+      return new Intl.NumberFormat('en-IE', {
+        style: 'currency',
+        currency: 'EUR',
+        maximumFractionDigits: 0
+      }).format(value);
     } catch (error) {
-      console.error('Error untracking project:', error);
-      alert('Error untracking project: ' + error.message);
-      // Reset loading state if there was an error
-      setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
+      console.error('Error formatting currency:', error);
+      return `€${value}`;
     }
   };
 
-  useEffect(() => {
-    const handleOnline = () => {
-      console.log('App is online');
-      setIsOffline(false);
-      if (currentUser) {
-        fetchTrackedProjects();
-      }
-    };
+  // Function to refresh dashboard data
+  const refreshDashboard = async () => {
+    try {
+      setDashboardCache(prev => ({ ...prev, isLoading: true }));
+      await fetchTrackedProjects();
+      updateDashboardCache(currentUser, trackedProjects, setDashboardCache);
+      
+      // Update notes and other data
+      await fetchAllProjectNotes();
+    } catch (error) {
+      console.error('Error refreshing dashboard:', error);
+    }
+  };
 
-    const handleOffline = () => {
-      console.log('App is offline');
-      setIsOffline(true);
-    };
+  // Function to toggle notes visibility for a project
+  const toggleNotesVisibility = (projectId) => {
+    if (expandedNotesProjects.includes(projectId)) {
+      setExpandedNotesProjects(expandedNotesProjects.filter(id => id !== projectId));
+    } else {
+      setExpandedNotesProjects([...expandedNotesProjects, projectId]);
+    }
+  };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [currentUser]);
-
-  useEffect(() => {
-    // Function to load user data with enhanced error handling
-    const loadUserData = async () => {
+  // Fetch all tracked projects for the current user
+  const fetchTrackedProjects = async () => {
+    try {
       if (!currentUser) {
-        console.log('No current user, skipping user data fetch');
+        setTrackedProjects([]);
         setLoading(false);
         return;
       }
       
-      console.log('Loading user data for dashboard. User ID:', currentUser.uid);
-      console.log('User email:', currentUser.email);
-      console.log('Display name from Auth:', currentUser.displayName);
+      console.log('Fetching tracked projects for user:', currentUser.uid);
+      
+      const trackedRef = collection(db, 'trackedProjects');
+      const trackedQuery = query(
+        trackedRef,
+        where('userId', '==', currentUser.uid),
+        orderBy('trackedAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(trackedQuery);
+      
+      // Process tracked projects
+      const tracked = [];
+      const projectIdsSet = new Set();
+      
+      querySnapshot.forEach((doc) => {
+        const projectData = doc.data();
+        
+        // Add docId to identify this record
+        projectData.docId = doc.id;
+        
+        // Check if we already have this project (deduplicate)
+        const projectId = projectData.projectId || projectData.planning_id || projectData.id;
+        
+        if (!projectIdsSet.has(projectId)) {
+          projectIdsSet.add(projectId);
+          tracked.push(projectData);
+        }
+      });
+      
+      console.log(`Found ${tracked.length} tracked projects`);
+      setTrackedProjects(tracked);
+      
+      // If there are tracked projects, update the dashboard cache
+      if (tracked.length > 0) {
+        console.log('Updating dashboard cache with tracked projects');
+        updateDashboardCache(currentUser, tracked, setDashboardCache);
+      }
+      
+      return tracked;
+    } catch (error) {
+      console.error('Error fetching tracked projects:', error);
+      setError('Error loading your tracked projects. Please try again later.');
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to untrack a project
+  const untrackProject = async (projectId) => {
+    try {
+      if (!currentUser) {
+        console.error('Cannot untrack project: No user logged in');
+        return;
+      }
+      
+      console.log('Untracking project with ID:', projectId);
+      
+      // Find the documents to delete - we need to check multiple ways the ID might be stored
+      const trackedRef = collection(db, 'trackedProjects');
+      
+      // First try to find by docId which is the most reliable
+      let querySnapshot = await getDocs(query(
+        trackedRef,
+        where('userId', '==', currentUser.uid),
+        where('docId', '==', projectId)
+      ));
+      
+      // If not found, try other potential ID fields
+      if (querySnapshot.empty) {
+        console.log('Trying to find project by other ID fields...');
+        
+        // Try 'projectId' field
+        querySnapshot = await getDocs(query(
+          trackedRef,
+          where('userId', '==', currentUser.uid),
+          where('projectId', '==', projectId)
+        ));
+      }
+      
+      // Try 'id' field if still not found
+      if (querySnapshot.empty) {
+        querySnapshot = await getDocs(query(
+          trackedRef,
+          where('userId', '==', currentUser.uid),
+          where('id', '==', projectId)
+        ));
+      }
+      
+      // Try 'planning_id' field if still not found
+      if (querySnapshot.empty) {
+        querySnapshot = await getDocs(query(
+          trackedRef,
+          where('userId', '==', currentUser.uid),
+          where('planning_id', '==', projectId)
+        ));
+      }
+      
+      if (querySnapshot.empty) {
+        console.log('No tracked project found with ID:', projectId);
+        return;
+      }
+      
+      // Delete all matching documents (should be only one)
+      const deletePromises = [];
+      querySnapshot.forEach((doc) => {
+        console.log('Deleting tracked project document:', doc.id);
+        deletePromises.push(deleteDoc(doc.ref));
+      });
+      
+      await Promise.all(deletePromises);
+      
+      // Log activity
+      await addDoc(collection(db, 'activity'), {
+        userId: currentUser.uid,
+        projectId: projectId,
+        type: 'untrack',
+        timestamp: serverTimestamp()
+      });
+      
+      // Update state to remove the project - consider all possible ID field names
+      const updatedProjects = trackedProjects.filter(project => {
+        const projectIdentifier = 
+          project.docId || 
+          project.projectId || 
+          project.id || 
+          project.planning_id || 
+          project._id;
+        return projectIdentifier !== projectId;
+      });
+      setTrackedProjects(updatedProjects);
+      
+      // Update dashboard cache
+      updateDashboardCache(currentUser, updatedProjects, setDashboardCache);
+      
+      console.log('Project untracked successfully');
+    } catch (error) {
+      console.error('Error untracking project:', error);
+      setError('Error removing project from tracked list. Please try again.');
+    }
+  };
+
+  // Function to load user data
+  useEffect(() => {
+    // Function to load user data with enhanced error handling
+    const loadUserData = async () => {
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
       
       try {
         // First try to get user data from Firestore
@@ -256,37 +409,42 @@ const Dashboard = () => {
         
         if (userDocSnap.exists()) {
           const userDocData = userDocSnap.data();
-          console.log('User data from Firestore:', userDocData);
           setUserData(userDocData);
+          
+          // Set user role for dashboard customization
+          if (userDocData.role) {
+            setUserRole(userDocData.role);
+          }
           
           // Also store in localStorage for offline/Vercel usage
           try {
             localStorage.setItem(`userData_${currentUser.uid}`, JSON.stringify(userDocData));
-            console.log('Stored user data in localStorage for faster access');
           } catch (storageError) {
             console.error('Error storing user data in localStorage:', storageError);
           }
         } else {
-          console.log('No user document found in Firestore, checking localStorage...');
-          
           // Try localStorage as fallback
           try {
             const localData = localStorage.getItem(`userData_${currentUser.uid}`);
             if (localData) {
               const parsedData = JSON.parse(localData);
-              console.log('User data from localStorage:', parsedData);
               setUserData(parsedData);
+              
+              // Set user role from localStorage
+              if (parsedData.role) {
+                setUserRole(parsedData.role);
+              }
             } else {
-              console.log('No user data in localStorage, using Auth data');
               // Create minimal user data from Auth
               const minimalUserData = {
                 firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
                 lastName: currentUser.displayName ? currentUser.displayName.split(' ').slice(1).join(' ') : '',
                 email: currentUser.email,
-                uid: currentUser.uid
+                uid: currentUser.uid,
+                role: 'standard'
               };
-              console.log('Created minimal user data:', minimalUserData);
               setUserData(minimalUserData);
+              setUserRole('standard');
             }
           } catch (localStorageError) {
             console.error('Error reading from localStorage:', localStorageError);
@@ -295,10 +453,11 @@ const Dashboard = () => {
             const fallbackUserData = {
               firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
               email: currentUser.email,
-              uid: currentUser.uid
+              uid: currentUser.uid,
+              role: 'standard'
             };
-            console.log('Using fallback user data:', fallbackUserData);
             setUserData(fallbackUserData);
+            setUserRole('standard');
           }
         }
       } catch (error) {
@@ -308,10 +467,11 @@ const Dashboard = () => {
         const emergencyUserData = {
           firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
           email: currentUser.email,
-          uid: currentUser.uid
+          uid: currentUser.uid,
+          role: 'standard'
         };
-        console.log('Using emergency user data after error:', emergencyUserData);
         setUserData(emergencyUserData);
+        setUserRole('standard');
       }
     };
     
@@ -323,20 +483,17 @@ const Dashboard = () => {
       if (currentUser) {
         setLoading(true);
         try {
-          // Load all data in parallel
-          const [settingsLoaded, cacheLoaded] = await Promise.all([
+          // Load all data in parallel for maximum efficiency
+          const [settingsLoaded, cacheLoaded, projectsLoaded] = await Promise.all([
             fetchDashboardSettings(),
-            loadDashboardCache()
+            loadDashboardCache(),
+            fetchTrackedProjects()
           ]);
           
-          // Fetch projects
-          await fetchTrackedProjects();
-          
-          // If no cache was loaded, force create it
-          if (!cacheLoaded) {
-            console.log('No cache was loaded, creating one...');
-            // Give time for projects to load first
-            setTimeout(() => updateDashboardCache(currentUser, trackedProjects, setDashboardCache), 1000);
+          // If no cache was loaded, create it immediately with current projects
+          if (!cacheLoaded && trackedProjects.length > 0) {
+            console.log('No cache was loaded, creating one immediately...');
+            updateDashboardCache(currentUser, trackedProjects, setDashboardCache);
           }
         } catch (error) {
           console.error('Error initializing dashboard data:', error);
@@ -349,32 +506,7 @@ const Dashboard = () => {
     initializeData();
   }, [currentUser]);
 
-  useEffect(() => {
-    const logDashboardView = async () => {
-      try {
-        if (!currentUser) return;
-        
-        await addDoc(collection(db, 'dashboardAnalytics'), {
-          userId: currentUser.uid,
-          timestamp: serverTimestamp(),
-          action: 'view',
-          deviceInfo: {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            isMobile: window.innerWidth < 768,
-            userAgent: navigator.userAgent
-          }
-        });
-        
-        console.log('Dashboard view logged for analytics');
-      } catch (error) {
-        console.error('Error logging dashboard view:', error);
-      }
-    };
-    
-    logDashboardView();
-  }, [currentUser]);
-
+  // Update dashboard cache when tracked projects change
   useEffect(() => {
     if (currentUser && trackedProjects && trackedProjects.length > 0) {
       console.log('Projects changed, updating statistics');
@@ -420,22 +552,52 @@ const Dashboard = () => {
     }
   }, [trackedProjects, currentUser]);
 
-  useEffect(() => {
-    if (currentUser) {
-      setTimeout(() => {
-        console.log('Forcing dashboard cache update...');
-        updateDashboardCache(currentUser, trackedProjects, setDashboardCache);
-      }, 5000);
+  // Fetch project notes
+  const fetchAllProjectNotes = async () => {
+    try {
+      if (!currentUser || !trackedProjects || trackedProjects.length === 0) {
+        return;
+      }
+      
+      console.log('Fetching notes for all tracked projects');
+      
+      const notesObj = {};
+      
+      // Fetch notes in parallel for all projects
+      const fetchPromises = trackedProjects.map(async (project) => {
+        const projectId = project.planning_id || project.id;
+        
+        const notesQuery = query(
+          collection(db, 'projectNotes'),
+          where('projectId', '==', projectId),
+          where('userId', '==', currentUser.uid),
+          orderBy('createdAt', 'desc')
+        );
+        
+        const notesSnapshot = await getDocs(notesQuery);
+        const notes = [];
+        
+        notesSnapshot.forEach(doc => {
+          notes.push({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate?.() || new Date()
+          });
+        });
+        
+        notesObj[projectId] = notes;
+      });
+      
+      await Promise.all(fetchPromises);
+      
+      setProjectNotes(notesObj);
+      console.log('All project notes loaded:', notesObj);
+    } catch (error) {
+      console.error('Error fetching project notes:', error);
     }
-  }, [currentUser, trackedProjects]);
+  };
 
-  useEffect(() => {
-    if (currentUser && trackedProjects.length > 0) {
-      // Fetch notes for all tracked projects
-      fetchAllProjectNotes();
-    }
-  }, [currentUser, trackedProjects]);
-
+  // Fetch dashboard settings
   const fetchDashboardSettings = async () => {
     try {
       if (!currentUser) return false;
@@ -469,6 +631,7 @@ const Dashboard = () => {
     }
   };
 
+  // Load dashboard cache
   const loadDashboardCache = async () => {
     try {
       if (!currentUser) {
@@ -495,670 +658,213 @@ const Dashboard = () => {
     }
   };
 
-  const saveDashboardSettings = async (newSettings) => {
-    try {
-      const updatedSettings = { ...dashboardSettings, ...newSettings };
-      setDashboardSettings(updatedSettings);
-      
-      // Update the Getting Started visibility state if it's in the settings
-      if ('showGettingStarted' in newSettings) {
-        setShowGettingStarted(newSettings.showGettingStarted);
-      }
-
-      if (currentUser) {
-        // Save to Firestore
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userDocRef, {
-          dashboardSettings: updatedSettings,
-          updatedAt: serverTimestamp()
-        });
-        console.log('Dashboard settings saved:', updatedSettings);
-      }
-    } catch (error) {
-      console.error('Error saving dashboard settings:', error);
-    }
-  };
-
-  const fetchTrackedProjects = async () => {
+  // Project note functions
+  const addProjectNote = async (projectId, projectTitle, noteText) => {
     try {
       if (!currentUser) {
-        console.log('No current user, skipping tracked projects fetch');
-        setLoading(false);
-        return;
-      }
-      
-      console.log('Starting to fetch tracked projects for user:', currentUser.uid);
-      setLoading(true); // Set loading state at the beginning
-      setDashboardCache(prev => prev ? {...prev, isLoading: true} : {isLoading: true});
-      
-      // Create a query for tracked projects - IMPORTANT: we need to query by userId field, not by document ID
-      const q = query(
-        collection(db, 'trackedProjects'),
-        where('userId', '==', currentUser.uid)
-      );
-      
-      try {
-        // Get initial data
-        console.log('Executing initial query for tracked projects...');
-        const initialSnapshot = await getDocs(q);
-        
-        if (!initialSnapshot.empty) {
-          console.log(`Found ${initialSnapshot.size} tracked projects`);
-          
-          const projects = [];
-          initialSnapshot.forEach(doc => {
-            const projectData = doc.data();
-            projects.push({
-              id: doc.id,
-              ...projectData
-            });
-          });
-          
-          console.log('Setting tracked projects:', projects);
-          setTrackedProjects(projects);
-          setError(null); // Clear any previous errors
-          setLoading(false);
-          setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
-        } else {
-          // No projects yet
-          console.log('No tracked projects found in the database');
-          setTrackedProjects([]);
-          setLoading(false);
-          setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
-        }
-        
-        // Set up real-time listener
-        console.log('Setting up real-time listener for tracked projects...');
-        const unsubscribe = onSnapshot(q, 
-          (snapshot) => {
-            const projects = [];
-            snapshot.forEach(doc => {
-              const projectData = doc.data();
-              projects.push({
-                id: doc.id,
-                ...projectData
-              });
-            });
-            
-            console.log('Real-time update - tracked projects:', projects);
-            setTrackedProjects(projects);
-            setLoading(false);
-            setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
-          }, 
-          (error) => {
-            console.error('Error in tracked projects snapshot:', error);
-            setError('Failed to load your tracked projects. Please refresh the page or try again later.');
-            setLoading(false);
-            setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
-          }
-        );
-        
-        return () => unsubscribe();
-      } catch (error) {
-        console.error('Error fetching tracked projects:', error);
-        setError('Failed to load tracked projects. Please try again later.');
-        setLoading(false);
-        setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
-      }
-    } catch (error) {
-      console.error('Top-level error in fetchTrackedProjects:', error);
-      setError('An unexpected error occurred. Please refresh the page.');
-      setLoading(false);
-      setDashboardCache(prev => prev ? {...prev, isLoading: false} : {isLoading: false});
-    }
-  };
-
-  // Project Notes CRUD Functions
-  const fetchProjectNotes = async (projectId) => {
-    try {
-      if (!currentUser) return;
-      
-      console.log('Fetching notes for project:', projectId);
-      
-      const q = query(
-        collection(db, 'projectNotes'),
-        where('userId', '==', currentUser.uid),
-        where('projectId', '==', projectId),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const snapshot = await getDocs(q);
-      const notes = [];
-      
-      snapshot.forEach(doc => {
-        // Get the raw data
-        const data = doc.data();
-        
-        // Log the raw timestamp data for debugging
-        console.log(`Note ${doc.id} raw timestamps:`, {
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-          createdAtType: data.createdAt ? typeof data.createdAt : 'undefined',
-          hasToDate: data.createdAt && typeof data.createdAt.toDate === 'function'
-        });
-        
-        // Create a properly formatted note object
-        notes.push({
-          id: doc.id,
-          text: data.text,
-          userId: data.userId,
-          projectId: data.projectId,
-          // Keep the original timestamp objects
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt
-        });
-      });
-      
-      // Log the notes we found
-      if (notes.length > 0) {
-        console.log(`Found ${notes.length} notes for project ${projectId}`);
-        console.log('First note example:', notes[0]);
-      } else {
-        console.log(`No notes found for project ${projectId}`);
-      }
-      
-      // Update state with the notes
-      setProjectNotes(prev => ({
-        ...prev,
-        [projectId]: notes
-      }));
-      
-      return notes;
-    } catch (error) {
-      console.error('Error fetching project notes:', error);
-      return [];
-    }
-  };
-
-  const addProjectNote = async (projectId, text) => {
-    try {
-      if (!currentUser || !projectId) {
-        console.error('Cannot add note: Missing user or project ID');
         return null;
       }
       
-      console.log('Adding note to project:', projectId);
-      
-      // Create note data with server timestamp
-      const noteData = {
+      const newNote = {
         userId: currentUser.uid,
         projectId,
-        text,
+        projectTitle,
+        text: noteText,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
       
-      console.log('Note data before saving:', noteData);
-      
-      // Add the note document
-      const docRef = await addDoc(collection(db, 'projectNotes'), noteData);
-      console.log('Note added with ID:', docRef.id);
+      const docRef = await addDoc(collection(db, 'projectNotes'), newNote);
       
       // Log activity
       await addDoc(collection(db, 'activity'), {
         userId: currentUser.uid,
-        type: 'note_add',
         projectId,
-        description: 'Added a note to a project',
+        noteId: docRef.id,
+        type: 'note_add',
         timestamp: serverTimestamp()
       });
       
-      // Fetch the note we just created to get the server timestamps
-      const noteSnapshot = await getDoc(docRef);
-      if (noteSnapshot.exists()) {
-        const savedNote = noteSnapshot.data();
-        console.log('Saved note with timestamps:', {
-          id: docRef.id,
-          ...savedNote,
-          createdAtType: typeof savedNote.createdAt,
-          updatedAtType: typeof savedNote.updatedAt
-        });
-      }
+      // Update local state
+      const newNoteWithId = {
+        id: docRef.id,
+        ...newNote,
+        createdAt: new Date()
+      };
       
-      // Refresh the notes list
-      await fetchProjectNotes(projectId);
+      setProjectNotes(prev => {
+        const updatedNotes = { ...prev };
+        updatedNotes[projectId] = [newNoteWithId, ...(updatedNotes[projectId] || [])];
+        return updatedNotes;
+      });
       
       return docRef.id;
     } catch (error) {
-      console.error('Error adding project note:', error);
+      console.error('Error adding note:', error);
       return null;
     }
   };
 
-  const updateProjectNote = async (noteId, text) => {
+  const updateProjectNote = async (noteId, projectId, updatedText) => {
     try {
-      if (!currentUser || !noteId) return false;
-      
-      // Get the note to find its projectId
-      const noteRef = doc(db, 'projectNotes', noteId);
-      const noteSnap = await getDoc(noteRef);
-      
-      if (!noteSnap.exists()) {
-        console.error('Note not found:', noteId);
+      if (!currentUser) {
         return false;
       }
       
-      const noteData = noteSnap.data();
-      const projectId = noteData.projectId;
+      const noteRef = doc(db, 'projectNotes', noteId);
       
-      // Update the note
       await updateDoc(noteRef, {
-        text,
+        text: updatedText,
         updatedAt: serverTimestamp()
       });
       
       // Log activity
       await addDoc(collection(db, 'activity'), {
         userId: currentUser.uid,
-        type: 'note_update',
         projectId,
-        description: 'Updated a project note',
+        noteId,
+        type: 'note_edit',
         timestamp: serverTimestamp()
       });
       
-      await fetchProjectNotes(projectId);
-      return true;
-    } catch (error) {
-      console.error('Error updating project note:', error);
-      return false;
-    }
-  };
-
-  const deleteProjectNote = async (noteId) => {
-    if (!currentUser) {
-      console.error('Cannot delete note: No authenticated user');
-      return false;
-    }
-    
-    if (!noteId) {
-      console.error('Cannot delete note: Missing note ID');
-      return false;
-    }
-    
-    console.log('Starting deletion process for note:', noteId);
-    
-    try {
-      // Step 1: Get the note document reference
-      const noteRef = doc(db, 'projectNotes', noteId);
-      
-      // Step 2: Get the note data to find its projectId
-      const noteSnap = await getDoc(noteRef);
-      
-      if (!noteSnap.exists()) {
-        console.error('Cannot delete note: Note not found with ID:', noteId);
-        return false;
-      }
-      
-      // Step 3: Extract the project ID from the note data
-      const noteData = noteSnap.data();
-      const projectId = noteData.projectId;
-      
-      if (!projectId) {
-        console.error('Cannot delete note: Note has no associated project ID');
-        return false;
-      }
-      
-      console.log(`Deleting note ${noteId} for project ${projectId}`);
-      
-      // Step 4: Delete the note document
-      await deleteDoc(noteRef);
-      console.log('Note document deleted successfully');
-      
-      // Step 5: Log the activity
-      const activityRef = await addDoc(collection(db, 'activity'), {
-        userId: currentUser.uid,
-        type: 'note_delete',
-        projectId,
-        description: 'Deleted a project note',
-        timestamp: serverTimestamp()
-      });
-      console.log('Activity logged with ID:', activityRef.id);
-      
-      // Step 6: Update the UI by refreshing the notes list
-      await fetchProjectNotes(projectId);
-      console.log('Notes list refreshed for project:', projectId);
-      
-      return true;
-    } catch (error) {
-      console.error('Error deleting project note:', error);
-      return false;
-    }
-  };
-
-  const fetchAllProjectNotes = async () => {
-    if (!currentUser || !trackedProjects.length) return;
-    
-    try {
-      for (const project of trackedProjects) {
-        const projectId = project.planning_id || project.id;
-        if (projectId) {
-          await fetchProjectNotes(projectId);
+      // Update local state
+      setProjectNotes(prev => {
+        const updatedNotes = { ...prev };
+        if (updatedNotes[projectId]) {
+          updatedNotes[projectId] = updatedNotes[projectId].map(note => 
+            note.id === noteId ? { ...note, text: updatedText, updatedAt: new Date() } : note
+          );
         }
-      }
+        return updatedNotes;
+      });
+      
+      return true;
     } catch (error) {
-      console.error('Error fetching all project notes:', error);
+      console.error('Error updating note:', error);
+      return false;
     }
   };
 
-  const saveUserDashboardData = (dashboardData) => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-
-    if (user) {
-      const db = getDatabase();
-      const userId = user.uid; 
-
-      set(ref(db, 'users/' + userId + '/dashboardData'), dashboardData)
-        .then(() => {
-          console.log("Dashboard data saved successfully!");
-        })
-        .catch((error) => {
-          console.error("Error saving dashboard data: ", error);
-        });
-    } else {
-      console.log("No user is signed in.");
+  const deleteProjectNote = async (noteId, projectId) => {
+    try {
+      if (!currentUser) {
+        return false;
+      }
+      
+      const noteRef = doc(db, 'projectNotes', noteId);
+      await deleteDoc(noteRef);
+      
+      // Log activity
+      await addDoc(collection(db, 'activity'), {
+        userId: currentUser.uid,
+        projectId,
+        noteId,
+        type: 'note_delete',
+        timestamp: serverTimestamp()
+      });
+      
+      // Update local state
+      setProjectNotes(prev => {
+        const updatedNotes = { ...prev };
+        if (updatedNotes[projectId]) {
+          updatedNotes[projectId] = updatedNotes[projectId].filter(note => note.id !== noteId);
+        }
+        return updatedNotes;
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      return false;
     }
   };
 
+  // Update online/offline status
   useEffect(() => {
-    const dashboardData = {
-      projects: trackedProjects,
-      lastUpdated: new Date().toISOString(),
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-
-    saveUserDashboardData(dashboardData);
-  }, [trackedProjects]);
-
-  if (loading) {
-    return <div className="loading">Loading...</div>;
-  }
-
-  if (!currentUser) {
-    return (
-      <div className="not-authenticated">
-        <h2>Please log in to view your dashboard</h2>
-        <Link to="/login" className="primary-button">Log In</Link>
-      </div>
-    );
-  }
+  }, []);
 
   return (
     <div className="dashboard-container">
-      {/* Top navigation bar with user info and actions */}
+      {/* Welcome Header Section */}
       <div className="dashboard-header">
-        <div className="header-left">
-          <h1>
-            Dashboard 
-            {currentUser && (
-              <span className="user-greeting">
-                | Hello, {userData?.firstName || currentUser?.displayName?.split(' ')[0] || currentUser?.email?.split('@')[0] || 'User'}
-              </span>
-            )}
-          </h1>
+        <div className="welcome-message">
+          <h1>Welcome, {userData?.firstName || currentUser?.displayName?.split(' ')[0] || 'User'}!</h1>
+          <p>Your personalized infrastructure project tracker dashboard</p>
         </div>
-        <div className="header-right">
-          {isOffline && (
-            <div className="offline-indicator">
-              <i className="fas fa-wifi-slash"></i> Offline Mode
+        
+        {/* Dashboard Controls */}
+        <div className="dashboard-actions">
+          {isCustomizing ? (
+            <div className="customization-controls">
+              <button onClick={() => setIsCustomizing(false)} className="cancel-customize-btn">
+                <FaTimes /> Cancel
+              </button>
             </div>
+          ) : (
+            <button onClick={() => setIsCustomizing(true)} className="customize-dashboard-btn">
+              <FaCog /> Customize Dashboard
+            </button>
           )}
-          <button className="refresh-btn" onClick={fetchTrackedProjects} title="Refresh Dashboard">
-            <i className="fas fa-sync-alt"></i>
-          </button>
-        </div>
-      </div>
-      
-      {/* Getting Started Widget - only show if the user has opted to see it */}
-      {showGettingStarted && (!completedTasks || completedTasks.length < 4) && (
-        <div className="widget-container">
-          <GettingStartedWidget />
-          <button 
-            className="widget-toggle-btn" 
-            onClick={() => saveDashboardSettings({ showGettingStarted: false })}>
-            <i className="fas fa-times"></i> Hide Getting Started
-          </button>
-        </div>
-      )}
-      
-      {/* Show button to enable Getting Started if hidden */}
-      {!showGettingStarted && (!completedTasks || completedTasks.length < 4) && (
-        <button 
-          className="show-getting-started-btn" 
-          onClick={() => saveDashboardSettings({ showGettingStarted: true })}>
-          <i className="fas fa-rocket"></i> Show Getting Started Guide
-        </button>
-      )}
-      
-      {/* Summary metrics are now part of the DashboardVisualizations component */}
-      
-      {/* Dashboard controls in a cleaner interface */}
-      <div className="dashboard-controls">
-        <div className="controls-section">
-          <h3 className="section-title">Layout Options</h3>
-          <div className="controls-buttons">
-            <button 
-              onClick={toggleDashboardLayout}
-              className="dashboard-control-btn"
-              title={`Switch to ${dashboardSettings.layout === 'grid' ? 'list' : dashboardSettings.layout === 'list' ? 'map' : 'grid'} layout`}
-            >
-              <i className={`fas fa-${dashboardSettings.layout === 'grid' ? 'list' : dashboardSettings.layout === 'list' ? 'map' : 'th'}`}></i>
-              <span className="control-label">{dashboardSettings.layout === 'grid' ? 'List' : dashboardSettings.layout === 'list' ? 'Map' : 'Grid'} View</span>
-            </button>
-          </div>
-        </div>
-        
-        <div className="controls-section">
-          <h3 className="section-title">Widget Visibility</h3>
-          <div className="controls-buttons">
-            <button 
-              onClick={() => toggleWidgetVisibility('trackedProjects')}
-              className="dashboard-control-btn active"
-              title="Projects Section (Always Visible)"
-            >
-              <i className="fas fa-bookmark"></i>
-              <span className="control-label">Projects</span>
-            </button>
-            
-            <button 
-              onClick={() => toggleWidgetVisibility('visualizations')}
-              className={`dashboard-control-btn ${dashboardSettings.visibleWidgets.includes('visualizations') ? 'active' : ''}`}
-              title="Toggle Analytics Visualizations"
-            >
-              <i className="fas fa-chart-pie"></i>
-              <span className="control-label">Analytics</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Enhanced Visualizations Section with Integrated Summary Statistics */}
-      {dashboardSettings.visibleWidgets.includes('visualizations') && (
-        <div className="dashboard-statistics">
-          <div className="dashboard-card stats-card">
-            <div className="card-header">
-              <h2><i className="fas fa-chart-pie"></i> Project Analytics</h2>
-              {dashboardCache?.isLoading && (
-                <span className="analytics-loading-indicator">
-                  <i className="fas fa-sync fa-spin"></i> Updating
-                </span>
-              )}
-            </div>
-            
-            {(dashboardCache && dashboardCache.totalTrackedProjects > 0) || trackedProjects.length > 0 ? (
-              <DashboardVisualizations 
-                dashboardCache={dashboardCache}
-                trackedProjects={trackedProjects}
-                loading={loading || dashboardCache?.isLoading}
-                visibleWidgets={['projectDistribution', 'valueDistribution']}
+          
+          {/* Getting Started Widget */}
+          <div className="getting-started-toggle-container">
+            <label className="switch">
+              <input 
+                type="checkbox" 
+                checked={showGettingStarted} 
+                onChange={() => setShowGettingStarted(!showGettingStarted)} 
               />
-            ) : (
-              <div className="empty-state">
-                <i className="fas fa-chart-bar"></i>
-                <p>Track projects to see analytics</p>
-              </div>
-            )}
+              <span className="slider round"></span>
+            </label>
+            <span className="toggle-label">Show Getting Started Guide</span>
           </div>
+        </div>
+      </div>
+
+      {isOffline && (
+        <div className="offline-warning">
+          <p>You are currently offline. Some features may be limited.</p>
         </div>
       )}
-      
-      {/* Main dashboard content with improved layout */}
-      <div className="dashboard-main">
 
+      {showGettingStarted && (
+        <GettingStartedWidget 
+          completedTasks={completedTasks} 
+          checkTaskCompleted={checkTaskCompleted} 
+        />
+      )}
 
-        {/* Projects column - Tracked Projects (always visible) */}
-        <div className="dashboard-column projects-column">
-          <div className="dashboard-card">
-            <div className="card-header">
-              <h2><i className="fas fa-bookmark"></i> Tracked Projects</h2>
-              <div className="card-actions">
-                <button className="card-action-btn" onClick={() => navigate('/projects')} title="Find Projects">
-                  <i className="fas fa-search"></i>
-                  <span className="action-label">Find Projects</span>
-                </button>
-              </div>
-            </div>
-            
-            {error && <div className="error-message">{error}</div>}
-            
-            <div className={`projects-container layout-${dashboardSettings.layout}`}>
-              {trackedProjects.length > 0 ? (
-                <div className="projects-list">
-                  {trackedProjects.map((project) => {
-                    const projectId = project.id || project.projectId || `project-${Math.random().toString(36).substr(2, 9)}`;
-                    const projectName = project.projectName || project.name || project.title || project.planning_title || 'Unnamed Project';
-                    
-                    // Fix the location extraction to use address fields
-                    const projectLocation = project.location || 
-                      (project.planning_development_address_1 ? 
-                        [
-                          project.planning_development_address_1, 
-                          project.planning_development_address_2, 
-                          project.planning_development_address_3
-                        ].filter(Boolean).join(', ') : 
-                        (project.planning_location || project.address || 
-                          (project.planning_county ? `${project.planning_county}, ${project.planning_region || ''}`.trim() : '')
-                        )
-                      ) || '';
-                    
-                    const projectStatus = project.status || project.planning_stage || project.stage || 'Unknown';
-                    
-                    // Only show one value - remove duplicate display
-                    const rawValue = project.projectValue || project.planning_value || project.value || project.budget || 0;
-                    let projectValue = '';
-                    
-                    if (rawValue) {
-                      // If it's already a string with a currency symbol, use it as is
-                      if (typeof rawValue === 'string' && (rawValue.includes('£') || rawValue.includes('$') || rawValue.includes('€'))) {
-                        projectValue = rawValue;
-                      } else {
-                        // Otherwise format it as currency
-                        const numericValue = parseFloat(String(rawValue).replace(/[^0-9.-]+/g, ''));
-                        if (!isNaN(numericValue)) {
-                          projectValue = `€${numericValue.toLocaleString()}`;
-                        }
-                      }
-                    }
-                    
-                    return (
-                      <div key={projectId} className={`project-card ${dashboardSettings.layout}`}>
-                        <div className="project-card-content">
-                          <div className="project-header">
-                            <h3>{projectName}</h3>
-                            <div className="project-status-badge status-${projectStatus.toLowerCase().replace(/\s+/g, '-')}">
-                              {projectStatus}
-                            </div>
-                          </div>
-                          
-                          {currentUser ? (
-                            <>
-                              <div className="project-details">
-                                <div className="detail-row location-row">
-                                  <span><i className="fas fa-map-marker-alt"></i> <strong>Location:</strong> {projectLocation || 'Not specified'}</span>
-                                </div>
-                                <div className="detail-row">
-                                  <span><i className="fas fa-euro-sign"></i> <strong>Value:</strong> {projectValue || 'Not specified'}</span>
-                                </div>
-                                <div className="detail-row">
-                                  <span><i className="fas fa-tag"></i> <strong>Category:</strong> {project.planning_category || 'Not specified'}</span>
-                                </div>
-                                {project.planning_subcategory && (
-                                  <div className="detail-row">
-                                    <span><i className="fas fa-tags"></i> <strong>Subcategory:</strong> {project.planning_subcategory}</span>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              {/* Project Notes */}
-                              <NotesList 
-                                projectId={project.planning_id || project.id}
-                                notes={projectNotes[project.planning_id || project.id] || []}
-                                onAddNote={addProjectNote}
-                                onUpdateNote={updateProjectNote}
-                                onDeleteNote={deleteProjectNote}
-                              />
-                              
-                              <div className="project-card-actions">
-                                <button 
-                                  className="view-details-btn"
-                                  onClick={() => navigate(`/project/${project.planning_id || project.projectId}`)}
-                                >
-                                  <i className="fas fa-eye"></i> View Details
-                                </button>
-                                
-                                <button 
-                                  className="untrack-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    untrackProject(project.id);
-                                  }}
-                                  title="Remove from tracked projects"
-                                >
-                                  <i className="fas fa-times"></i> Untrack
-                                </button>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="login-prompt">
-                              <p>Log in to view project details</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="empty-state">
-                  <i className="fas fa-folder-open"></i>
-                  <p>You haven't tracked any projects yet.</p>
-                  <Link to="/projects" className="button button-primary">Find Projects</Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Stats column removed from here - moved to top of dashboard */}
-        
-        {/* Map View - Temporarily disabled until map component is implemented */}
-        {/* Uncomment when ProjectMap component is available
-        {dashboardSettings.layout === 'map' && (
-          <div className="dashboard-column map-column">
-            <ProjectMap 
-              projects={trackedProjects} 
-              onProjectClick={(project) => {
-                navigate(`/project/${project.id}`);
-              }}
-            />
-          </div>
-        )}
-        */}
-      </div>
+      {error && <div className="error-message">{error}</div>}
       
-      {error && (
-        <div className="error-message">
-          <i className="fas fa-exclamation-circle"></i> {error}
+      {/* Customizable Dashboard Layout */}
+      {loading ? (
+        <div className="loading-spinner-container">
+          <div className="loading-spinner"></div>
+          <p>Loading your personalized dashboard...</p>
         </div>
+      ) : (
+        <DashboardLayout
+          trackedProjects={trackedProjects}
+          projectsByStatus={dashboardCache?.projectsByStatus || {}}
+          valueByCategory={dashboardCache?.valueByCategory || {}}
+          userRole={userRole}
+          userData={userData}
+          untrackProject={untrackProject}
+          loading={loading || (dashboardCache && dashboardCache.isLoading)}
+          isEditMode={isCustomizing}
+          onLayoutSave={() => setIsCustomizing(false)}
+          onEditModeToggle={() => setIsCustomizing(!isCustomizing)}
+        />
       )}
     </div>
   );

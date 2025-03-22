@@ -75,6 +75,19 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 
 ## Recent Updates
 
+### Analytics Dashboard Implementation (March 2025)
+- Added a comprehensive Analytics page for visualizing project data over time
+- Implemented subcategory spending distribution visualization with interactive pie charts
+- Added projects by development stage visualization with horizontal bar charts
+- Created summary cards showing key project metrics and statistics
+- Implemented category and subcategory filtering for targeted data analysis
+- Added time range filtering to analyze data over different periods (1-10 years)
+- Enhanced visualization components with responsive design and proper data formatting
+- Implemented dynamic chart rendering with proper animations and tooltips
+- Added empty state handling for scenarios with no matching data
+- Ensured dark mode compatibility throughout all analytics components
+- Connected the Analytics page to the navigation system for easy access
+
 ### Projects Component Improvements (March 2025)
 - Completely redesigned Projects component to eliminate syntax errors and duplicate code sections
 - Improved state management and error handling throughout the component
