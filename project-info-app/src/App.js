@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -11,11 +11,12 @@ import ProjectComparison from './pages/ProjectComparison';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Analytics from './pages/Analytics';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import OnboardingProvider, { useOnboarding } from './contexts/OnboardingContext';
 import PreferencesProvider from './contexts/PreferencesContext';
 import WelcomeGuide from './components/onboarding/WelcomeGuide';
+import registerThemeOverride from './utils/applyThemeOverride';
 import './App.css';
 
 // Protected route component
@@ -33,19 +34,34 @@ const PublicRoute = ({ element }) => {
 const AppContent = () => {
   const { currentUser, loading } = useAuth();
   const { showWelcomeGuide } = useOnboarding();
+  const { theme, themeReady } = useTheme();
   const location = window.location;
   
   // Determine if we should use compact footer for certain pages
   const isComparisonPage = location.pathname === '/compare';
 
+  // Register theme override to ensure universal theming
+  useEffect(() => {
+    // Apply theme override when theme is ready
+    if (themeReady) {
+      const cleanupThemeOverride = registerThemeOverride();
+      
+      // Dispatch custom event to notify theme change
+      const themeChangedEvent = new CustomEvent('themeChanged', { detail: { theme } });
+      document.dispatchEvent(themeChangedEvent);
+      
+      return cleanupThemeOverride;
+    }
+  }, [theme, themeReady]);
+
   if (loading) {
-    return <div className="loading-spinner">Loading...</div>;
+    return <div className="loading-spinner theme-aware">Loading...</div>;
   }
   
   return (
-    <div className="App">
+    <div className="App theme-aware" data-theme={theme}>
       <Navbar />
-      <main className="main-content">
+      <main className="main-content theme-bg-primary">
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<Home />} />

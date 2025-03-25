@@ -1,0 +1,152 @@
+/* 
+ * ChartTheme.css
+ * Ensures charts and visualizations respect the global theme
+ */
+
+/* Chart container theming */
+.chart-container {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  box-shadow: var(--card-shadow);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Common chart theme variables */
+:root {
+  --chart-bg: var(--card-bg);
+  --chart-text: var(--text-primary);
+  --chart-grid: var(--border-color);
+  --chart-tooltip-bg: var(--bg-secondary);
+  --chart-tooltip-text: var(--text-primary);
+}
+
+/* ApexCharts theming */
+.apexcharts-canvas {
+  background-color: transparent !important;
+}
+
+.apexcharts-title-text,
+.apexcharts-legend-text,
+.apexcharts-yaxis-label,
+.apexcharts-xaxis-label {
+  fill: var(--text-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.apexcharts-gridline,
+.apexcharts-xcrosshairs,
+.apexcharts-ycrosshairs {
+  stroke: var(--border-color) !important;
+}
+
+.apexcharts-tooltip {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+.apexcharts-tooltip-title {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Recharts theming */
+.recharts-wrapper,
+.recharts-surface {
+  background-color: transparent;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line,
+.recharts-cartesian-axis-line {
+  stroke: var(--border-color) !important;
+}
+
+.recharts-text,
+.recharts-cartesian-axis-tick-value,
+.recharts-legend-item-text {
+  fill: var(--text-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.recharts-tooltip-wrapper {
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  filter: drop-shadow(var(--card-shadow)) !important;
+}
+
+.recharts-default-tooltip {
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Chart.js theming */
+canvas.chartjs-render-monitor {
+  background-color: transparent !important;
+}
+
+.chartjs-tooltip {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+/* Additional overrides for third-party charts */
+.ag-charts-tooltip {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+.ag-charts-background {
+  fill: transparent !important;
+}
+
+/* Calendar/react-big-calendar theming */
+.rbc-calendar,
+.rbc-month-view,
+.rbc-time-view {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.rbc-header,
+.rbc-toolbar button,
+.rbc-time-header-content,
+.rbc-label {
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.rbc-event {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.rbc-today {
+  background-color: var(--bg-tertiary);
+}
+
+.rbc-btn-group button {
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.rbc-btn-group button.rbc-active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.rbc-toolbar-label {
+  color: var(--text-primary);
+}

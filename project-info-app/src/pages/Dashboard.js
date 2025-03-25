@@ -110,7 +110,7 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [userData, setUserData] = useState(null);
-  const [showGettingStarted, setShowGettingStarted] = useState(false); // Default to hidden
+  const [showGettingStarted, setShowGettingStarted] = useState(false); // Always default to hidden
   const [dashboardSettings, setDashboardSettings] = useState({
     layout: 'grid', // grid, list, or map
     visibleWidgets: ['trackedProjects', 'visualizations', 'notes']

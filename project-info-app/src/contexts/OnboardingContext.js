@@ -50,11 +50,13 @@ export const OnboardingProvider = ({ children }) => {
   useEffect(() => {
     const hasSeenWelcomeGuide = localStorage.getItem('hasSeenWelcomeGuide');
     
+    // Always default to not showing the welcome guide
+    // Users can manually show it using the help button if needed
+    setShowWelcomeGuide(false);
+    
+    // Set initial value in localStorage for new users
     if (currentUser && !hasSeenWelcomeGuide) {
-      // If user is logged in and hasn't seen the guide, show it
-      setShowWelcomeGuide(true);
-    } else {
-      setShowWelcomeGuide(false);
+      localStorage.setItem('hasSeenWelcomeGuide', 'true');
     }
     
     setIsLoading(false);

@@ -46,6 +46,21 @@
   transition: all 0.3s ease;
 }
 
+.navbar-logo {
+  height: 32px;
+  width: auto;
+  margin-right: 10px;
+  transition: transform 0.3s ease;
+}
+
+.navbar-brand:hover .navbar-logo {
+  transform: scale(1.05);
+}
+
+.navbar-brand-text {
+  display: inline-block;
+}
+
 .navbar-brand:hover {
   color: var(--accent-color);
   transform: translateY(-1px);

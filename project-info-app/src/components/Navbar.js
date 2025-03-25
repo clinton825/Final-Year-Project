@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import logoImage from '../assets/logo.svg';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -28,14 +29,25 @@ const Navbar = () => {
     return location.pathname === path ? 'active' : '';
   };
 
+  // Apply theme class to ensure navbar follows theme consistently
+  useEffect(() => {
+    // This runs whenever theme changes
+    const navElement = document.querySelector('.navbar');
+    if (navElement) {
+      navElement.setAttribute('data-theme', theme);
+      navElement.classList.add('theme-aware');
+    }
+  }, [theme]);
+
   return (
-    <nav className="navbar">
+    <nav className={`navbar theme-aware`} data-theme={theme}>
       <div className="navbar-content">
-        <Link to="/" className="navbar-brand">
-          <i className="fas fa-building"></i> Infrastructure Tracking
+        <Link to="/" className="navbar-brand theme-text-primary">
+          <img src={logoImage} alt="Infrastructure Tracking" className="navbar-logo" />
+          <span className="navbar-brand-text">Infrastructure Tracking</span>
         </Link>
         
-        <div className="navbar-links">
+        <div className="navbar-links theme-aware">
           {!currentUser && (
             <Link to="/" className={`nav-link ${isActive('/')}`}>
               <i className="fas fa-home"></i> Home
@@ -61,7 +73,7 @@ const Navbar = () => {
               </Link>
               <button 
                 onClick={handleShowGuide} 
-                className="help-button"
+                className="help-button theme-aware"
                 title="Show app guide"
               >
                 <i className="fas fa-question-circle"></i>
@@ -73,7 +85,7 @@ const Navbar = () => {
           <div className="action-area">
             <button 
               onClick={toggleTheme} 
-              className="theme-toggle-button"
+              className="theme-toggle-button theme-aware"
               aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             >
@@ -84,7 +96,7 @@ const Navbar = () => {
             {currentUser && (
               <button 
                 onClick={handleLogout} 
-                className="logout-button"
+                className="logout-button theme-aware"
                 title="Logout"
               >
                 <i className="fas fa-sign-out-alt"></i>

@@ -1,0 +1,95 @@
+/* 
+ * ThemeUtils.css
+ * Global theme utility classes to ensure consistent theming across all components
+ */
+
+/* Theme-aware background colors */
+.theme-bg-primary {
+  background-color: var(--bg-primary) !important;
+}
+
+.theme-bg-secondary {
+  background-color: var(--bg-secondary) !important;
+}
+
+.theme-bg-tertiary {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.theme-card-bg {
+  background-color: var(--card-bg) !important;
+}
+
+/* Theme-aware text colors */
+.theme-text-primary {
+  color: var(--text-primary) !important;
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+.theme-accent {
+  color: var(--accent-color) !important;
+}
+
+/* Theme-aware borders */
+.theme-border {
+  border-color: var(--border-color) !important;
+}
+
+/* Theme transition */
+.theme-transition {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease, 
+              box-shadow 0.3s ease !important;
+}
+
+/* Theme-aware inputs */
+.theme-input {
+  background-color: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--input-border) !important;
+}
+
+/* Theme-aware buttons */
+.theme-button-primary {
+  background-color: var(--button-primary-bg) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.theme-button-secondary {
+  background-color: var(--button-secondary-bg) !important;
+  color: var(--button-secondary-text) !important;
+}
+
+/* Theme-aware cards and containers */
+.theme-card {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+/* Theme-aware scrollbars for WebKit browsers */
+.theme-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.theme-scrollbar::-webkit-scrollbar-track {
+  background-color: var(--bg-secondary);
+}
+
+.theme-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+/* Chart theming helpers */
+.theme-chart {
+  --chart-bg: var(--card-bg);
+  --chart-text: var(--text-primary);
+  --chart-grid: var(--border-color);
+}
