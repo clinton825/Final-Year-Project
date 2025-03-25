@@ -2,7 +2,7 @@
 **BY Clinton Bempah (20097793)**
 
 ## Overview
-The **Infrastructure Project Tracking Web Application** is a React-based platform that enables users to search and track infrastructure projects. It integrates with a backend API to fetch project details, providing a streamlined and user-friendly experience.
+The **Infrastructure Project Tracking Web Application** is a React-based web application that allows users to explore and search for infrastructure project details. The application fetches project data from a backend API and displays comprehensive information about various infrastructure projects, including their planning details, categories, values, and locations.
 
 ## Key Features
 ### **Search & Filtering**
