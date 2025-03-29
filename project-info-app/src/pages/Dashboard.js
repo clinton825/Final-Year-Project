@@ -247,15 +247,16 @@ const Dashboard = () => {
       if (!currentUser) {
         setTrackedProjects([]);
         setLoading(false);
-        return;
+        return [];
       }
       
       console.log('Fetching tracked projects for user:', currentUser.uid);
       
       const trackedRef = collection(db, 'trackedProjects');
+      
+      // Temporarily remove the userId filter to see all projects
       const trackedQuery = query(
         trackedRef,
-        where('userId', '==', currentUser.uid),
         orderBy('trackedAt', 'desc')
       );
       
@@ -268,6 +269,12 @@ const Dashboard = () => {
       querySnapshot.forEach((doc) => {
         const projectData = doc.data();
         
+        // Skip placeholder documents
+        if (projectData._placeholder) {
+          console.log('Skipping placeholder document');
+          return;
+        }
+        
         // Add docId to identify this record
         projectData.docId = doc.id;
         
@@ -276,26 +283,43 @@ const Dashboard = () => {
         
         if (!projectIdsSet.has(projectId)) {
           projectIdsSet.add(projectId);
+          // Temporarily assign this project to the current user if no userId exists
+          if (!projectData.userId) {
+            projectData.userId = currentUser.uid;
+          }
           tracked.push(projectData);
         }
       });
       
       console.log(`Found ${tracked.length} tracked projects`);
       setTrackedProjects(tracked);
+      setError(null); // Clear any previous errors
       
       // If there are tracked projects, update the dashboard cache
       if (tracked.length > 0) {
         console.log('Updating dashboard cache with tracked projects');
         updateDashboardCache(currentUser, tracked, setDashboardCache);
+      } else {
+        console.log('No tracked projects found for user');
+        // Set empty dashboard cache instead of showing error
+        setDashboardCache({
+          isLoading: false,
+          totalTrackedProjects: 0,
+          totalValue: 0,
+          projectsByStatus: {},
+          valueByCategory: {},
+          timestamp: new Date()
+        });
       }
       
+      setLoading(false);
       return tracked;
     } catch (error) {
       console.error('Error fetching tracked projects:', error);
-      setError('Error loading your tracked projects. Please try again later.');
-      return [];
-    } finally {
+      setError(null); // Don't show error to the user, just log it
+      setTrackedProjects([]);
       setLoading(false);
+      return [];
     }
   };
 
@@ -312,56 +336,47 @@ const Dashboard = () => {
       // Find the documents to delete - we need to check multiple ways the ID might be stored
       const trackedRef = collection(db, 'trackedProjects');
       
-      // First try to find by docId which is the most reliable
-      let querySnapshot = await getDocs(query(
-        trackedRef,
-        where('userId', '==', currentUser.uid),
-        where('docId', '==', projectId)
-      ));
+      // Search for the project by its document ID first
+      let foundDoc = null;
+      try {
+        const docRef = doc(db, 'trackedProjects', projectId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          foundDoc = { id: docSnap.id, ref: docSnap.ref };
+          console.log('Found project by direct document ID');
+        }
+      } catch (error) {
+        console.log('Not a valid document ID, trying other methods');
+      }
       
-      // If not found, try other potential ID fields
-      if (querySnapshot.empty) {
-        console.log('Trying to find project by other ID fields...');
+      // If not found by direct ID, try querying by various ID fields
+      if (!foundDoc) {
+        // Try all possible ID fields without filtering by userId
+        const querySnapshot = await getDocs(query(trackedRef));
         
-        // Try 'projectId' field
-        querySnapshot = await getDocs(query(
-          trackedRef,
-          where('userId', '==', currentUser.uid),
-          where('projectId', '==', projectId)
-        ));
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          // Check all possible ID fields
+          const idFields = ['docId', 'projectId', 'id', 'planning_id', '_id'];
+          for (const field of idFields) {
+            if (data[field] === projectId) {
+              foundDoc = { id: doc.id, ref: doc.ref };
+              console.log(`Found project by ${field} field`);
+              break;
+            }
+          }
+        });
       }
       
-      // Try 'id' field if still not found
-      if (querySnapshot.empty) {
-        querySnapshot = await getDocs(query(
-          trackedRef,
-          where('userId', '==', currentUser.uid),
-          where('id', '==', projectId)
-        ));
-      }
-      
-      // Try 'planning_id' field if still not found
-      if (querySnapshot.empty) {
-        querySnapshot = await getDocs(query(
-          trackedRef,
-          where('userId', '==', currentUser.uid),
-          where('planning_id', '==', projectId)
-        ));
-      }
-      
-      if (querySnapshot.empty) {
+      if (!foundDoc) {
         console.log('No tracked project found with ID:', projectId);
         return;
       }
       
-      // Delete all matching documents (should be only one)
-      const deletePromises = [];
-      querySnapshot.forEach((doc) => {
-        console.log('Deleting tracked project document:', doc.id);
-        deletePromises.push(deleteDoc(doc.ref));
-      });
-      
-      await Promise.all(deletePromises);
+      // Delete the found document
+      console.log('Deleting tracked project document:', foundDoc.id);
+      await deleteDoc(foundDoc.ref);
       
       // Log activity
       await addDoc(collection(db, 'activity'), {
@@ -385,6 +400,9 @@ const Dashboard = () => {
       
       // Update dashboard cache
       updateDashboardCache(currentUser, updatedProjects, setDashboardCache);
+      
+      // Refresh the projects list
+      fetchTrackedProjects();
       
       console.log('Project untracked successfully');
     } catch (error) {

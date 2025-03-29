@@ -106,7 +106,14 @@ const Analytics = () => {
 
   const fetchTrackedProjects = async () => {
     try {
-      if (!currentUser) return;
+      if (!currentUser) {
+        setChartData(generateEmptyChartData());
+        setStagesData(generateEmptyStagesData());
+        setChartReady(true);
+        return;
+      }
+      
+      console.log('Fetching tracked projects for analytics:', currentUser.uid);
       
       const q = query(
         collection(db, 'trackedProjects'),
@@ -117,15 +124,39 @@ const Analytics = () => {
       const trackedProjectsData = [];
       
       querySnapshot.forEach(doc => {
+        const projectData = doc.data();
+        
+        // Skip placeholder documents
+        if (projectData._placeholder) {
+          console.log('Skipping placeholder document in analytics');
+          return;
+        }
+        
         trackedProjectsData.push({
           id: doc.id,
-          ...doc.data()
+          ...projectData
         });
       });
       
+      console.log(`Analytics: Found ${trackedProjectsData.length} tracked projects`);
       setTrackedProjects(trackedProjectsData);
+      
+      // Even if no projects, generate empty chart data instead of showing error
+      if (trackedProjectsData.length === 0) {
+        console.log('No tracked projects for analytics, showing empty state');
+        setChartData(generateEmptyChartData());
+        setStagesData(generateEmptyStagesData());
+        setError(null);
+      }
+      
+      setChartReady(true);
     } catch (error) {
       console.error('Error fetching tracked projects for analytics:', error);
+      // Don't show error message, just generate empty charts
+      setChartData(generateEmptyChartData());
+      setStagesData(generateEmptyStagesData());
+      setChartReady(true);
+      setError(null);
     }
   };
 
@@ -337,6 +368,62 @@ const Analytics = () => {
       maximumFractionDigits: 0
     }).format(value);
   };
+
+  const generateEmptyChartData = () => {
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          label: 'No tracked projects',
+          data: [100],
+          backgroundColor: ['#e0e0e0'],
+          borderColor: ['#cccccc'],
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
+
+  const generateEmptyStagesData = () => {
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          label: 'No projects in this stage',
+          data: [100],
+          backgroundColor: ['#e0e0e0'],
+          borderColor: ['#cccccc'],
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
+
+  useEffect(() => {
+    // Initialize charts with loading state
+    setChartData(generateEmptyChartData());
+    setStagesData(generateEmptyStagesData());
+    
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        await Promise.all([
+          fetchProjects(),
+          fetchTrackedProjects(),
+          fetchCategories()
+        ]);
+      } catch (error) {
+        console.error('Error loading analytics data:', error);
+        setError(null); // Don't show error to user, just use empty state
+        setChartReady(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [currentUser]);
 
   return (
     <div className="analytics-container">

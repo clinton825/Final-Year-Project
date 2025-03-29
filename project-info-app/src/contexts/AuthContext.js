@@ -18,6 +18,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc } from '@firebase/firestore';
 import { auth, db, storage } from '../firebase/config';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { databaseInitService } from '../services/databaseInitService';
 
 const AuthContext = createContext();
 
@@ -404,6 +405,61 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Function to handle successful login
+  const handleSuccessfulLogin = async (user) => {
+    try {
+      if (!user) return;
+      
+      console.log('Handling successful login for user:', user.email);
+      
+      // Update user document in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      
+      try {
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          // Create new user document
+          await setDoc(userRef, {
+            displayName: user.displayName || user.email.split('@')[0],
+            email: user.email,
+            createdAt: new Date(),
+            lastLogin: new Date(),
+          });
+          console.log('Created new user document in Firestore');
+        } else {
+          // Update existing user's last login
+          await updateDoc(userRef, {
+            lastLogin: new Date()
+          });
+        }
+        
+        // Store user data in localStorage for offline access
+        const userData = userDoc.exists() 
+          ? { ...userDoc.data(), uid: user.uid } 
+          : { displayName: user.displayName || user.email.split('@')[0], email: user.email, uid: user.uid };
+        storeUserDataLocally(userData);
+      } catch (error) {
+        console.error('Error handling user document:', error);
+        // Continue execution even if user document handling fails
+      }
+      
+      // Initialize database collections for this user
+      try {
+        await databaseInitService.initializeDatabase(user);
+        console.log('Database initialization complete for user:', user.email);
+      } catch (error) {
+        console.error('Error during database initialization:', error);
+        // Continue execution even if database initialization fails
+      }
+      
+    } catch (error) {
+      console.error('Error in handleSuccessfulLogin:', error);
+      // We don't throw the error to prevent blocking the auth flow
+    }
+  };
+
+  // Effect to handle auth state changes
   useEffect(() => {
     // Ensure auth persistence is set to LOCAL
     setPersistence(auth, browserLocalPersistence)
@@ -415,44 +471,41 @@ export function AuthProvider({ children }) {
         setAuthError('Failed to set persistence: ' + error.message);
       });
 
+    // Unsubscribe function to clean up the listener
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user ? 'User logged in' : 'No user');
+      console.log('Auth state changed, user:', user?.email || 'No user');
       
-      if (user) {
-        // Check if we have cached user data
-        let userDataFetched = false;
-        
-        try {
-          // Try to get fresh data from Firestore
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            storeUserDataLocally({
-              uid: user.uid,
-              ...userData
-            });
-            userDataFetched = true;
-          }
-        } catch (error) {
-          console.error('Error fetching user data on auth state change:', error);
-          // Continue to set currentUser even if we can't fetch additional data
-        }
-        
-        // If Firestore fetch failed, try local storage
-        if (!userDataFetched) {
-          const localData = getLocalUserData();
-          if (localData && localData.uid === user.uid) {
+      try {
+        if (user) {
+          console.log('User authenticated:', user.email);
+          
+          // Set current user immediately to prevent auth issues
+          setCurrentUser(user);
+          
+          // Attempt to get cached profile data for immediate display
+          const cachedUserData = getLocalUserData();
+          if (cachedUserData && cachedUserData.uid === user.uid) {
             console.log('Using locally stored user data on auth state change');
           }
+          
+          // Process the user data in the background
+          handleSuccessfulLogin(user).catch(error => {
+            console.error('Error in background login processing:', error);
+          });
+        } else {
+          console.log('No user is signed in');
+          setCurrentUser(null);
         }
-      } else {
-        // No user, no need to fetch profile data
+      } catch (error) {
+        console.error('Error handling auth state change:', error);
+        // Set current user anyway to prevent blocking the auth flow
+        setCurrentUser(user);
+      } finally {
+        setLoading(false);
       }
-      
-      setCurrentUser(user);
-      setLoading(false);
     });
-
+    
+    // Clean up the listener when the component unmounts
     return unsubscribe;
   }, []);
 

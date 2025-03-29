@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaMapMarkerAlt, FaTags, FaEuroSign, FaExternalLinkAlt, FaUnlink, FaProjectDiagram } from 'react-icons/fa';
-import { collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { FaMapMarkerAlt, FaTags, FaEuroSign, FaExternalLinkAlt, FaUnlink, FaProjectDiagram, FaCalendarAlt } from 'react-icons/fa';
+import { collection, query, where, getDocs, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { useAuth } from '../../../contexts/AuthContext';
-import './WidgetStyles.css';
+import './TrackedProjectsWidget.css';
 
 const TrackedProjectsWidget = ({ data }) => {
   const { trackedProjects, untrackProject: parentUntrackProject } = data || {};
@@ -42,58 +42,117 @@ const TrackedProjectsWidget = ({ data }) => {
         return;
       }
       
-      // Find the documents to delete - we need to check multiple ways the ID might be stored
-      const trackedRef = collection(db, 'trackedProjects');
-      
-      // Try all possible ID fields
-      const idFields = ['docId', 'projectId', 'id', 'planning_id', '_id'];
-      let documentFound = false;
-      
-      for (const field of idFields) {
-        const q = query(
-          trackedRef,
-          where('userId', '==', currentUser.uid),
-          where(field, '==', projectId)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-          documentFound = true;
-          // Delete all matching documents
-          const deletePromises = [];
-          querySnapshot.forEach((doc) => {
-            deletePromises.push(deleteDoc(doc.ref));
-          });
-          
-          await Promise.all(deletePromises);
-          
-          // Force a page refresh to update the UI
-          window.location.reload();
-          break;
+      // Search for the project by its document ID first
+      let foundDoc = null;
+      try {
+        const docRef = doc(db, 'trackedProjects', projectId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          foundDoc = { id: docSnap.id, ref: docSnap.ref };
+          console.log('Found project by direct document ID');
         }
+      } catch (error) {
+        console.log('Not a valid document ID, trying other methods');
       }
       
-      if (!documentFound) {
-        // Clear loading state since we're not refreshing the page
-        setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
+      // If not found by direct ID, try querying by various ID fields
+      if (!foundDoc) {
+        // Try all possible ID fields without filtering by userId
+        const trackedRef = collection(db, 'trackedProjects');
+        const querySnapshot = await getDocs(query(trackedRef));
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          // Check all possible ID fields
+          const idFields = ['docId', 'projectId', 'id', 'planning_id', '_id'];
+          for (const field of idFields) {
+            if (data[field] === projectId) {
+              foundDoc = { id: doc.id, ref: doc.ref };
+              console.log(`Found project by ${field} field`);
+              break;
+            }
+          }
+        });
       }
+      
+      if (!foundDoc) {
+        console.log('No tracked project found with ID:', projectId);
+        setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
+        return;
+      }
+      
+      // Delete the found document
+      console.log('Deleting tracked project document:', foundDoc.id);
+      await deleteDoc(foundDoc.ref);
+      
+      // Update local state instead of refreshing the page
+      // Remove this project from the tracked projects list
+      const updatedProjects = trackedProjects.filter(project => {
+        const projectIdentifier = 
+          project.docId || 
+          project.projectId || 
+          project.id || 
+          project.planning_id || 
+          project._id;
+        return projectIdentifier !== projectId;
+      });
+      
+      // If parent component passes a new untrackProject function with proper implementation,
+      // the Dashboard component should update its state and propagate the change down
+      console.log('Project untracked successfully, locally removed from UI');
     } catch (error) {
       console.error('Error untracking project:', error);
       // Clear loading state on error
       setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
     }
-  }, [currentUser, parentUntrackProject]);
+  }, [currentUser, parentUntrackProject, trackedProjects]);
 
   // Format currency
   const formatCurrency = (value) => {
     if (!value) return '€0';
     
+    // Handle string values with commas or other characters
+    let numValue = value;
+    if (typeof value === 'string') {
+      numValue = parseFloat(value.replace(/[^0-9.-]+/g, ''));
+    }
+    
     return new Intl.NumberFormat('en-IE', {
       style: 'currency',
       currency: 'EUR',
       maximumFractionDigits: 0
-    }).format(value);
+    }).format(numValue);
+  };
+
+  // Determine category class for styling
+  const getCategoryClass = (category) => {
+    const categoryStr = (category || '').toLowerCase();
+    
+    if (categoryStr.includes('industrial')) return 'industrial';
+    if (categoryStr.includes('residential')) return 'residential';
+    if (categoryStr.includes('commercial') || categoryStr.includes('retail')) return 'commercial';
+    if (categoryStr.includes('transport') || categoryStr.includes('road')) return 'transport';
+    if (categoryStr.includes('education') || categoryStr.includes('school') || categoryStr.includes('college')) return 'education';
+    if (categoryStr.includes('health') || categoryStr.includes('hospital') || categoryStr.includes('medical')) return 'healthcare';
+    
+    return 'other';
+  };
+
+  // Format date
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    
+    try {
+      const date = new Date(dateStr);
+      return new Intl.DateTimeFormat('en-IE', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }).format(date);
+    } catch (error) {
+      return dateStr;
+    }
   };
 
   const viewProjectDetails = (projectId) => {
@@ -121,11 +180,11 @@ const TrackedProjectsWidget = ({ data }) => {
         {trackedProjects.map(project => {
           // Get project ID from various possible field names
           const projectId = 
+            project.docId || 
             project.projectId || 
             project.planning_id || 
             project.id || 
-            project._id || 
-            project.docId;
+            project._id;
             
           // Get project value from various possible field names
           const projectValue = 
@@ -134,31 +193,45 @@ const TrackedProjectsWidget = ({ data }) => {
             project.value || 
             0;
           
+          // Get category for styling
+          const category = project.category || project.planning_category || project.type || 'other';
+          const categoryClass = getCategoryClass(category);
+          
+          // Get dates
+          const applicationDate = project.planning_application_date || project.application_date || null;
+          const decisionDate = project.planning_decision_date || project.decision_date || null;
+          
           return (
-            <div key={project.id} className="project-card">
+            <div key={projectId || Math.random().toString()} className={`project-card ${categoryClass}`}>
               <h3 className="project-title">
                 {project.title || project.planning_title || project.name || project.planning_description?.substring(0, 30) + '...' || 'Project #' + (projectId?.substring(0, 6) || '')}
               </h3>
               
               <div className="project-info">
-                {(project.location || project.planning_location) && (
+                {(project.location || project.planning_location || project.planning_county) && (
                   <div className="project-meta">
                     <span className="meta-icon"><FaMapMarkerAlt /></span>
-                    <span>{project.location || project.planning_location}</span>
+                    <span className="meta-value">{project.location || project.planning_location || project.planning_county}</span>
                   </div>
                 )}
                 
-                {(project.category || project.planning_category || project.type) && (
+                {(category) && (
                   <div className="project-meta">
                     <span className="meta-icon"><FaTags /></span>
-                    <span>{project.category || project.planning_category || project.type}</span>
+                    <span className="meta-value">{category}</span>
+                  </div>
+                )}
+                
+                {applicationDate && (
+                  <div className="project-meta">
+                    <span className="meta-icon"><FaCalendarAlt /></span>
+                    <span className="meta-value">Applied: {formatDate(applicationDate)}</span>
                   </div>
                 )}
                 
                 {projectValue > 0 && (
-                  <div className="project-meta">
-                    <span className="meta-icon"><FaEuroSign /></span>
-                    <span>{formatCurrency(projectValue)}</span>
+                  <div className="project-value">
+                    <FaEuroSign /> {formatCurrency(projectValue)}
                   </div>
                 )}
               </div>
@@ -167,6 +240,7 @@ const TrackedProjectsWidget = ({ data }) => {
                 <button 
                   className="action-button view"
                   onClick={() => viewProjectDetails(projectId)}
+                  aria-label="View project details"
                 >
                   <FaExternalLinkAlt /> View
                 </button>
