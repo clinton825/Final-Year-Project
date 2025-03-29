@@ -409,7 +409,7 @@ const Analytics = () => {
         setLoading(true);
         setError(null);
         await Promise.all([
-          fetchProjects(),
+          fetchAllProjects(),
           fetchTrackedProjects(),
           fetchCategories()
         ]);
