@@ -170,119 +170,145 @@ const TrackedProjectsWidget = ({ data }) => {
     navigate(`/project/${projectId}`);
   };
 
-  if (!trackedProjects || trackedProjects.length === 0) {
-    return (
-      <div className="empty-state">
-        <div className="empty-icon">
-          <FaProjectDiagram />
-        </div>
-        <h3 className="empty-title">No Projects Tracked</h3>
-        <p className="empty-message">
-          You haven't tracked any projects yet. Explore the Projects section to find and track projects that interest you.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="tracked-projects-widget">
-      <div className="projects-grid">
-        {trackedProjects.map(project => {
-          // Get project ID from various possible field names
-          const projectId = 
-            project.docId || 
-            project.projectId || 
-            project.planning_id || 
-            project.id || 
-            project._id;
+    <div className={`tracked-projects-widget ${loading ? 'loading' : ''}`}>
+      {loading ? (
+        <div className="loading-indicator">
+          <div className="spinner"></div>
+          <p>Loading tracked projects...</p>
+        </div>
+      ) : trackedProjects.length === 0 ? (
+        <div className="empty-state">
+          <p>You're not tracking any projects yet.</p>
+          <p className="hint">Visit the Projects page to find and track projects.</p>
+        </div>
+      ) : (
+        <div className="projects-grid">
+          {trackedProjects.map(project => {
+            // Log the project data to help with debugging
+            console.log('Rendering project in widget:', project);
             
-          // Get project value from various possible field names
-          const projectValue = 
-            project.projectValue || 
-            project.planning_value || 
-            project.value || 
-            0;
-          
-          // Get category for styling
-          const category = project.category || project.planning_category || project.type || 'other';
-          const categoryClass = getCategoryClass(category);
-          
-          // Get dates
-          const applicationDate = project.planning_application_date || project.application_date || null;
-          const decisionDate = project.planning_decision_date || project.decision_date || null;
-          
-          return (
-            <div key={projectId || Math.random().toString()} className={`project-card ${categoryClass}`}>
-              <h3 className="project-title">
-                {project.title || project.planning_title || project.name || project.planning_description?.substring(0, 30) + '...' || 'Project #' + (projectId?.substring(0, 6) || '')}
-              </h3>
+            // Extract project ID from various possible fields
+            const projectId = 
+              project.docId || 
+              project.projectId || 
+              project.planning_id || 
+              project.id || 
+              project._id;
+            
+            // Debug logging
+            if (!projectId) {
+              console.warn('Project missing ID:', project);
+            }
               
-              <div className="project-info">
-                {(project.location || project.planning_location || project.planning_county) && (
+            // Extract project title from various possible fields
+            const projectTitle = 
+              project.title || 
+              project.planning_title || 
+              project.planning_name || 
+              project.name || 
+              (project.planning_description ? project.planning_description.substring(0, 30) + '...' : null) || 
+              'Unnamed Project';
+            
+            // Extract location information
+            const location = 
+              project.location || 
+              project.planning_location || 
+              project.planning_county || 
+              (project.planning_development_address_1 ? 
+                [
+                  project.planning_development_address_1,
+                  project.planning_development_address_2,
+                  project.planning_development_address_3
+                ].filter(Boolean).join(', ') : 
+                null
+              ) || 
+              'Location not specified';
+            
+            // Get project value from various possible field names
+            const projectValue = 
+              parseFloat(project.projectValue) || 
+              parseFloat(project.planning_value) || 
+              parseFloat(project.value) || 
+              0;
+          
+            // Get category for styling
+            const category = project.category || project.planning_category || project.type || 'other';
+            const categoryClass = getCategoryClass(category);
+            
+            // Get dates
+            const applicationDate = project.planning_application_date || project.application_date || null;
+            const decisionDate = project.planning_decision_date || project.decision_date || null;
+            
+            return (
+              <div key={projectId || Math.random().toString()} className={`project-card ${categoryClass}`}>
+                <h3 className="project-title">{projectTitle}</h3>
+                
+                <div className="project-info">
                   <div className="project-meta">
                     <span className="meta-icon"><FaMapMarkerAlt /></span>
-                    <span className="meta-value">{project.location || project.planning_location || project.planning_county}</span>
+                    <span className="meta-value">{location}</span>
                   </div>
-                )}
-                
-                {(category) && (
-                  <div className="project-meta">
-                    <span className="meta-icon"><FaTags /></span>
-                    <span className="meta-value">{category}</span>
-                  </div>
-                )}
-                
-                {applicationDate && (
-                  <div className="project-meta">
-                    <span className="meta-icon"><FaCalendarAlt /></span>
-                    <span className="meta-value">Applied: {formatDate(applicationDate)}</span>
-                  </div>
-                )}
-                
-                {projectValue > 0 && (
-                  <div className="project-value">
-                    <FaEuroSign /> {formatCurrency(projectValue)}
-                  </div>
-                )}
-              </div>
-              
-              <div className="project-actions">
-                <button 
-                  className="action-button view"
-                  onClick={() => viewProjectDetails(projectId)}
-                  aria-label="View project details"
-                >
-                  <FaExternalLinkAlt /> View
-                </button>
-                
-                <button 
-                  className={`action-button untrack ${untrackingProjects[projectId] ? 'loading' : ''}`}
-                  onClick={() => {
-                    // Prioritize docId which is most reliable for tracking in our system
-                    const trackingId = project.docId || projectId;
-                    console.log('Untracking project with ID:', trackingId);
-                    
-                    // Use our robust handleUntrack function
-                    handleUntrack(trackingId);
-                  }}
-                  disabled={untrackingProjects[projectId]}
-                  aria-label="Untrack this project"
-                >
-                  {untrackingProjects[projectId] ? (
-                    <>
-                      <span className="loading-spinner"></span> Untracking...
-                    </>
-                  ) : (
-                    <>
-                      <FaUnlink /> Untrack
-                    </>
+                  
+                  {category && (
+                    <div className="project-meta">
+                      <span className="meta-icon"><FaTags /></span>
+                      <span className="meta-value">{category}</span>
+                    </div>
                   )}
-                </button>
+                  
+                  {applicationDate && (
+                    <div className="project-meta">
+                      <span className="meta-icon"><FaCalendarAlt /></span>
+                      <span className="meta-value">Applied: {formatDate(applicationDate)}</span>
+                    </div>
+                  )}
+                  
+                  {projectValue > 0 && (
+                    <div className="project-value">
+                      <FaEuroSign /> {formatCurrency(projectValue)}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="project-actions">
+                  <button 
+                    className="action-button view"
+                    onClick={() => viewProjectDetails(projectId)}
+                    aria-label="View project details"
+                  >
+                    <FaExternalLinkAlt /> View
+                  </button>
+                  
+                  <button 
+                    className={`action-button untrack ${untrackingProjects[projectId] ? 'loading' : ''}`}
+                    onClick={() => {
+                      // Prioritize docId which is most reliable for tracking in our system
+                      const trackingId = project.docId || projectId;
+                      console.log('Untracking project with ID:', trackingId);
+                      
+                      // Use our robust handleUntrack function
+                      handleUntrack(trackingId);
+                    }}
+                    disabled={untrackingProjects[projectId]}
+                    aria-label="Untrack this project"
+                  >
+                    {untrackingProjects[projectId] ? (
+                      <>
+                        <span className="loading-spinner"></span> Untracking...
+                      </>
+                    ) : (
+                      <>
+                        <FaUnlink /> Untrack
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

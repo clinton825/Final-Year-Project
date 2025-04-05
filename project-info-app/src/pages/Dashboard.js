@@ -252,76 +252,222 @@ const Dashboard = () => {
       if (!currentUser) {
         setTrackedProjects([]);
         setLoading(false);
+        setError(null);
         return [];
       }
       
       console.log('Fetching tracked projects for user:', currentUser.uid);
+      setLoading(true);
+      setError(null);
       
       const trackedRef = collection(db, 'trackedProjects');
       
-      // Temporarily remove the userId filter to see all projects
+      // Use a simpler query without the orderBy to avoid index requirements
+      // Just get all projects that belong to the current user
       const trackedQuery = query(
         trackedRef,
-        orderBy('trackedAt', 'desc')
+        where('userId', '==', currentUser.uid)
       );
       
-      const querySnapshot = await getDocs(trackedQuery);
-      
-      // Process tracked projects
-      const tracked = [];
-      const projectIdsSet = new Set();
-      
-      querySnapshot.forEach((doc) => {
-        const projectData = doc.data();
+      try {
+        const querySnapshot = await getDocs(trackedQuery);
         
-        // Skip placeholder documents
-        if (projectData._placeholder) {
-          console.log('Skipping placeholder document');
-          return;
+        if (querySnapshot.empty) {
+          console.log('No tracked projects found for user');
+          setTrackedProjects([]);
+          setDashboardCache({
+            isLoading: false,
+            totalTrackedProjects: 0,
+            totalValue: 0,
+            projectsByStatus: {},
+            valueByCategory: {},
+            timestamp: new Date()
+          });
+          setLoading(false);
+          return [];
         }
         
-        // Add docId to identify this record
-        projectData.docId = doc.id;
+        // Process tracked projects
+        const tracked = [];
+        const projectIdsSet = new Set(); // To avoid duplicates
         
-        // Check if we already have this project (deduplicate)
-        const projectId = projectData.projectId || projectData.planning_id || projectData.id;
+        console.log(`Found ${querySnapshot.size} potential tracked projects, processing...`);
         
-        if (!projectIdsSet.has(projectId)) {
-          projectIdsSet.add(projectId);
-          // Temporarily assign this project to the current user if no userId exists
-          if (!projectData.userId) {
-            projectData.userId = currentUser.uid;
+        querySnapshot.forEach((doc) => {
+          const projectData = doc.data();
+          
+          // Skip placeholder documents
+          if (projectData._placeholder) {
+            console.log('Skipping placeholder document');
+            return;
           }
-          tracked.push(projectData);
-        }
-      });
-      
-      console.log(`Found ${tracked.length} tracked projects`);
-      setTrackedProjects(tracked);
-      setError(null); // Clear any previous errors
-      
-      // If there are tracked projects, update the dashboard cache
-      if (tracked.length > 0) {
-        console.log('Updating dashboard cache with tracked projects');
-        updateDashboardCache(currentUser, tracked, setDashboardCache);
-      } else {
-        console.log('No tracked projects found for user');
-        // Set empty dashboard cache instead of showing error
-        setDashboardCache({
-          isLoading: false,
-          totalTrackedProjects: 0,
-          totalValue: 0,
-          projectsByStatus: {},
-          valueByCategory: {},
-          timestamp: new Date()
+          
+          // Add docId to identify this record
+          projectData.docId = doc.id;
+          
+          // Extract project ID - check all possible fields
+          const projectId = 
+            projectData.projectId || 
+            projectData.planning_id || 
+            projectData.id || 
+            doc.id.split('_')[1]; // Extract from compound ID
+          
+          if (!projectId) {
+            console.warn('Project missing ID, skipping:', doc.id);
+            return;
+          }
+          
+          // Check if we already have this project (deduplicate)
+          if (!projectIdsSet.has(projectId)) {
+            projectIdsSet.add(projectId);
+            
+            // Debug logging
+            console.log('Processing project:', projectId, projectData.planning_title || projectData.planning_name || 'Unnamed');
+            
+            // Ensure we have complete project information
+            const processedProject = {
+              // Ensure all required fields exist
+              planning_id: projectId,
+              planning_name: projectData.planning_name || projectData.planning_title || projectData.title || 'Unnamed Project',
+              planning_description: projectData.planning_description || projectData.description || 'No description available',
+              planning_value: parseFloat(projectData.planning_value || projectData.projectValue || projectData.value || 0),
+              planning_stage: projectData.planning_stage || projectData.status || 'Unknown',
+              planning_category: projectData.planning_category || projectData.category || projectData.type || 'Uncategorized',
+              planning_location: projectData.planning_location || projectData.location || projectData.planning_county || 'Unknown',
+              
+              // Include all original data 
+              ...projectData,
+              
+              // Ensure these important fields are set
+              docId: doc.id,
+              projectId: projectId
+            };
+            
+            tracked.push(processedProject);
+          }
         });
+        
+        // Sort projects by trackedAt date (newest first)
+        tracked.sort((a, b) => {
+          const dateA = a.trackedAt?.toDate ? a.trackedAt.toDate() : new Date(0);
+          const dateB = b.trackedAt?.toDate ? b.trackedAt.toDate() : new Date(0);
+          return dateB - dateA;
+        });
+        
+        console.log(`Successfully processed ${tracked.length} tracked projects`);
+        setTrackedProjects(tracked);
+        
+        // Update the dashboard cache with project data
+        if (tracked.length > 0) {
+          console.log('Updating dashboard cache with tracked projects');
+          updateDashboardCache(currentUser, tracked, setDashboardCache);
+        } else {
+          console.log('No valid tracked projects found for user');
+          setDashboardCache({
+            isLoading: false,
+            totalTrackedProjects: 0,
+            totalValue: 0,
+            projectsByStatus: {},
+            valueByCategory: {},
+            timestamp: new Date()
+          });
+        }
+        
+        setLoading(false);
+        return tracked;
+      } catch (queryError) {
+        console.error('Error in Firestore query:', queryError);
+        
+        // Attempt fallback method - get all trackedProjects and filter manually
+        console.log('Falling back to get all trackedProjects');
+        
+        try {
+          const allTrackedSnapshot = await getDocs(collection(db, 'trackedProjects'));
+          
+          if (allTrackedSnapshot.empty) {
+            console.log('No tracked projects found in collection');
+            setTrackedProjects([]);
+            setLoading(false);
+            return [];
+          }
+          
+          const filtered = [];
+          const projectIdsSet = new Set();
+          
+          allTrackedSnapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // Skip placeholder documents and check for current user
+            if (data._placeholder || data.userId !== currentUser.uid) {
+              return;
+            }
+            
+            data.docId = doc.id;
+            
+            // Extract project ID from all possible fields
+            const projectId = 
+              data.projectId || 
+              data.planning_id || 
+              data.id || 
+              doc.id.split('_')[1]; // Extract from compound ID
+            
+            if (!projectId) {
+              console.warn('Project missing ID in fallback, skipping:', doc.id);
+              return;
+            }
+            
+            if (!projectIdsSet.has(projectId)) {
+              projectIdsSet.add(projectId);
+              
+              // Ensure we have complete project information
+              const processedProject = {
+                // Ensure all required fields exist
+                planning_id: projectId,
+                planning_name: data.planning_name || data.planning_title || data.title || 'Unnamed Project',
+                planning_description: data.planning_description || data.description || 'No description available',
+                planning_value: parseFloat(data.planning_value || data.projectValue || data.value || 0),
+                planning_stage: data.planning_stage || data.status || 'Unknown',
+                planning_category: data.planning_category || data.category || data.type || 'Uncategorized',
+                planning_location: data.planning_location || data.location || data.planning_county || 'Unknown',
+                
+                // Include all original data
+                ...data,
+                
+                // Ensure these important fields are set
+                docId: doc.id,
+                projectId: projectId
+              };
+              
+              filtered.push(processedProject);
+            }
+          });
+          
+          console.log(`Found ${filtered.length} tracked projects using fallback method`);
+          setTrackedProjects(filtered);
+          
+          if (filtered.length > 0) {
+            updateDashboardCache(currentUser, filtered, setDashboardCache);
+          } else {
+            setDashboardCache({
+              isLoading: false,
+              totalTrackedProjects: 0,
+              totalValue: 0,
+              projectsByStatus: {},
+              valueByCategory: {},
+              timestamp: new Date()
+            });
+          }
+          
+          setLoading(false);
+          return filtered;
+        } catch (fallbackError) {
+          console.error('Fallback query failed:', fallbackError);
+          throw fallbackError;
+        }
       }
-      
-      setLoading(false);
-      return tracked;
     } catch (error) {
       console.error('Error fetching tracked projects:', error);
-      setError(null); // Don't show error to the user, just log it
+      setError('Failed to load tracked projects. Please try again later.');
       setTrackedProjects([]);
       setLoading(false);
       return [];

@@ -1,6 +1,15 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  getDocs, 
+  where, 
+  orderBy, 
+  limit, 
+  startAfter,
+  Timestamp 
+} from 'firebase/firestore';
 import { db } from '../firebase/config';
 import {
   Chart as ChartJS,
@@ -168,14 +177,16 @@ const Analytics = () => {
     }
   }, [projects, selectedCategory, selectedSubcategory, selectedTimeRange, selectedCounty]);
 
+  // Modified function to fetch all projects directly from Firestore
   const fetchAllProjects = async () => {
     try {
       setLoading(true);
       
-      // If offline, use sample data
+      // If offline, show error instead of using sample data
       if (offlineMode) {
-        console.log('Using sample data in offline mode');
-        setProjects(getSampleProjects());
+        console.log('Network is offline, cannot fetch projects');
+        setError('Network is offline. Please check your connection and try again.');
+        setProjects([]);
         return;
       }
       
@@ -202,9 +213,9 @@ const Analytics = () => {
       console.error('Error fetching projects for analytics:', error);
       setError('Failed to load analytics data. Please try again later.');
       
-      // Use sample data as fallback
-      console.log('Using sample data as fallback due to error');
-      setProjects(getSampleProjects());
+      // Instead of using sample data, set empty array
+      console.log('Setting empty projects array due to fetch error');
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -378,16 +389,10 @@ const Analytics = () => {
         countyTotals[county] += (project.planning_value || 0);
       });
       
-      // If we have no data, add sample data
+      // If we have no data, add empty data
       if (Object.keys(countyTotals).length === 0) {
-        if (activeFilters.length > 0) {
-          countyTotals['No matching projects'] = 100;
-          countyTotals['Try different filters'] = 100;
-        } else {
-          countyTotals['Waterford'] = 25000000;
-          countyTotals['Carlow'] = 35000000;
-          countyTotals['Dublin'] = 45000000;
-        }
+        countyTotals['No matching projects'] = 0;
+        countyTotals['Try different filters'] = 0;
       }
       
       // Prepare data for pie chart
@@ -454,20 +459,20 @@ const Analytics = () => {
       subcategoryTotals[subcategory] += (project.planning_value || 0);
     });
 
-    // If we have fewer than 3 subcategories or no filtered projects, add sample data
+    // If we have fewer than 3 subcategories or no filtered projects, add empty data
     if (Object.keys(subcategoryTotals).length < 3 || filteredProjects.length === 0) {
-      console.log('Adding sample subcategories to enhance chart visualization');
+      console.log('Adding empty subcategories to enhance chart visualization');
       
       // If we have no filtered projects, add a message to the subcategory
       if (filteredProjects.length === 0 && activeFilters.length > 0) {
-        subcategoryTotals['No matching projects'] = 100;
-        subcategoryTotals['Try different filters'] = 100;
+        subcategoryTotals['No matching projects'] = 0;
+        subcategoryTotals['Try different filters'] = 0;
       } else {
         // Only add these if they don't already exist
-        if (!subcategoryTotals['Office']) subcategoryTotals['Office'] = 25000000;
-        if (!subcategoryTotals['Retail']) subcategoryTotals['Retail'] = 18500000;
-        if (!subcategoryTotals['Hotel']) subcategoryTotals['Hotel'] = 32000000;
-        if (!subcategoryTotals['Industrial']) subcategoryTotals['Industrial'] = 15000000;
+        if (!subcategoryTotals['Office']) subcategoryTotals['Office'] = 0;
+        if (!subcategoryTotals['Retail']) subcategoryTotals['Retail'] = 0;
+        if (!subcategoryTotals['Hotel']) subcategoryTotals['Hotel'] = 0;
+        if (!subcategoryTotals['Industrial']) subcategoryTotals['Industrial'] = 0;
       }
     }
 
@@ -683,7 +688,7 @@ const Analytics = () => {
     return {
       labels: ['No Data Available'],
       datasets: [{
-        data: [1],
+        data: [0],
         backgroundColor: ['#e0e0e0'],
         borderWidth: 0
       }]
@@ -743,62 +748,6 @@ const Analytics = () => {
     
     loadData();
   }, [currentUser]);
-
-  // Sample data for offline mode or API failures
-  const getSampleProjects = () => {
-    return [
-      {
-        id: 'sample1',
-        title: 'Waterford City Centre Redevelopment',
-        description: 'Major redevelopment of Waterford city centre including retail, office and residential units',
-        planning_value: 25000000,
-        category: 'Commercial',
-        subcategory: 'Mixed Use',
-        county: 'Waterford',
-        stage: 'Planning'
-      },
-      {
-        id: 'sample2',
-        title: 'Carlow Hospital Extension',
-        description: 'Extension to existing hospital facilities including new emergency department',
-        planning_value: 18000000,
-        category: 'Healthcare',
-        subcategory: 'Hospital',
-        county: 'Carlow',
-        stage: 'Construction'
-      },
-      {
-        id: 'sample3',
-        title: 'Waterford Residential Development',
-        description: 'New residential development with 120 housing units',
-        planning_value: 35000000,
-        category: 'Residential',
-        subcategory: 'Housing',
-        county: 'Waterford',
-        stage: 'Planning'
-      },
-      {
-        id: 'sample4',
-        title: 'Carlow Wind Farm',
-        description: 'Renewable energy project with 15 wind turbines',
-        planning_value: 42000000,
-        category: 'Energy',
-        subcategory: 'Renewable',
-        county: 'Carlow',
-        stage: 'Design'
-      },
-      {
-        id: 'sample5',
-        title: 'Waterford Road Improvement',
-        description: 'Major road infrastructure improvements on N25',
-        planning_value: 15000000,
-        category: 'Infrastructure',
-        subcategory: 'Roads',
-        county: 'Waterford',
-        stage: 'Construction'
-      }
-    ];
-  };
 
   // Function to clear all filters
   const clearAllFilters = () => {

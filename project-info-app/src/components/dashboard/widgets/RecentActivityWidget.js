@@ -1,242 +1,168 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FaPlus, FaMinus, FaEdit, FaEye, 
-  FaRegFileAlt, FaHistory
-} from 'react-icons/fa';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { useAuth } from '../../../contexts/AuthContext';
-import './WidgetStyles.css';
+import './RecentActivityWidget.css';
 
 const RecentActivityWidget = ({ data }) => {
+  const { userId, limit: activityLimit = 5 } = data || {};
   const { currentUser } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Fetch real activity data from Firestore
+
   useEffect(() => {
     const fetchActivities = async () => {
-      if (!currentUser) {
-        setLoading(false);
-        setActivities([]);
-        return;
-      }
-      
-      // Check if we're in development mode
-      const isDevelopment = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1';
-      
       try {
         setLoading(true);
+        setError(null);
         
-        // In development mode, we can use sample data for testing
-        if (isDevelopment) {
-          console.log('Running in development mode, using sample activities');
-          // Create development sample data with timestamps that work properly
-          const sampleActivities = [
-            {
-              id: 'dev-1',
-              type: 'track',
-              projectTitle: 'Housing Development Project',
-              timestamp: new Date(Date.now() - (1 * 24 * 60 * 60 * 1000)),
-              userId: currentUser.uid
-            },
-            {
-              id: 'dev-2',
-              type: 'view',
-              projectTitle: 'Town Center Renovation',
-              timestamp: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)),
-              userId: currentUser.uid
-            },
-            {
-              id: 'dev-3',
-              type: 'note_add',
-              projectTitle: 'Highway Extension Phase 2',
-              timestamp: new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)),
-              userId: currentUser.uid
-            }
-          ];
-          
-          setActivities(sampleActivities);
+        // Use the current user ID if no specific userId is provided
+        const userIdToUse = userId || (currentUser ? currentUser.uid : null);
+        
+        if (!userIdToUse) {
+          console.log('No user ID available for activity fetch');
+          setActivities([]);
           setLoading(false);
           return;
         }
         
-        // In production, use real Firestore data
-        const activitiesRef = collection(db, 'activity');
-        const activitiesQuery = query(
-          activitiesRef,
-          where('userId', '==', currentUser.uid),
+        console.log(`Fetching activities for user: ${userIdToUse}, limit: ${activityLimit}`);
+        
+        // Query the activity collection for this user
+        const activityRef = collection(db, 'activity');
+        const activityQuery = query(
+          activityRef,
+          where('userId', '==', userIdToUse),
           orderBy('timestamp', 'desc'),
-          limit(10) // Limit to 10 most recent activities
+          limit(activityLimit || 5)
         );
         
-        const querySnapshot = await getDocs(activitiesQuery);
-        const activitiesData = [];
+        const querySnapshot = await getDocs(activityQuery);
         
+        const activityList = [];
         querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          activitiesData.push({
+          const activityData = doc.data();
+          
+          // Format the timestamp
+          const timestamp = activityData.timestamp ? 
+            new Date(activityData.timestamp.toDate()) : 
+            new Date();
+          
+          // Create a formatted activity object
+          activityList.push({
             id: doc.id,
-            ...data,
-            timestamp: data.timestamp?.toDate?.() || new Date(),
+            type: activityData.type,
+            projectId: activityData.projectId,
+            projectTitle: activityData.projectTitle || 'Unknown Project',
+            timestamp,
+            formattedTime: formatTimestamp(timestamp)
           });
         });
         
-        console.log(`Fetched ${activitiesData.length} activities for dashboard`);
-        setActivities(activitiesData);
-        setError(null);
+        console.log(`Found ${activityList.length} activities`);
+        setActivities(activityList);
       } catch (error) {
         console.error('Error fetching activities:', error);
         setError('Failed to load recent activities');
-        setActivities([]);
       } finally {
         setLoading(false);
       }
     };
     
     fetchActivities();
-  }, [currentUser]);
-
-  // Format date
-  const formatDate = (date) => {
-    if (!date) return '';
+  }, [currentUser, userId, activityLimit]);
+  
+  // Format timestamp to relative time (e.g., "2 hours ago")
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'Unknown time';
     
-    // If today, show time
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffMs = now - timestamp;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
     
-    // Add extra validation for date
-    if (!date || isNaN(date.getTime())) {
-      return 'Unknown date';
-    }
+    if (diffSec < 60) return 'Just now';
+    if (diffMin < 60) return `${diffMin} minute${diffMin !== 1 ? 's' : ''} ago`;
+    if (diffHour < 24) return `${diffHour} hour${diffHour !== 1 ? 's' : ''} ago`;
+    if (diffDay < 7) return `${diffDay} day${diffDay !== 1 ? 's' : ''} ago`;
     
-    if (date >= today) {
-      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    
-    // If yesterday, show "Yesterday"
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date >= yesterday && date < today) {
-      return `Yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    
-    // Otherwise, show full date
-    return date.toLocaleDateString([], { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return timestamp.toLocaleDateString();
   };
-
+  
   // Get icon for activity type
   const getActivityIcon = (type) => {
-    if (!type) return <FaHistory />;
-    
-    // Normalize the type to lowercase for better matching
-    const normalizedType = type.toLowerCase();
-    
-    // Check for tracking activities
-    if (normalizedType.includes('track') || normalizedType.includes('add')) {
-      return <FaPlus />;
-    }
-    
-    // Check for untracking activities
-    if (normalizedType.includes('untrack') || normalizedType.includes('remov') || normalizedType.includes('delet')) {
-      return <FaMinus />;
-    }
-    
-    // Check for editing activities
-    if (normalizedType.includes('edit') || normalizedType.includes('updat') || normalizedType.includes('chang') || 
-        normalizedType.includes('modif')) {
-      return <FaEdit />;
-    }
-    
-    // Check for viewing activities
-    if (normalizedType.includes('view') || normalizedType.includes('read') || normalizedType.includes('open') ||
-        normalizedType.includes('access')) {
-      return <FaEye />;
-    }
-    
-    // Default icon
-    return <FaHistory />;
-  };
-
-  // Get activity title
-  const getActivityTitle = (activity) => {
-    switch (activity.type) {
-      case 'track':
-        return 'Tracked a project';
-      case 'untrack':
-        return 'Untracked a project';
-      case 'note_add':
-        return 'Added a note';
-      case 'note_edit':
-        return 'Updated a note';
-      case 'note_delete':
-        return 'Deleted a note';
+    switch (type) {
       case 'view':
-        return 'Viewed project details';
+        return '👁️';
+      case 'track':
+        return '🔔';
+      case 'untrack':
+        return '🔕';
+      case 'note':
+        return '📝';
       default:
-        return activity.description || 'Activity logged';
+        return '📋';
     }
   };
-
+  
+  // Get description for activity type
+  const getActivityDescription = (activity) => {
+    switch (activity.type) {
+      case 'view':
+        return `Viewed project: ${activity.projectTitle}`;
+      case 'track':
+        return `Started tracking: ${activity.projectTitle}`;
+      case 'untrack':
+        return `Stopped tracking: ${activity.projectTitle}`;
+      case 'note':
+        return `Added note to: ${activity.projectTitle}`;
+      default:
+        return `Interacted with: ${activity.projectTitle}`;
+    }
+  };
+  
   if (loading) {
     return (
-      <div className="loading">
+      <div className="activity-widget loading">
         <div className="loading-spinner"></div>
-        <p>Loading activity...</p>
+        <p>Loading recent activities...</p>
       </div>
     );
   }
-
+  
   if (error) {
     return (
-      <div className="error-state">
-        <FaHistory size={24} />
-        <p>{error}</p>
+      <div className="activity-widget error">
+        <p className="error-message">{error}</p>
       </div>
     );
   }
-
+  
   if (activities.length === 0) {
     return (
-      <div className="empty-state">
-        <FaHistory size={24} />
-        <p>No recent activities found</p>
-        <small>Your activities will appear here as you interact with projects</small>
+      <div className="activity-widget empty">
+        <p className="empty-message">No recent activities found</p>
+        <p className="empty-suggestion">Try viewing or tracking some projects to see activity here</p>
       </div>
     );
   }
-
+  
   return (
-    <div className="recent-activity-widget">
-      <div className="activity-list">
-        {activities.map(activity => (
-          <div key={activity.id} className="activity-item">
-            <div className="activity-icon">
-              {getActivityIcon(activity.type)}
-            </div>
+    <div className="activity-widget">
+      <ul className="activity-list">
+        {activities.map((activity) => (
+          <li key={activity.id} className={`activity-item ${activity.type}`}>
+            <div className="activity-icon">{getActivityIcon(activity.type)}</div>
             <div className="activity-content">
-              <div className="activity-title">
-                {getActivityTitle(activity)}
-              </div>
-              <div className="activity-project">
-                {activity.projectTitle || activity.projectName || 'Unknown project'}
-              </div>
-              <div className="activity-meta">
-                {formatDate(activity.timestamp)}
-              </div>
+              <p className="activity-description">{getActivityDescription(activity)}</p>
+              <span className="activity-time">{activity.formattedTime}</span>
             </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 };

@@ -1,0 +1,167 @@
+.activity-widget {
+  width: 100%;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-item:hover {
+  background-color: #f9f9f9;
+}
+
+.activity-icon {
+  font-size: 1.2rem;
+  margin-right: 12px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-description {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.activity-time {
+  font-size: 0.8rem;
+  color: #777;
+}
+
+/* Activity types */
+.activity-item.view .activity-icon {
+  color: #3498db;
+}
+
+.activity-item.track .activity-icon {
+  color: #2ecc71;
+}
+
+.activity-item.untrack .activity-icon {
+  color: #e74c3c;
+}
+
+.activity-item.note .activity-icon {
+  color: #f39c12;
+}
+
+/* Loading state */
+.activity-widget.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: #777;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Empty state */
+.activity-widget.empty {
+  padding: 2rem;
+  text-align: center;
+  color: #777;
+}
+
+.empty-message {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-suggestion {
+  font-size: 0.9rem;
+  color: #999;
+}
+
+/* Error state */
+.activity-widget.error {
+  padding: 2rem;
+  text-align: center;
+  color: #e74c3c;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .activity-widget {
+    background-color: #2d3748;
+  }
+  
+  .activity-item {
+    border-bottom-color: #4a5568;
+  }
+  
+  .activity-item:hover {
+    background-color: #2c3344;
+  }
+  
+  .activity-description {
+    color: #e2e8f0;
+  }
+  
+  .activity-time {
+    color: #a0aec0;
+  }
+  
+  .activity-widget.loading,
+  .activity-widget.empty {
+    color: #a0aec0;
+  }
+  
+  .empty-suggestion {
+    color: #718096;
+  }
+  
+  .loading-spinner {
+    border-color: #4a5568;
+    border-top-color: #63b3ed;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .activity-item {
+    padding: 10px;
+  }
+  
+  .activity-description {
+    font-size: 0.9rem;
+  }
+}
