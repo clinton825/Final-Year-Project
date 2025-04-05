@@ -12,6 +12,7 @@ import {
   enableNetwork
 } from '@firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Preload Firebase SDK
 const preloadFirebase = () => {
@@ -42,6 +43,20 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+
+// Initialize Firebase Functions
+const functions = getFunctions(app);
+
+// For local development, connect to Firebase emulators if needed
+if (window.location.hostname === 'localhost') {
+  try {
+    // Uncomment these lines to connect to local emulators when testing
+    // connectFunctionsEmulator(functions, "localhost", 5001);
+    // console.log('Connected to Functions emulator');
+  } catch (error) {
+    console.error('Error connecting to Functions emulator:', error);
+  }
+}
 
 // Set LOCAL persistence for better offline support
 const configureAuthPersistence = async () => {
@@ -171,4 +186,4 @@ window.addEventListener('offline', () => {
 // Log Firebase connection status for debugging
 console.log("Firebase app initialized with project ID:", firebaseConfig.projectId);
 
-export { auth, db, storage };
+export { auth, db, storage, functions };

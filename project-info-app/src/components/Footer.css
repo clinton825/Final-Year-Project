@@ -1,6 +1,6 @@
 .footer {
   background-color: var(--footer-bg);
-  padding: 30px 0;
+  padding: 15px 0;
   color: var(--text-primary);
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   position: relative;
@@ -9,38 +9,34 @@
 
 /* Add a compact footer variant for pages that need more screen space */
 .compact-footer {
-  padding: 15px 0;
+  padding: 10px 0;
 }
 
 .compact-footer .footer-content {
   flex-wrap: nowrap;
   overflow-x: auto;
-  gap: 20px;
-  padding-bottom: 10px;
+  gap: 15px;
+  padding-bottom: 5px;
 }
 
 .compact-footer .footer-section {
-  min-width: 180px;
+  min-width: 150px;
   margin-bottom: 0;
 }
 
 .compact-footer .footer-section h3 {
-  font-size: 0.9rem;
-  margin-bottom: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
 }
 
 .compact-footer .footer-links li {
-  margin-bottom: 6px;
-  font-size: 0.85rem;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
 }
 
 .compact-footer .footer-bottom {
-  padding-top: 10px;
-  margin-top: 10px;
-}
-
-.compact-footer .footer-section:last-child {
-  display: none; /* Hide newsletter section in compact mode */
+  padding-top: 8px;
+  margin-top: 8px;
 }
 
 .footer-content {
@@ -53,14 +49,14 @@
 }
 
 .footer-logo {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .footer-logo a {
   color: var(--text-primary);
   text-decoration: none;
-  font-weight: 700;
-  font-size: 1.5rem;
+  font-weight: 600;
+  font-size: 1.2rem;
   display: flex;
   align-items: center;
   transition: color 0.3s ease;
@@ -71,22 +67,22 @@
 }
 
 .footer-logo i {
-  margin-right: 10px;
+  margin-right: 8px;
   color: var(--accent-color);
 }
 
 .footer-section {
   flex: 1;
-  min-width: 200px;
-  margin-bottom: 20px;
+  min-width: 180px;
+  margin-bottom: 15px;
 }
 
 .footer-section h3 {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   position: relative;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
 }
 
 .footer-section h3::after {
@@ -94,7 +90,7 @@
   position: absolute;
   bottom: 0;
   left: 0;
-  width: 50px;
+  width: 40px;
   height: 2px;
   background-color: var(--accent-color);
 }
@@ -106,7 +102,7 @@
 }
 
 .footer-links li {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .footer-links a {
@@ -115,6 +111,7 @@
   transition: color 0.3s ease;
   display: inline-flex;
   align-items: center;
+  font-size: 0.9rem;
 }
 
 .footer-links a:hover {
@@ -122,73 +119,18 @@
 }
 
 .footer-links a i {
-  margin-right: 8px;
-  font-size: 0.9rem;
-}
-
-.footer-section form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-.footer-section input[type="email"] {
-  padding: 10px 15px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-}
-
-.footer-section input[type="email"]:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.2);
-}
-
-.footer-section button[type="submit"] {
-  padding: 10px 15px;
-  border-radius: 4px;
-  border: none;
-  background-color: var(--accent-color);
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.footer-section button[type="submit"]:hover {
-  background-color: var(--accent-color-hover);
-  transform: translateY(-2px);
+  margin-right: 6px;
+  font-size: 0.8rem;
 }
 
 .footer-bottom {
   text-align: center;
-  padding-top: 20px;
-  margin-top: 20px;
+  padding-top: 15px;
+  margin-top: 15px;
   border-top: 1px solid var(--border-color);
   width: 100%;
   color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.social-icons {
-  display: flex;
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.social-icon {
-  color: var(--text-secondary);
-  font-size: 1.2rem;
-  transition: all 0.3s ease;
-}
-
-.social-icon:hover {
-  color: var(--accent-color);
-  transform: translateY(-3px);
+  font-size: 0.8rem;
 }
 
 @media (max-width: 768px) {
@@ -197,7 +139,7 @@
   }
   
   .footer-section {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
   }
   
   .compact-footer .footer-content {
@@ -205,7 +147,7 @@
   }
   
   .compact-footer .footer-section {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
   }
 }
 

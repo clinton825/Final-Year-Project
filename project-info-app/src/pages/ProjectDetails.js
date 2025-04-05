@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc, setDoc, deleteDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  collection, 
+  addDoc, 
+  serverTimestamp,
+  query,
+  where,
+  getDocs
+} from 'firebase/firestore';
 import { db } from '../firebase/config';
 import config from '../config';
 import './ProjectDetails.css';
 
 // For debugging
 const API_BASE_URL = config.API_URL || 'http://localhost:8080';
+
+// Backend API URL 
+const API_URL = process.env.REACT_APP_BACKEND_API_URL || 'http://localhost:5001/api';
 
 const ProjectDetails = () => {
   const { planning_id } = useParams();
@@ -19,30 +33,25 @@ const ProjectDetails = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [actualPlanningId, setActualPlanningId] = useState(null);
   const [debugInfo, setDebugInfo] = useState({});
   const [stakeholders, setStakeholders] = useState([]);
+  const [isUpdatingTrackStatus, setIsUpdatingTrackStatus] = useState(false);
 
   useEffect(() => {
     console.log('ProjectDetails mounted with planning_id:', planning_id);
     
-    // Extract planning_id from URL
     if (planning_id) {
-      // Clean up the planning ID if needed
-      const cleanedId = planning_id.replace(/[^a-zA-Z0-9_-]/g, '');
-      setActualPlanningId(cleanedId);
-      
-      // Once we have the actual planning ID, fetch project details and check tracking status
-      fetchProjectDetails(cleanedId);
+      fetchProjectDetails(planning_id);
     }
   }, [planning_id]);
   
-  // Add a separate useEffect to check tracking when currentUser or actualPlanningId changes
   useEffect(() => {
-    if (currentUser && actualPlanningId) {
-      checkIfTracked();
+    if (project?.planning_id) {
+      const projectId = project.planning_id;
+      console.log('Project data loaded with planning_id:', projectId);
+      checkIfProjectIsTracked(projectId);
     }
-  }, [currentUser, actualPlanningId]);
+  }, [project, currentUser]);
   
   // Clear success message after 5 seconds
   useEffect(() => {
@@ -93,12 +102,11 @@ const ProjectDetails = () => {
     }
   };
 
-  const fetchProjectDetails = async (planningId) => {
+  const fetchProjectDetails = async (idToUse) => {
     try {
       setLoading(true);
       setError(null);
       
-      const idToUse = planningId || actualPlanningId;
       console.log(`Fetching project details for ID: ${idToUse}`);
       
       if (!idToUse) {
@@ -346,7 +354,7 @@ const ProjectDetails = () => {
       // Log the view activity
       if (currentUser) {
         try {
-          await addDoc(collection(db, 'activity'), {
+          await addDoc(collection(db, 'userActivity'), {
             userId: currentUser.uid,
             type: 'view',
             projectId: idToUse,
@@ -363,7 +371,7 @@ const ProjectDetails = () => {
       
       // Set minimal fallback data
       setProject({
-        planning_id: planningId || actualPlanningId,
+        planning_id: idToUse,
         planning_title: 'Error Loading Project',
         planning_description: 'Failed to load project details. Please try again later.',
         planning_category: 'Not Available',
@@ -375,37 +383,22 @@ const ProjectDetails = () => {
     }
   };
   
-  const checkIfTracked = async () => {
-    if (!currentUser || !actualPlanningId) {
+  const checkIfProjectIsTracked = async (projectId) => {
+    if (!currentUser || !projectId) {
       console.log('Cannot check tracking status: missing user or planning ID');
       setIsTracked(false);
       return;
     }
     
     try {
-      console.log('Checking if project is tracked...');
+      console.log('Checking if project is tracked:', projectId);
       
-      // First try with compound ID
-      const compoundId = `${currentUser.uid}_${actualPlanningId}`;
-      const docSnap = await getDoc(doc(db, 'trackedProjects', compoundId));
+      // Use compound ID format: userId_projectId
+      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${projectId}`);
+      const docSnapshot = await getDoc(trackedProjectRef);
       
-      if (docSnap.exists()) {
-        console.log('Project is tracked (found by compound ID)');
-        setIsTracked(true);
-        return;
-      }
-      
-      // If not found, try with a query
-      const q = query(
-        collection(db, 'trackedProjects'),
-        where('userId', '==', currentUser.uid),
-        where('projectId', '==', actualPlanningId)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        console.log('Project is tracked (found by query)');
+      if (docSnapshot.exists()) {
+        console.log('Project is tracked');
         setIsTracked(true);
       } else {
         console.log('Project is not tracked');
@@ -413,113 +406,121 @@ const ProjectDetails = () => {
       }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
-      setIsTracked(false);
     }
   };
 
   const handleTrackToggle = async () => {
+    if (!currentUser) {
+      navigate('/login'); 
+      return;
+    }
+
+    setIsUpdatingTrackStatus(true);
+
     try {
-      if (!currentUser) {
-        setError('You must be logged in to track projects');
+      const projectToStore = { ...project };
+      
+      // Make sure we have a valid planning ID - use the one from state or URL params
+      const planningIdToUse = project?.planning_id || planning_id;
+      
+      if (!planningIdToUse) {
+        console.error('No valid planning ID found');
+        setIsUpdatingTrackStatus(false);
         return;
       }
-      
-      console.log('Track toggle for project:', actualPlanningId);
-      
-      // Create document ID with consistent format
-      const docId = `${currentUser.uid}_${actualPlanningId}`;
-      console.log('Document ID:', docId);
-      
+
+      // Reference to the tracked project document
+      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${planningIdToUse}`);
+      const trackedProjectDoc = await getDoc(trackedProjectRef);
+
+      // Check if user is tracking or untracking the project
       if (isTracked) {
-        // UNTRACK: Delete the document from Firestore
-        console.log('Untracking project...');
+        // User is untracking the project
+        await deleteDoc(trackedProjectRef);
         
-        try {
-          await deleteDoc(doc(db, 'trackedProjects', docId));
-          
-          // Log activity
-          await addDoc(collection(db, 'activity'), {
-            userId: currentUser.uid,
-            type: 'untrack',
-            projectId: actualPlanningId,
-            projectTitle: project?.planning_title || project?.planning_name || 'Unknown Project',
-            timestamp: serverTimestamp()
-          });
-          
-          console.log('Project untracked successfully');
-          setSuccess('Project removed from tracked projects');
-          setIsTracked(false);
-        } catch (untrackError) {
-          console.error('Error untracking project:', untrackError);
-          throw untrackError;
-        }
-      } else {
-        // TRACK: Store the project in Firestore
-        console.log('Tracking project...');
-        
-        // Get the most up-to-date project data first
-        let projectToStore = { ...project };
-        
-        // Try to get fresh API data if possible
-        try {
-          const response = await fetchWithRetry(`${API_BASE_URL}/api/project/${actualPlanningId}`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            if (data && data.project) {
-              // Update with the latest API data
-              projectToStore = { ...projectToStore, ...data.project };
-            }
-          }
-        } catch (refreshError) {
-          console.warn('Could not refresh project data from API:', refreshError);
-          // Continue with existing data
-        }
-        
-        // Add tracking metadata
-        const trackedProject = {
-          // Tracking metadata
+        // Create activity entry for untracking
+        await addDoc(collection(db, 'userActivity'), {
           userId: currentUser.uid,
-          projectId: actualPlanningId,
-          trackedAt: serverTimestamp(),
-          
-          // Store the complete project data
-          ...projectToStore
-        };
+          type: 'untrack',
+          projectId: planningIdToUse,
+          projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+          timestamp: serverTimestamp()
+        });
+
+        console.log('Project untracked successfully');
+      } else {
+        // User is tracking the project - store complete project data
+        await setDoc(trackedProjectRef, {
+          userId: currentUser.uid,
+          projectId: planningIdToUse,
+          dateTracked: serverTimestamp(),
+          projectData: projectToStore,
+        });
+
+        // Create activity entry for tracking
+        await addDoc(collection(db, 'userActivity'), {
+          userId: currentUser.uid,
+          type: 'track',
+          projectId: planningIdToUse,
+          projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+          timestamp: serverTimestamp()
+        });
+
+        console.log('Project tracked successfully');
         
-        try {
-          // Save to Firestore
-          await setDoc(doc(db, 'trackedProjects', docId), trackedProject);
+        // Check if user has enabled email notifications for project tracking
+        const userPrefsRef = doc(db, 'userPreferences', currentUser.uid);
+        const userPrefsDoc = await getDoc(userPrefsRef);
+        
+        if (userPrefsDoc.exists()) {
+          const userPrefs = userPrefsDoc.data();
           
-          // Verify it was saved
-          const docSnap = await getDoc(doc(db, 'trackedProjects', docId));
-          
-          if (!docSnap.exists()) {
-            console.warn('Verification failed, trying again...');
-            await setDoc(doc(db, 'trackedProjects', docId), trackedProject);
+          // Check if email notifications are enabled for project tracking
+          if (
+            userPrefs.notifications?.emailEnabled && 
+            userPrefs.notifications?.emailProjectTracking &&
+            userPrefs.notifications?.emailAddress
+          ) {
+            try {
+              // Simulate sending email (no actual email sent - demo only)
+              console.log('Demo: Would send project tracking email to', userPrefs.notifications.emailAddress);
+              
+              // Log the activity for demo purposes
+              await addDoc(collection(db, 'userActivity'), {
+                userId: currentUser.uid,
+                type: 'email_project_tracking',
+                timestamp: serverTimestamp(),
+                details: {
+                  email: userPrefs.notifications.emailAddress,
+                  projectId: planningIdToUse,
+                  projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+                  note: 'Demo mode - no actual email sent'
+                }
+              });
+              
+              console.log('Project tracking email would be sent in production');
+              
+              // Add success message to display to user
+              setSuccess('Project added to tracked projects. A confirmation email would be sent in production.');
+            } catch (emailError) {
+              console.error('Error in email tracking demo:', emailError);
+              // Continue with tracking even if demo notification fails
+              setSuccess('Project added to tracked projects.');
+            }
+          } else {
+            setSuccess('Project added to tracked projects.');
           }
-          
-          // Log activity
-          await addDoc(collection(db, 'activity'), {
-            userId: currentUser.uid,
-            type: 'track',
-            projectId: actualPlanningId,
-            projectTitle: projectToStore?.planning_title || projectToStore?.planning_name || 'Unknown Project',
-            timestamp: serverTimestamp()
-          });
-          
-          console.log('Project tracked successfully');
-          setSuccess('Project added to tracked projects');
-          setIsTracked(true);
-        } catch (trackError) {
-          console.error('Error tracking project:', trackError);
-          throw trackError;
+        } else {
+          setSuccess('Project added to tracked projects.');
         }
       }
+
+      // Update the local state
+      setIsTracked(!isTracked);
     } catch (error) {
-      console.error('Track toggle error:', error);
-      setError(`Failed to ${isTracked ? 'untrack' : 'track'} project: ${error.message}`);
+      console.error('Error updating project tracking status:', error);
+    } finally {
+      setIsUpdatingTrackStatus(false);
     }
   };
 
@@ -532,7 +533,7 @@ const ProjectDetails = () => {
       <div className="details-grid">
         <div className="detail-item">
           <h3>Planning ID</h3>
-          <p>{project.planning_id || actualPlanningId || 'N/A'}</p>
+          <p>{project.planning_id || planning_id || 'N/A'}</p>
         </div>
         <div className="detail-item">
           <h3>Name</h3>
@@ -729,7 +730,7 @@ const ProjectDetails = () => {
       <div className="project-header">
         <div className="project-title-section">
           <h1>{project.planning_name || project.planning_title || project.planning_development_address_1 || 'Unnamed Project'}</h1>
-          <div className="project-id-display">Project ID: {project.planning_id || actualPlanningId || 'N/A'}</div>
+          <div className="project-id-display">Project ID: {project.planning_id || planning_id || 'N/A'}</div>
         </div>
         <button 
           className={`track-button ${isTracked ? 'tracked' : ''}`}

@@ -1,0 +1,494 @@
+.notifications-widget {
+  width: 100%;
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.notifications-header {
+  margin-bottom: 20px;
+}
+
+.notifications-header h3 {
+  font-size: 1.2rem;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px 0;
+}
+
+.notifications-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.notifications-section {
+  margin-bottom: 24px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 12px;
+}
+
+.notifications-section:last-child {
+  border-bottom: none;
+}
+
+.notifications-section h4 {
+  font-size: 1rem;
+  color: #444;
+  margin: 0 0 10px 0;
+}
+
+.section-description {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 0 0 12px 0;
+}
+
+.notification-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notification-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.option-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.option-label {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.option-description {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Toggle Switch Styling */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+  min-width: 46px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: #4e73df;
+}
+
+input:focus + .toggle-slider {
+  box-shadow: 0 0 1px #4e73df;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
+
+/* Project selection */
+.project-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px 0;
+}
+
+.project-option {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding-left: 28px;
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+}
+
+.checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: absolute;
+  left: 0;
+  height: 20px;
+  width: 20px;
+  background-color: #eee;
+  border-radius: 4px;
+}
+
+.checkbox-container:hover input ~ .checkmark {
+  background-color: #ddd;
+}
+
+.checkbox-container input:checked ~ .checkmark {
+  background-color: #4e73df;
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkbox-container .checkmark:after {
+  left: 7px;
+  top: 3px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.project-details {
+  display: flex;
+  flex-direction: column;
+  margin-left: 6px;
+}
+
+.project-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.project-category {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Email input styling */
+.email-input-container {
+  margin: 10px 0 15px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.email-input-container label {
+  font-size: 0.9rem;
+  color: #444;
+  margin-bottom: 5px;
+}
+
+.email-input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.email-input:focus {
+  outline: none;
+  border-color: #4e73df;
+  box-shadow: 0 0 0 2px rgba(78, 115, 223, 0.2);
+}
+
+/* Test email button */
+.test-email-container {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.test-email-button {
+  padding: 6px 12px;
+  background-color: #f8f9fa;
+  color: #495057;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.test-email-button:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.test-email-description {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+/* Email feature banner */
+.email-feature-banner {
+  background-color: #f8f9fa;
+  border-left: 4px solid #4e73df;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.email-feature-banner svg {
+  color: #4e73df;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.email-feature-banner span {
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.4;
+}
+
+/* Dark mode adjustments for email banner */
+@media (prefers-color-scheme: dark) {
+  .email-feature-banner {
+    background-color: #2d3748;
+    border-left-color: #4e73df;
+  }
+  
+  .email-feature-banner span {
+    color: #e2e8f0;
+  }
+}
+
+/* Save button and feedback */
+.notifications-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.save-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4e73df;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-button:hover {
+  background-color: #375bce;
+}
+
+.save-success {
+  color: #28a745;
+  font-size: 0.9rem;
+}
+
+.save-error {
+  color: #dc3545;
+  font-size: 0.9rem;
+}
+
+.notifications-footer {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  font-size: 0.8rem;
+  color: #777;
+}
+
+/* Loading state */
+.notifications-widget.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  color: #777;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4e73df;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error state */
+.notifications-widget.error {
+  padding: 30px;
+  text-align: center;
+  color: #dc3545;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .notifications-widget {
+    background-color: #2d3748;
+  }
+  
+  .notifications-header h3 {
+    color: #e2e8f0;
+  }
+  
+  .notifications-description {
+    color: #a0aec0;
+  }
+  
+  .notifications-section {
+    border-bottom-color: #4a5568;
+  }
+  
+  .notifications-section h4 {
+    color: #e2e8f0;
+  }
+  
+  .section-description {
+    color: #a0aec0;
+  }
+  
+  .option-label {
+    color: #e2e8f0;
+  }
+  
+  .option-description {
+    color: #a0aec0;
+  }
+  
+  .toggle-slider {
+    background-color: #4a5568;
+  }
+  
+  .toggle-slider:before {
+    background-color: #e2e8f0;
+  }
+  
+  .project-title {
+    color: #e2e8f0;
+  }
+  
+  .project-category {
+    color: #a0aec0;
+  }
+  
+  .checkmark {
+    background-color: #4a5568;
+  }
+  
+  .checkbox-container:hover input ~ .checkmark {
+    background-color: #2d3748;
+  }
+  
+  .notifications-footer {
+    border-top-color: #4a5568;
+    color: #a0aec0;
+  }
+  
+  .email-input-container label {
+    color: #e2e8f0;
+  }
+  
+  .email-input {
+    background-color: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .email-input:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 2px rgba(78, 115, 223, 0.3);
+  }
+  
+  .test-email-button {
+    background-color: #2d3748;
+    color: #e2e8f0;
+    border-color: #4a5568;
+  }
+  
+  .test-email-button:hover {
+    background-color: #4a5568;
+  }
+  
+  .test-email-description {
+    color: #a0aec0;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .notifications-widget {
+    padding: 15px;
+  }
+  
+  .notification-option {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .toggle-switch {
+    margin-bottom: 5px;
+  }
+}

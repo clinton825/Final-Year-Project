@@ -1159,22 +1159,23 @@ const ProjectComparison = () => {
                   <span style={{marginRight: '8px'}}>🥧</span>
                   Value Distribution
                 </h4>
-                <PieChart width={300} height={300}>
+                <PieChart width={400} height={350}>
                   <Pie
                     data={pieData}
-                    cx={150}
+                    cx={200}
                     cy={150}
-                    labelLine={false}
-                    outerRadius={100}
+                    labelLine={true}
+                    outerRadius={120}
                     fill="#8884d8"
                     dataKey="value"
                     nameKey="name"
-                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   >
                     {pieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COUNTY_COLORS[index % COUNTY_COLORS.length]} />
                     ))}
                   </Pie>
+                  <Legend />
                   <Tooltip formatter={(value) => `€${value.toFixed(2)}M`} />
                 </PieChart>
               </div>

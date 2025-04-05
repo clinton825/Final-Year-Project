@@ -9,13 +9,13 @@ import NotesList from '../components/notes/NotesList';
 import GettingStartedWidget from '../components/onboarding/GettingStartedWidget';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
-import { FaCog, FaHome, FaTimes, FaUndo, FaChartBar, FaTable, FaThLarge, FaChartPie, FaHistory } from 'react-icons/fa';
+import { FaCog, FaHome, FaTimes, FaUndo, FaChartBar, FaTable, FaThLarge, FaChartPie, FaBell } from 'react-icons/fa';
 import './Dashboard.css';
 import './GettingStartedToggle.css';
 import SpendingChartWidget from '../components/dashboard/widgets/SpendingChartWidget';
 import ProjectStageWidget from '../components/dashboard/widgets/ProjectStageWidget';
 import TrackedProjectsWidget from '../components/dashboard/widgets/TrackedProjectsWidget';
-import RecentActivityWidget from '../components/dashboard/widgets/RecentActivityWidget';
+import NotificationsWidget from '../components/dashboard/widgets/NotificationsWidget';
 
 // Export the updateDashboardCache function
 export const updateDashboardCache = async (currentUser, trackedProjects, setDashboardCache) => {
@@ -1274,7 +1274,7 @@ const Dashboard = () => {
             />
           </div>
           
-          {/* Recent Activity Section */}
+          {/* Notifications Section */}
           <div style={{
             backgroundColor: '#fff',
             borderRadius: '8px',
@@ -1292,9 +1292,9 @@ const Dashboard = () => {
               borderBottom: '1px solid #e0e0e0',
               paddingBottom: '10px'
             }}>
-              <FaHistory style={{color: '#4e73df'}} /> Recent Activity
+              <FaBell style={{color: '#4e73df'}} /> Notifications
             </h3>
-            <RecentActivityWidget 
+            <NotificationsWidget 
               data={{
                 userId: currentUser?.uid,
                 limit: 5
