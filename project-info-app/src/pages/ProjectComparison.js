@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import './ProjectComparison.css';
 import config from '../config';
@@ -11,6 +11,7 @@ const ProjectComparison = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('budget');
   const [showAllProjects, setShowAllProjects] = useState(true);
+  const [showTownView, setShowTownView] = useState(false);
 
   // New state for filters
   const [filters, setFilters] = useState({
@@ -18,6 +19,8 @@ const ProjectComparison = () => {
     stakeholderType: '',
     stage: '',
     valueRange: 'all',
+    county: '',
+    town: '',
     sortBy: 'value'
   });
 
@@ -26,6 +29,8 @@ const ProjectComparison = () => {
     projectTypes: [],
     stakeholderTypes: [],
     stages: [],
+    counties: ['Waterford', 'Carlow'],
+    towns: {},
     valueRanges: [
       { label: 'All', value: 'all' },
       { label: 'Under €1M', value: 'under1m' },
@@ -47,15 +52,45 @@ const ProjectComparison = () => {
       const stakeholders = [...new Set(availableProjects.flatMap(p => 
         p.companies?.map(c => c.planning_company_type_name.company_type_name) || []
       ))];
+      const counties = [...new Set(availableProjects.map(p => p.planning_county).filter(Boolean))];
+      
+      // Group towns by county
+      const towns = {};
+      availableProjects.forEach(project => {
+        if (project.planning_county && project.planning_town) {
+          if (!towns[project.planning_county]) {
+            towns[project.planning_county] = new Set();
+          }
+          towns[project.planning_county].add(project.planning_town);
+        }
+      });
+      
+      // Convert Set to Array for each county
+      const townsByCounty = {};
+      Object.keys(towns).forEach(county => {
+        townsByCounty[county] = [...towns[county]].sort();
+      });
 
       setFilterOptions(prev => ({
         ...prev,
         projectTypes: types,
         stakeholderTypes: stakeholders,
-        stages: stages
+        stages: stages,
+        counties: [...prev.counties, ...counties.filter(county => !prev.counties.includes(county))],
+        towns: townsByCounty
       }));
     }
   }, [availableProjects]);
+  
+  // Reset town when county changes
+  useEffect(() => {
+    if (filters.county === '' || !filterOptions.towns[filters.county]?.includes(filters.town)) {
+      setFilters(prev => ({
+        ...prev,
+        town: ''
+      }));
+    }
+  }, [filters.county, filters.town, filterOptions.towns]);
 
   const fetchProjects = async () => {
     try {
@@ -94,8 +129,10 @@ const ProjectComparison = () => {
       const stakeholderMatch = !filters.stakeholderType || 
         project.companies?.some(c => c.planning_company_type_name.company_type_name === filters.stakeholderType);
       const valueMatch = filters.valueRange === 'all' || getValueRange(project.planning_value) === filters.valueRange;
+      const countyMatch = !filters.county || project.planning_county === filters.county;
+      const townMatch = !filters.town || project.planning_town === filters.town;
       
-      return typeMatch && stageMatch && stakeholderMatch && valueMatch;
+      return typeMatch && stageMatch && stakeholderMatch && valueMatch && countyMatch && townMatch;
     }).sort((a, b) => {
       switch (filters.sortBy) {
         case 'value':
@@ -164,6 +201,84 @@ const ProjectComparison = () => {
     }));
   };
 
+  const prepareCountyComparisonData = () => {
+    if (selectedProjects.length === 0) return [];
+    
+    const countyData = {};
+    
+    // Group projects by county
+    selectedProjects.forEach(project => {
+      const county = project.planning_county || 'Unknown';
+      if (!countyData[county]) {
+        countyData[county] = {
+          county,
+          projectCount: 0,
+          totalValue: 0,
+          averageValue: 0,
+          projects: []
+        };
+      }
+      
+      countyData[county].projectCount += 1;
+      countyData[county].totalValue += parseFloat(project.planning_value) || 0;
+      countyData[county].projects.push(project);
+    });
+    
+    // Calculate averages and format data
+    return Object.values(countyData).map(item => {
+      return {
+        ...item,
+        averageValue: item.totalValue / item.projectCount,
+        totalValue: item.totalValue / 1000000, // Convert to millions
+        averageValue: (item.totalValue / item.projectCount) / 1000000 // Convert to millions
+      };
+    });
+  };
+
+  const prepareTownComparisonData = () => {
+    if (selectedProjects.length === 0) return [];
+    
+    const townData = {};
+    
+    // Group projects by town within counties
+    selectedProjects.forEach(project => {
+      if (!project.planning_town) return;
+      
+      const town = project.planning_town;
+      const county = project.planning_county || 'Unknown';
+      const key = `${town} (${county})`;
+      
+      if (!townData[key]) {
+        townData[key] = {
+          town,
+          county,
+          fullName: key,
+          projectCount: 0,
+          totalValue: 0,
+          averageValue: 0,
+          projects: []
+        };
+      }
+      
+      townData[key].projectCount += 1;
+      townData[key].totalValue += parseFloat(project.planning_value) || 0;
+      townData[key].projects.push(project);
+    });
+    
+    // Calculate averages and format data
+    return Object.values(townData).map(item => {
+      return {
+        ...item,
+        averageValue: item.totalValue / item.projectCount,
+        totalValue: item.totalValue / 1000000, // Convert to millions
+        averageValue: (item.totalValue / item.projectCount) / 1000000 // Convert to millions
+      };
+    });
+  };
+
+  const COUNTY_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe', '#00C49F'];
+  const TOWN_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
+
   const renderTimeline = () => (
     <div className="chart">
       <h4>
@@ -227,10 +342,194 @@ const ProjectComparison = () => {
     </div>
   );
 
+  const renderCountyComparison = () => {
+    const countyData = prepareCountyComparisonData();
+    const townData = prepareTownComparisonData();
+    
+    if (countyData.length === 0) {
+      return (
+        <div className="empty-chart">
+          <p>Select projects to compare county metrics</p>
+        </div>
+      );
+    }
+    
+    const pieData = countyData.map(item => ({
+      name: item.county,
+      value: item.totalValue
+    }));
+    
+    return (
+      <div className="county-comparison">
+        <div className="comparison-tabs">
+          <button 
+            className={`comparison-tab ${showTownView ? '' : 'active'}`}
+            onClick={() => setShowTownView(false)}
+          >
+            County View
+          </button>
+          <button 
+            className={`comparison-tab ${showTownView ? 'active' : ''}`}
+            onClick={() => setShowTownView(true)}
+          >
+            Town View
+          </button>
+        </div>
+        
+        {!showTownView ? (
+          // County View
+          <>
+            <div className="chart-row">
+              <div className="chart-col">
+                <h4>
+                  <span className="icon">📊</span>
+                  Project Value by County (Millions €)
+                </h4>
+                <BarChart width={500} height={300} data={countyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="county" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => `€${value.toFixed(2)}M`} />
+                  <Bar dataKey="totalValue" fill="#8884d8" name="Total Value (€M)" />
+                </BarChart>
+              </div>
+              
+              <div className="chart-col">
+                <h4>
+                  <span className="icon">🥧</span>
+                  Value Distribution
+                </h4>
+                <PieChart width={300} height={300}>
+                  <Pie
+                    data={pieData}
+                    cx={150}
+                    cy={150}
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COUNTY_COLORS[index % COUNTY_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `€${value.toFixed(2)}M`} />
+                </PieChart>
+              </div>
+            </div>
+            
+            <div className="county-metrics">
+              <h4>County Project Metrics</h4>
+              <div className="metrics-grid">
+                {countyData.map((county, index) => (
+                  <div key={index} className="county-metric-card" style={{borderLeftColor: COUNTY_COLORS[index % COUNTY_COLORS.length]}}>
+                    <h5>{county.county}</h5>
+                    <div className="metric-row">
+                      <div className="metric">
+                        <span className="metric-label">Projects</span>
+                        <span className="metric-value">{county.projectCount}</span>
+                      </div>
+                      <div className="metric">
+                        <span className="metric-label">Total Value</span>
+                        <span className="metric-value">€{county.totalValue.toFixed(2)}M</span>
+                      </div>
+                      <div className="metric">
+                        <span className="metric-label">Avg. Value</span>
+                        <span className="metric-value">€{county.averageValue.toFixed(2)}M</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          // Town View
+          <>
+            <div className="chart-row">
+              <div className="chart-col">
+                <h4>
+                  <span className="icon">🏙️</span>
+                  Project Value by Town (Millions €)
+                </h4>
+                {townData.length > 0 ? (
+                  <BarChart width={500} height={300} data={townData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="fullName" tick={{fontSize: 10}} />
+                    <YAxis />
+                    <Tooltip formatter={(value) => `€${value.toFixed(2)}M`} />
+                    <Bar dataKey="totalValue" fill="#82ca9d" name="Total Value (€M)" />
+                  </BarChart>
+                ) : (
+                  <div className="empty-chart-message">
+                    <p>No town data available for the selected projects</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="chart-col">
+                <h4>
+                  <span className="icon">📈</span>
+                  Projects per Town
+                </h4>
+                {townData.length > 0 ? (
+                  <BarChart width={500} height={300} data={townData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="fullName" tick={{fontSize: 10}} />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="projectCount" fill="#ffc658" name="Number of Projects" />
+                  </BarChart>
+                ) : (
+                  <div className="empty-chart-message">
+                    <p>No town data available for the selected projects</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="town-metrics">
+              <h4>Town Project Metrics</h4>
+              {townData.length > 0 ? (
+                <div className="metrics-grid">
+                  {townData.map((town, index) => (
+                    <div key={index} className="town-metric-card" style={{borderLeftColor: TOWN_COLORS[index % TOWN_COLORS.length]}}>
+                      <h5>{town.fullName}</h5>
+                      <div className="metric-row">
+                        <div className="metric">
+                          <span className="metric-label">Projects</span>
+                          <span className="metric-value">{town.projectCount}</span>
+                        </div>
+                        <div className="metric">
+                          <span className="metric-label">Total Value</span>
+                          <span className="metric-value">€{town.totalValue.toFixed(2)}M</span>
+                        </div>
+                        <div className="metric">
+                          <span className="metric-label">Avg. Value</span>
+                          <span className="metric-value">€{town.averageValue.toFixed(2)}M</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-metrics-message">
+                  <p>Select projects with town data to view town metrics</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderFilters = () => (
-    <div className="filters-section">
-      <h3>Filters and Sorting</h3>
-      <div className="filters-grid">
+    <div className="filters-container">
+      <h3>Filter Projects</h3>
+      <div className="filter-row">
         <div className="filter-group">
           <label>Project Type</label>
           <select 
@@ -238,12 +537,12 @@ const ProjectComparison = () => {
             onChange={(e) => handleFilterChange('projectType', e.target.value)}
           >
             <option value="">All Types</option>
-            {filterOptions.projectTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
+            {filterOptions.projectTypes.map((type, index) => (
+              <option key={index} value={type}>{type}</option>
             ))}
           </select>
         </div>
-
+        
         <div className="filter-group">
           <label>Project Stage</label>
           <select 
@@ -251,20 +550,37 @@ const ProjectComparison = () => {
             onChange={(e) => handleFilterChange('stage', e.target.value)}
           >
             <option value="">All Stages</option>
-            {filterOptions.stages.map(stage => (
-              <option key={stage} value={stage}>{stage}</option>
+            {filterOptions.stages.map((stage, index) => (
+              <option key={index} value={stage}>{stage}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="filter-group">
+          <label>County</label>
+          <select 
+            value={filters.county}
+            onChange={(e) => handleFilterChange('county', e.target.value)}
+            className="county-filter"
+          >
+            <option value="">All Counties</option>
+            {filterOptions.counties.map((county, index) => (
+              <option key={index} value={county}>{county}</option>
             ))}
           </select>
         </div>
 
         <div className="filter-group">
-          <label>Value Range</label>
+          <label>Town</label>
           <select 
-            value={filters.valueRange}
-            onChange={(e) => handleFilterChange('valueRange', e.target.value)}
+            value={filters.town}
+            onChange={(e) => handleFilterChange('town', e.target.value)}
+            className="town-filter"
+            disabled={!filters.county || !filterOptions.towns[filters.county]}
           >
-            {filterOptions.valueRanges.map(range => (
-              <option key={range.value} value={range.value}>{range.label}</option>
+            <option value="">All Towns</option>
+            {filters.county && filterOptions.towns[filters.county]?.map((town, index) => (
+              <option key={index} value={town}>{town}</option>
             ))}
           </select>
         </div>
@@ -276,8 +592,20 @@ const ProjectComparison = () => {
             onChange={(e) => handleFilterChange('stakeholderType', e.target.value)}
           >
             <option value="">All Stakeholders</option>
-            {filterOptions.stakeholderTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
+            {filterOptions.stakeholderTypes.map((type, index) => (
+              <option key={index} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Value Range</label>
+          <select 
+            value={filters.valueRange}
+            onChange={(e) => handleFilterChange('valueRange', e.target.value)}
+          >
+            {filterOptions.valueRanges.map((range, index) => (
+              <option key={index} value={range.value}>{range.label}</option>
             ))}
           </select>
         </div>
@@ -329,6 +657,12 @@ const ProjectComparison = () => {
                       <span>Type: {project.planning_type}</span>
                       <span>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
                       <span>Stage: {project.planning_stage}</span>
+                      {project.planning_county && (
+                        <span className="county-badge">County: {project.planning_county}</span>
+                      )}
+                      {project.planning_town && (
+                        <span className="town-badge">Town: {project.planning_town}</span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -366,6 +700,12 @@ const ProjectComparison = () => {
                   <span>Type: {project.planning_type}</span>
                   <span>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
                   <span>Stage: {project.planning_stage}</span>
+                  {project.planning_county && (
+                    <span className="county-badge">County: {project.planning_county}</span>
+                  )}
+                  {project.planning_town && (
+                    <span className="town-badge">Town: {project.planning_town}</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -406,6 +746,12 @@ const ProjectComparison = () => {
               >
                 Stakeholders
               </button>
+              <button 
+                className={`tab ${activeTab === 'county' ? 'active' : ''}`}
+                onClick={() => setActiveTab('county')}
+              >
+                County Analysis
+              </button>
             </div>
 
             <div className="chart-container">
@@ -427,6 +773,7 @@ const ProjectComparison = () => {
               {activeTab === 'timeline' && renderTimeline()}
               {activeTab === 'metrics' && renderSizeMetrics()}
               {activeTab === 'stakeholders' && renderStakeholderAnalysis()}
+              {activeTab === 'county' && renderCountyComparison()}
             </div>
           </div>
         </div>

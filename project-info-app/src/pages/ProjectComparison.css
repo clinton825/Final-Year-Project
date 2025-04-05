@@ -393,6 +393,194 @@
   margin: 0;
 }
 
+/* Filter section styling - aligned with dashboard redesign */
+.filters-container {
+  background-color: var(--card-bg, #fff);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.filters-container h3 {
+  font-size: 1.2rem;
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: var(--text-primary, #333);
+  display: flex;
+  align-items: center;
+}
+
+.filters-container h3::before {
+  content: "🔍";
+  margin-right: 8px;
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 15px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.filter-group label {
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+  color: var(--text-secondary, #555);
+  font-weight: 500;
+}
+
+.filter-group select, 
+.filter-group input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background-color: var(--input-bg, #f9f9f9);
+  font-size: 0.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-group select:focus, 
+.filter-group input:focus {
+  border-color: var(--primary, #4e73df);
+  box-shadow: 0 0 0 2px rgba(78, 115, 223, 0.1);
+  outline: none;
+}
+
+/* County filter specific styling */
+.county-filter {
+  border-left: 3px solid #234b8e !important;
+}
+
+/* Town filter specific styling */
+.town-filter {
+  border-left: 3px solid #1e7f5e !important;
+}
+
+.town-filter:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--input-bg-disabled, #f1f1f1);
+}
+
+/* County badge styling */
+.county-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(35, 75, 142, 0.1);
+  color: #234b8e;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+.county-badge::before {
+  content: "📍";
+  margin-right: 5px;
+  font-size: 0.9rem;
+}
+
+/* Town badge styling */
+.town-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(30, 127, 94, 0.1);
+  color: #1e7f5e;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+.town-badge::before {
+  content: "🏠";
+  margin-right: 5px;
+  font-size: 0.9rem;
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+  .county-filter {
+    border-left-color: #3a6bc7 !important;
+  }
+  
+  .town-filter {
+    border-left-color: #2baa88 !important;
+  }
+  
+  .town-filter:disabled {
+    background-color: #22272e;
+    opacity: 0.5;
+  }
+  
+  .county-badge {
+    background-color: rgba(58, 107, 199, 0.2);
+    color: #99b8ff;
+  }
+  
+  .town-badge {
+    background-color: rgba(43, 170, 136, 0.2);
+    color: #87e3c7;
+  }
+  
+  .filters-container {
+    background-color: #1e2327;
+  }
+  
+  .filter-group select, 
+  .filter-group input {
+    background-color: #2c3237;
+    border-color: #3f444c;
+    color: #e1e5ea;
+  }
+}
+
+/* Project cards - enhanced with county info */
+.project-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.project-meta span {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #555);
+}
+
+/* Selected project cards enhancements */
+.selected-project-card {
+  background-color: var(--card-bg, #fff);
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.selected-project-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Update the chart container to match dashboard styling */
+.chart-container {
+  background-color: var(--card-bg, #fff);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-top: 20px;
+}
+
 /* Dark mode improvements for comparison page */
 [data-theme='dark'] .comparison-container h2 {
   color: #ffffff;
@@ -607,6 +795,166 @@
   background-color: #374151;
 }
 
+/* County comparison styling */
+.county-comparison {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 992px) {
+  .chart-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-col {
+  background-color: var(--card-bg, #fff);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chart-col h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1rem;
+  color: var(--text-primary, #333);
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+}
+
+.chart-col h4 .icon {
+  margin-right: 8px;
+}
+
+.county-metrics {
+  background-color: var(--card-bg, #fff);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.county-metrics h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1rem;
+  color: var(--text-primary, #333);
+  display: flex;
+  align-items: center;
+}
+
+.county-metrics h4::before {
+  content: "🏆";
+  margin-right: 8px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.county-metric-card {
+  background-color: var(--card-bg-secondary, #f8f9fc);
+  border-radius: 6px;
+  padding: 15px;
+  border-left: 4px solid #8884d8;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.county-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.county-metric-card h5 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: var(--text-primary, #333);
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.metric-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #6c757d);
+}
+
+.metric-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+/* Empty chart state */
+.empty-chart {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  background-color: var(--card-bg-secondary, #f8f9fc);
+  border-radius: 8px;
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-chart p {
+  color: var(--text-secondary, #6c757d);
+  font-size: 1rem;
+}
+
+.empty-chart p::before {
+  content: "👉";
+  margin-right: 8px;
+}
+
+/* Dark mode compatibility for county analysis */
+@media (prefers-color-scheme: dark) {
+  .chart-col,
+  .county-metrics {
+    background-color: #1e2327;
+  }
+  
+  .county-metric-card {
+    background-color: #272c32;
+  }
+  
+  .metric-value {
+    color: #e1e5ea;
+  }
+  
+  .empty-chart {
+    background-color: #272c32;
+  }
+  
+  .empty-chart p {
+    color: #a9b1bb;
+  }
+}
+
 @media (max-width: 768px) {
   .comparison-container {
     padding: 1rem;
@@ -631,5 +979,131 @@
 
   .chart {
     min-width: 100%;
+  }
+}
+
+/* Comparison tabs */
+.comparison-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.comparison-tab {
+  padding: 8px 16px;
+  background-color: var(--button-bg, #f0f2f5);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-primary, #333);
+}
+
+.comparison-tab.active {
+  background-color: var(--primary, #4e73df);
+  color: white;
+  border-color: var(--primary, #4e73df);
+}
+
+.comparison-tab:hover:not(.active) {
+  background-color: var(--button-hover-bg, #e2e6ea);
+}
+
+/* Town metrics styling */
+.town-metrics {
+  background-color: var(--card-bg, #fff);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.town-metrics h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1rem;
+  color: var(--text-primary, #333);
+  display: flex;
+  align-items: center;
+}
+
+.town-metrics h4::before {
+  content: "🏙️";
+  margin-right: 8px;
+}
+
+.town-metric-card {
+  background-color: var(--card-bg-secondary, #f8f9fc);
+  border-radius: 6px;
+  padding: 15px;
+  border-left: 4px solid #82ca9d;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.town-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.town-metric-card h5 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: var(--text-primary, #333);
+}
+
+/* Empty chart message styling */
+.empty-chart-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  background-color: var(--card-bg-secondary, #f8f9fc);
+  border-radius: 6px;
+  padding: 20px;
+}
+
+.empty-chart-message p,
+.empty-metrics-message p {
+  color: var(--text-secondary, #6c757d);
+  font-style: italic;
+}
+
+.empty-metrics-message {
+  padding: 30px;
+  text-align: center;
+  background-color: var(--card-bg-secondary, #f8f9fc);
+  border-radius: 6px;
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+  .comparison-tab {
+    background-color: #2c3237;
+    border-color: #3f444c;
+    color: #e1e5ea;
+  }
+  
+  .comparison-tab.active {
+    background-color: #3a6bc7;
+    border-color: #3a6bc7;
+    color: #fff;
+  }
+  
+  .comparison-tab:hover:not(.active) {
+    background-color: #343a40;
+  }
+  
+  .town-metrics {
+    background-color: #1e2327;
+  }
+  
+  .town-metric-card {
+    background-color: #272c32;
+  }
+  
+  .empty-chart-message,
+  .empty-metrics-message {
+    background-color: #272c32;
   }
 }
