@@ -70,6 +70,18 @@ const ProjectComparison = () => {
       Object.keys(towns).forEach(county => {
         townsByCounty[county] = [...towns[county]].sort();
       });
+      
+      // Add empty town arrays for counties that don't have towns in the data
+      // This ensures the town dropdown is enabled even if no towns are found
+      counties.forEach(county => {
+        if (!townsByCounty[county]) {
+          townsByCounty[county] = [];
+        }
+      });
+      
+      // Debug logging
+      console.log('Available counties:', counties);
+      console.log('Towns by county:', townsByCounty);
 
       setFilterOptions(prev => ({
         ...prev,
@@ -576,7 +588,7 @@ const ProjectComparison = () => {
             value={filters.town}
             onChange={(e) => handleFilterChange('town', e.target.value)}
             className="town-filter"
-            disabled={!filters.county || !filterOptions.towns[filters.county]}
+            disabled={!filters.county}
           >
             <option value="">All Towns</option>
             {filters.county && filterOptions.towns[filters.county]?.map((town, index) => (
