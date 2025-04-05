@@ -288,6 +288,139 @@
   border-left: 4px solid #d32f2f;
 }
 
+/* Chart Wrapper */
+.chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+}
+
+.loading-spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top: 4px solid #4e73df;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error and offline messages */
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.error-message button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.error-message button:hover {
+  background-color: #c82333;
+}
+
+.offline-warning {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Error boundary fallback */
+.error-boundary-fallback {
+  background-color: #f8f9fc;
+  border: 1px solid #e3e6f0;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-boundary-fallback h2 {
+  color: #e74a3b;
+  margin-bottom: 10px;
+}
+
+.error-boundary-fallback p {
+  color: #5a5c69;
+  margin-bottom: 20px;
+}
+
+.error-boundary-fallback .retry-button {
+  background-color: #4e73df;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.error-boundary-fallback .retry-button:hover {
+  background-color: #2e59d9;
+}
+
+/* Dark mode adjustments */
+.dark-mode .chart-loading {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.dark-mode .loading-spinner {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: #4e73df;
+}
+
+.dark-mode .error-message {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #f8d7da;
+}
+
+.dark-mode .offline-warning {
+  background-color: rgba(255, 193, 7, 0.2);
+  color: #ffeeba;
+}
+
+.dark-mode .error-boundary-fallback {
+  background-color: #2d3748;
+  border-color: #4a5568;
+}
+
+.dark-mode .error-boundary-fallback h2 {
+  color: #fc8181;
+}
+
+.dark-mode .error-boundary-fallback p {
+  color: #e2e8f0;
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .analytics-container {
@@ -342,9 +475,4 @@
   .filter-group {
     width: 100%;
   }
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }

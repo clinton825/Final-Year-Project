@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -17,19 +17,58 @@ import {
 import { Pie, Bar, Chart } from 'react-chartjs-2';
 import config from '../config';
 import './Analytics.css';
+import ErrorBoundary from '../components/ErrorBoundary';
 
-// Register ChartJS components
-ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  PointElement,
-  LineElement
-);
+// Safely register ChartJS components with error handling
+try {
+  ChartJS.register(
+    ArcElement,
+    Tooltip,
+    Legend,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    PointElement,
+    LineElement
+  );
+  console.log('ChartJS components registered successfully');
+} catch (error) {
+  console.error('Error registering ChartJS components:', error);
+}
+
+// ChartWrapper component to defer rendering and catch errors
+const ChartWrapper = ({ children, chartType, title }) => {
+  const [shouldRender, setShouldRender] = useState(false);
+  
+  useEffect(() => {
+    // Defer chart rendering to ensure page is stable first
+    const timer = setTimeout(() => {
+      setShouldRender(true);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  if (!shouldRender) {
+    return (
+      <div className="chart-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading {chartType} chart...</p>
+      </div>
+    );
+  }
+  
+  return (
+    <ErrorBoundary 
+      fallbackTitle={`${chartType} Chart Issue`}
+      fallbackMessage={`Unable to render the ${title} chart. Please try again later.`}
+      retryButton={true}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+};
 
 const Analytics = () => {
   const { currentUser } = useAuth();
@@ -50,6 +89,8 @@ const Analytics = () => {
   const [countyProjectsData, setCountyProjectsData] = useState(null);
   const [timeComparisonData, setTimeComparisonData] = useState(null);
   const [chartReady, setChartReady] = useState(false); // Track if charts are ready to display
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [pageReady, setPageReady] = useState(false); // Track if the page structure is ready
 
   // Color palette for charts
   const colorPalette = [
@@ -57,10 +98,43 @@ const Analytics = () => {
     '#5a5c69', '#6610f2', '#6f42c1', '#e83e8c', '#fd7e14'
   ];
 
+  // Detect and handle online/offline states
   useEffect(() => {
-    fetchAllProjects();
-    fetchTrackedProjects();
-    fetchCategories();
+    const handleOnline = () => {
+      console.log('Network is online');
+      setOfflineMode(false);
+    };
+    
+    const handleOffline = () => {
+      console.log('Network is offline');
+      setOfflineMode(true);
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Check initial state
+    setOfflineMode(!navigator.onLine);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // First ensure page structure renders, then load data
+  useEffect(() => {
+    // First mark page structure as ready
+    setPageReady(true);
+    
+    // Then after a brief delay, fetch data to ensure page is stable
+    const timer = setTimeout(() => {
+      fetchAllProjects();
+      fetchTrackedProjects();
+      fetchCategories();
+    }, 300);
+    
+    return () => clearTimeout(timer);
   }, [currentUser]);
 
   useEffect(() => {
@@ -88,6 +162,13 @@ const Analytics = () => {
     try {
       setLoading(true);
       
+      // If offline, use sample data
+      if (offlineMode) {
+        console.log('Using sample data in offline mode');
+        setProjects(getSampleProjects());
+        return;
+      }
+      
       // Call the backend API to get all projects
       const response = await fetch(`${config.API_URL}/api/projects?limit=1000`);
       
@@ -110,6 +191,10 @@ const Analytics = () => {
     } catch (error) {
       console.error('Error fetching projects for analytics:', error);
       setError('Failed to load analytics data. Please try again later.');
+      
+      // Use sample data as fallback
+      console.log('Using sample data as fallback due to error');
+      setProjects(getSampleProjects());
     } finally {
       setLoading(false);
     }
@@ -697,453 +782,534 @@ const Analytics = () => {
     loadData();
   }, [currentUser]);
 
+  // Sample data for offline mode or API failures
+  const getSampleProjects = () => {
+    return [
+      {
+        id: 'sample1',
+        title: 'Waterford City Centre Redevelopment',
+        description: 'Major redevelopment of Waterford city centre including retail, office and residential units',
+        planning_value: 25000000,
+        category: 'Commercial',
+        subcategory: 'Mixed Use',
+        county: 'Waterford',
+        stage: 'Planning',
+        added_date: '2023-01-15'
+      },
+      {
+        id: 'sample2',
+        title: 'Carlow Hospital Extension',
+        description: 'Extension to existing hospital facilities including new emergency department',
+        planning_value: 18000000,
+        category: 'Healthcare',
+        subcategory: 'Hospital',
+        county: 'Carlow',
+        stage: 'Construction',
+        added_date: '2023-03-22'
+      },
+      {
+        id: 'sample3',
+        title: 'Waterford Residential Development',
+        description: 'New residential development with 120 housing units',
+        planning_value: 35000000,
+        category: 'Residential',
+        subcategory: 'Housing',
+        county: 'Waterford',
+        stage: 'Planning',
+        added_date: '2023-05-10'
+      },
+      {
+        id: 'sample4',
+        title: 'Carlow Wind Farm',
+        description: 'Renewable energy project with 15 wind turbines',
+        planning_value: 42000000,
+        category: 'Energy',
+        subcategory: 'Renewable',
+        county: 'Carlow',
+        stage: 'Design',
+        added_date: '2023-02-05'
+      },
+      {
+        id: 'sample5',
+        title: 'Waterford Road Improvement',
+        description: 'Major road infrastructure improvements on N25',
+        planning_value: 15000000,
+        category: 'Infrastructure',
+        subcategory: 'Roads',
+        county: 'Waterford',
+        stage: 'Construction',
+        added_date: '2023-04-18'
+      }
+    ];
+  };
+
   return (
-    <div className="analytics-container">
-      <div className="analytics-header">
-        <h1>Project Analytics</h1>
-        <p>Visualize your project data with interactive charts</p>
-      </div>
+    <ErrorBoundary
+      fallbackTitle="Analytics Issue"
+      fallbackMessage="We're having trouble displaying the analytics. Please try again later."
+      retryButton={true}
+    >
+      <div className="analytics-container">
+        <h1>Project Analytics Dashboard</h1>
+        {error && (
+          <div className="error-message">
+            <p>{error}</p>
+            <button onClick={fetchAllProjects}>Retry</button>
+          </div>
+        )}
+        
+        {offlineMode && (
+          <div className="offline-warning">
+            <p>You are currently offline. Some features may be limited.</p>
+          </div>
+        )}
+        
+        <div className="analytics-header">
+          <h1>Project Analytics</h1>
+          <p>Visualize your project data with interactive charts</p>
+        </div>
 
-      <div className="filters-section">
-        <div className="filter-controls">
-          <div className="filter-group">
-            <label>Category:</label>
-            <select
-              value={selectedCategory}
-              onChange={handleCategoryChange}
-              className="filter-select"
-            >
-              <option value="">All Categories</option>
-              {categories.map((category, index) => (
-                <option key={index} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>Subcategory:</label>
-            <select
-              value={selectedSubcategory}
-              onChange={handleSubcategoryChange}
-              className="filter-select"
-              disabled={!selectedCategory}
-            >
-              <option value="">All Subcategories</option>
-              {subcategories.map((subcategory, index) => (
-                <option key={index} value={subcategory}>
-                  {subcategory}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>County:</label>
-            <select
-              value={selectedCounty}
-              onChange={handleCountyChange}
-              className="filter-select"
-            >
-              <option value="">All Counties</option>
-              {counties.map((county, index) => (
-                <option key={index} value={county}>
-                  {county}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>Time Range:</label>
-            <select
-              value={selectedTimeRange}
-              onChange={handleTimeRangeChange}
-              className="filter-select"
-            >
-              <option value="1">Last 1 Year</option>
-              <option value="3">Last 3 Years</option>
-              <option value="5">Last 5 Years</option>
-              <option value="10">Last 10 Years</option>
-            </select>
+        <div className="filters-section">
+          <div className="filter-controls">
+            <div className="filter-group">
+              <label>Category:</label>
+              <select
+                value={selectedCategory}
+                onChange={handleCategoryChange}
+                className="filter-select"
+              >
+                <option value="">All Categories</option>
+                {categories.map((category, index) => (
+                  <option key={index} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label>Subcategory:</label>
+              <select
+                value={selectedSubcategory}
+                onChange={handleSubcategoryChange}
+                className="filter-select"
+                disabled={!selectedCategory}
+              >
+                <option value="">All Subcategories</option>
+                {subcategories.map((subcategory, index) => (
+                  <option key={index} value={subcategory}>
+                    {subcategory}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label>County:</label>
+              <select
+                value={selectedCounty}
+                onChange={handleCountyChange}
+                className="filter-select"
+              >
+                <option value="">All Counties</option>
+                {counties.map((county, index) => (
+                  <option key={index} value={county}>
+                    {county}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label>Time Range:</label>
+              <select
+                value={selectedTimeRange}
+                onChange={handleTimeRangeChange}
+                className="filter-select"
+              >
+                <option value="1">Last 1 Year</option>
+                <option value="3">Last 3 Years</option>
+                <option value="5">Last 5 Years</option>
+                <option value="10">Last 10 Years</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading analytics data...</p>
-        </div>
-      ) : error ? (
-        <div className="error-message">{error}</div>
-      ) : (
-        <div className="charts-container">
-          <div className="chart-section">
-            <div className="chart-card">
-              <h2>Subcategory Spending Distribution</h2>
-              <div className="chart-description">
-                <p>Distribution of project value across different subcategories for the selected time period</p>
-              </div>
-              <div className="chart-wrapper">
-                {chartReady && chartData && chartData.labels && chartData.labels.length > 0 ? (
-                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
-                    <Pie 
-                      data={chartData} 
-                      options={{
-                        plugins: {
-                          legend: {
-                            position: 'right',
-                            labels: {
-                              usePointStyle: true,
-                              padding: 15,
-                              font: {
-                                size: 12
-                              }
-                            }
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                let label = context.label || '';
-                                let value = context.raw || 0;
-                                return `${label}: ${formatCurrency(value)}`;
-                              }
-                            }
-                          },
-                          title: {
-                            display: false
-                          }
-                        },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                          padding: 10
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="no-data-message">
-                    <p>No data available for the selected filters</p>
-                  </div>
-                )}
-              </div>
-            </div>
+        {loading ? (
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Loading analytics data...</p>
           </div>
-
-          <div className="chart-section">
-            <div className="chart-card">
-              <h2>Projects by Stage</h2>
-              <div className="chart-description">
-                <p>Number of projects in each development stage</p>
-              </div>
-              <div className="chart-wrapper">
-                {chartReady && stagesData && stagesData.labels && stagesData.labels.length > 0 ? (
-                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
-                    <Bar 
-                      data={stagesData} 
-                      options={{
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                return `${context.dataset.label}: ${context.raw} projects`;
-                              }
-                            }
-                          },
-                          title: {
-                            display: false
-                          }
-                        },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                            ticks: {
-                              precision: 0,
-                              font: {
-                                size: 12
+        ) : error ? (
+          <div className="error-message">{error}</div>
+        ) : (
+          <div className="charts-container">
+            <div className="chart-section">
+              <div className="chart-card">
+                <h2>Subcategory Spending Distribution</h2>
+                <div className="chart-description">
+                  <p>Distribution of project value across different subcategories for the selected time period</p>
+                </div>
+                <div className="chart-wrapper">
+                  {chartReady && chartData && chartData.labels && chartData.labels.length > 0 ? (
+                    <ChartWrapper chartType="Pie" title="Subcategory Spending Distribution">
+                      <Pie 
+                        data={chartData} 
+                        options={{
+                          plugins: {
+                            legend: {
+                              position: 'right',
+                              labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                  size: 12
+                                }
                               }
                             },
-                            grid: {
-                              display: true,
-                              drawBorder: false,
-                              lineWidth: 0.5
-                            }
-                          },
-                          x: {
-                            ticks: {
-                              font: {
-                                size: 12
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  let label = context.label || '';
+                                  let value = context.raw || 0;
+                                  return `${label}: ${formatCurrency(value)}`;
+                                }
                               }
                             },
-                            grid: {
+                            title: {
                               display: false
                             }
+                          },
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          layout: {
+                            padding: 10
                           }
-                        },
-                        indexAxis: 'y',
-                        barThickness: 30,
-                        layout: {
-                          padding: 10
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="no-data-message">
-                    <p>No stage data available</p>
-                  </div>
-                )}
+                        }}
+                      />
+                    </ChartWrapper>
+                  ) : (
+                    <div className="no-data-message">
+                      <p>No data available for the selected filters</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="chart-section">
-            <div className="chart-card">
-              <h2>Project Value by County</h2>
-              <div className="chart-description">
-                <p>Distribution of project value across counties</p>
-                {selectedCounty && <p className="selected-filter">Selected County: {selectedCounty}</p>}
-              </div>
-              <div className="chart-wrapper">
-                {chartReady && countyChartData && countyChartData.labels && countyChartData.labels.length > 0 ? (
-                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
-                    <Bar 
-                      data={countyChartData} 
-                      options={{
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                return `${context.label}: ${formatCurrency(context.raw)}`;
-                              }
-                            }
-                          },
-                          title: {
-                            display: false
-                          }
-                        },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                            ticks: {
-                              callback: function(value) {
-                                return formatCurrency(value);
-                              }
+            <div className="chart-section">
+              <div className="chart-card">
+                <h2>Projects by Stage</h2>
+                <div className="chart-description">
+                  <p>Number of projects in each development stage</p>
+                </div>
+                <div className="chart-wrapper">
+                  {chartReady && stagesData && stagesData.labels && stagesData.labels.length > 0 ? (
+                    <ChartWrapper chartType="Bar" title="Projects by Stage">
+                      <Bar 
+                        data={stagesData} 
+                        options={{
+                          plugins: {
+                            legend: {
+                              display: false,
                             },
-                            grid: {
-                              display: true,
-                              drawBorder: false,
-                              lineWidth: 0.5
-                            }
-                          },
-                          x: {
-                            grid: {
-                              display: false
-                            }
-                          }
-                        },
-                        layout: {
-                          padding: 10
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="no-data-message">
-                    <p>No county data available for the selected filters</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="chart-section">
-            <div className="chart-card">
-              <h2>Number of Projects by County</h2>
-              <div className="chart-description">
-                <p>Number of projects in each county</p>
-                {selectedCounty && <p className="selected-filter">Selected County: {selectedCounty}</p>}
-              </div>
-              <div className="chart-wrapper">
-                {chartReady && countyProjectsData && countyProjectsData.labels && countyProjectsData.labels.length > 0 ? (
-                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
-                    <Bar 
-                      data={countyProjectsData} 
-                      options={{
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                return `${context.label}: ${context.raw} projects`;
-                              }
-                            }
-                          },
-                          title: {
-                            display: false
-                          }
-                        },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                            ticks: {
-                              precision: 0,
-                              font: {
-                                size: 12
-                              }
-                            },
-                            grid: {
-                              display: true,
-                              drawBorder: false,
-                              lineWidth: 0.5
-                            }
-                          },
-                          x: {
-                            ticks: {
-                              font: {
-                                size: 12
-                              }
-                            },
-                            grid: {
-                              display: false
-                            }
-                          }
-                        },
-                        indexAxis: 'y',
-                        barThickness: 30,
-                        layout: {
-                          padding: 10
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="no-data-message">
-                    <p>No county data available for the selected filters</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="chart-section">
-            <div className="chart-card">
-              <h2>Project Trends Over Time</h2>
-              <div className="chart-description">
-                <p>Comparing project count and value over the selected time period</p>
-                <p className="selected-filter">Time Range: Last {selectedTimeRange} years</p>
-              </div>
-              <div className="chart-wrapper">
-                {chartReady && timeComparisonData && timeComparisonData.labels && timeComparisonData.labels.length > 0 ? (
-                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
-                    <Chart 
-                      type="bar"
-                      data={timeComparisonData} 
-                      options={{
-                        plugins: {
-                          legend: {
-                            display: true,
-                            position: 'top',
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                if (context.dataset.yAxisID === 'y') {
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
                                   return `${context.dataset.label}: ${context.raw} projects`;
-                                } else {
-                                  return `${context.dataset.label}: ${formatCurrency(context.raw * 1000000)}`;
+                                }
+                              }
+                            },
+                            title: {
+                              display: false
+                            }
+                          },
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              ticks: {
+                                precision: 0,
+                                font: {
+                                  size: 12
+                                }
+                              },
+                              grid: {
+                                display: true,
+                                drawBorder: false,
+                                lineWidth: 0.5
+                              }
+                            },
+                            x: {
+                              ticks: {
+                                font: {
+                                  size: 12
+                                }
+                              },
+                              grid: {
+                                display: false
+                              }
+                            }
+                          },
+                          indexAxis: 'y',
+                          barThickness: 30,
+                          layout: {
+                            padding: 10
+                          }
+                        }}
+                      />
+                    </ChartWrapper>
+                  ) : (
+                    <div className="no-data-message">
+                      <p>No stage data available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="chart-section">
+              <div className="chart-card">
+                <h2>Project Value by County</h2>
+                <div className="chart-description">
+                  <p>Distribution of project value across counties</p>
+                  {selectedCounty && <p className="selected-filter">Selected County: {selectedCounty}</p>}
+                </div>
+                <div className="chart-wrapper">
+                  {chartReady && countyChartData && countyChartData.labels && countyChartData.labels.length > 0 ? (
+                    <ChartWrapper chartType="Bar" title="Project Value by County">
+                      <Bar 
+                        data={countyChartData} 
+                        options={{
+                          plugins: {
+                            legend: {
+                              display: false,
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  return `${context.label}: ${formatCurrency(context.raw)}`;
+                                }
+                              }
+                            },
+                            title: {
+                              display: false
+                            }
+                          },
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              ticks: {
+                                callback: function(value) {
+                                  return formatCurrency(value);
+                                }
+                              },
+                              grid: {
+                                display: true,
+                                drawBorder: false,
+                                lineWidth: 0.5
+                              }
+                            },
+                            x: {
+                              grid: {
+                                display: false
+                              }
+                            }
+                          },
+                          layout: {
+                            padding: 10
+                          }
+                        }}
+                      />
+                    </ChartWrapper>
+                  ) : (
+                    <div className="no-data-message">
+                      <p>No county data available for the selected filters</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="chart-section">
+              <div className="chart-card">
+                <h2>Number of Projects by County</h2>
+                <div className="chart-description">
+                  <p>Number of projects in each county</p>
+                  {selectedCounty && <p className="selected-filter">Selected County: {selectedCounty}</p>}
+                </div>
+                <div className="chart-wrapper">
+                  {chartReady && countyProjectsData && countyProjectsData.labels && countyProjectsData.labels.length > 0 ? (
+                    <ChartWrapper chartType="Bar" title="Number of Projects by County">
+                      <Bar 
+                        data={countyProjectsData} 
+                        options={{
+                          plugins: {
+                            legend: {
+                              display: false,
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  return `${context.label}: ${context.raw} projects`;
+                                }
+                              }
+                            },
+                            title: {
+                              display: false
+                            }
+                          },
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              ticks: {
+                                precision: 0,
+                                font: {
+                                  size: 12
+                                }
+                              },
+                              grid: {
+                                display: true,
+                                drawBorder: false,
+                                lineWidth: 0.5
+                              }
+                            },
+                            x: {
+                              ticks: {
+                                font: {
+                                  size: 12
+                                }
+                              },
+                              grid: {
+                                display: false
+                              }
+                            }
+                          },
+                          indexAxis: 'y',
+                          barThickness: 30,
+                          layout: {
+                            padding: 10
+                          }
+                        }}
+                      />
+                    </ChartWrapper>
+                  ) : (
+                    <div className="no-data-message">
+                      <p>No county data available for the selected filters</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="chart-section">
+              <div className="chart-card">
+                <h2>Project Trends Over Time</h2>
+                <div className="chart-description">
+                  <p>Comparing project count and value over the selected time period</p>
+                  <p className="selected-filter">Time Range: Last {selectedTimeRange} years</p>
+                </div>
+                <div className="chart-wrapper">
+                  {chartReady && timeComparisonData && timeComparisonData.labels && timeComparisonData.labels.length > 0 ? (
+                    <ChartWrapper chartType="Line" title="Project Trends Over Time">
+                      <Chart 
+                        type="bar"
+                        data={timeComparisonData} 
+                        options={{
+                          plugins: {
+                            legend: {
+                              display: true,
+                              position: 'top',
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  if (context.dataset.yAxisID === 'y') {
+                                    return `${context.dataset.label}: ${context.raw} projects`;
+                                  } else {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw * 1000000)}`;
+                                  }
                                 }
                               }
                             }
-                          }
-                        },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                          x: {
-                            grid: {
-                              display: false
-                            }
                           },
-                          y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            beginAtZero: true,
-                            title: {
-                              display: true,
-                              text: 'Project Count'
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                            x: {
+                              grid: {
+                                display: false
+                              }
                             },
-                            grid: {
+                            y: {
+                              type: 'linear',
                               display: true,
-                              drawBorder: false
-                            }
-                          },
-                          y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            beginAtZero: true,
-                            title: {
-                              display: true,
-                              text: 'Value (€M)'
+                              position: 'left',
+                              beginAtZero: true,
+                              title: {
+                                display: true,
+                                text: 'Project Count'
+                              },
+                              grid: {
+                                display: true,
+                                drawBorder: false
+                              }
                             },
-                            grid: {
-                              display: false
+                            y1: {
+                              type: 'linear',
+                              display: true,
+                              position: 'right',
+                              beginAtZero: true,
+                              title: {
+                                display: true,
+                                text: 'Value (€M)'
+                              },
+                              grid: {
+                                display: false
+                              }
                             }
                           }
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="no-data-message">
-                    <p>No trend data available for the selected time period</p>
-                  </div>
-                )}
+                        }}
+                      />
+                    </ChartWrapper>
+                  ) : (
+                    <div className="no-data-message">
+                      <p>No trend data available for the selected time period</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="analytics-summary">
-        <div className="summary-card">
-          <h3>Total Projects</h3>
-          <p className="summary-value">{projects.length}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Tracked Projects</h3>
-          <p className="summary-value">{trackedProjects.length}</p>
-          {trackedProjects.length > 0 && (
-            <small className="summary-detail">Last updated: {new Date().toLocaleDateString()}</small>
-          )}
-        </div>
-        <div className="summary-card">
-          <h3>Total Value</h3>
-          <p className="summary-value">
-            {formatCurrency(projects.reduce((total, project) => total + (project.planning_value || 0), 0))}
-          </p>
+        <div className="analytics-summary">
+          <div className="summary-card">
+            <h3>Total Projects</h3>
+            <p className="summary-value">{projects.length}</p>
+          </div>
+          <div className="summary-card">
+            <h3>Tracked Projects</h3>
+            <p className="summary-value">{trackedProjects.length}</p>
+            {trackedProjects.length > 0 && (
+              <small className="summary-detail">Last updated: {new Date().toLocaleDateString()}</small>
+            )}
+          </div>
+          <div className="summary-card">
+            <h3>Total Value</h3>
+            <p className="summary-value">
+              {formatCurrency(projects.reduce((total, project) => total + (project.planning_value || 0), 0))}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 
