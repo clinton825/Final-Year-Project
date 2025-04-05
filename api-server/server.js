@@ -20,7 +20,8 @@ const {
   getAllProjects, 
   getProjectsByCategory, 
   getProjectCategories,
-  getProjectsByFilters
+  getProjectsByFilters,
+  getAvailableCounties
 } = require('./api/building_api');
 
 const {
@@ -525,6 +526,63 @@ app.get("/api/test-categories", async (req, res) => {
       status: "error", 
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Get available counties
+app.get("/api/counties", async (req, res) => {
+  try {
+    console.log('Fetching available counties');
+    const result = await getAvailableCounties();
+    
+    if (!result || !result.counties) {
+      return res.status(404).json({
+        status: "error",
+        message: "No counties found"
+      });
+    }
+    
+    res.json({
+      status: "success",
+      counties: result.counties,
+      total: result.total
+    });
+  } catch (error) {
+    console.error("Error fetching counties:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: error.message || "Failed to fetch counties"
+    });
+  }
+});
+
+// Get projects by county
+app.get("/api/projects/county/:county", async (req, res) => {
+  try {
+    const county = decodeURIComponent(req.params.county);
+    
+    if (!county) {
+      return res.status(400).json({ 
+        status: "error", 
+        message: "County parameter is required" 
+      });
+    }
+    
+    console.log(`Fetching projects for county: ${county}`);
+    
+    const filters = {
+      planning_county: county
+    };
+    
+    const result = await getProjectsByFilters(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching projects by county:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: error.message || "Failed to fetch projects" 
     });
   }
 });

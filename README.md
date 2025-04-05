@@ -7,7 +7,7 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 ## Key Features
 ### **Search & Filtering**
 - Search by **Planning ID, Title, Location, or Category**
-- Filter projects by **Category, Subcategory, and Value Range**
+- Filter projects by **Category, Subcategory, County, Town, and Value Range**
 - Smart filtering to hide **already tracked projects** (toggle-enabled)
 
 ### **Project Cards & Details**
@@ -19,6 +19,8 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 ### **Dashboard & Visualizations**
 - **Quick Stats Summary** (tracked projects, total value, activity count)
 - **Interactive Bar Charts** for project value distribution
+- **County-specific project visualization**
+- **Project Trends Over Time** with dual-axis visualization
 - **Dark Mode Compatibility**
 - **Customizable Layout** (grid/list view, widget visibility toggles)
 - **Project Notes System** (add/edit/delete personal notes)
@@ -29,9 +31,16 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - **LocalStorage fallback** for offline support
 - Enhanced authentication with **error handling & retry mechanisms**
 
-## Recent Updates *(March 2025)*
+## Recent Updates *(April 2025)*
+### **County Data Expansion**
+- Added comprehensive **County Waterford and Carlow project data**
+- Implemented **town-level filtering** for precise location-based searches
+- Enhanced **county-based analytics** with value distribution and project counts
+- Added **interactive time comparison chart** for tracking county project trends
+
 ### **Analytics Dashboard**
 - **Visualizations for project data trends** (subcategory spending, development stage analysis)
+- **County-specific analytics** with interactive filtering
 - **Time-range filtering** (1-10 years) for insights
 - **Dark mode support & responsive design**
 
@@ -74,7 +83,9 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 | GET | `/api/project/{id}` | Fetch project details by ID |
 | GET | `/api/projects` | Retrieve all projects |
 | GET | `/api/projects/category/{category}` | Get projects by category |
+| GET | `/api/projects/county/{county}` | Get projects by county |
 | GET | `/api/subcategories/{category}` | Fetch subcategories by category |
+| GET | `/api/counties` | Fetch available counties |
 
 ### **Sample API Response**
 ```json
@@ -95,7 +106,7 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 
 ## **Usage Instructions**
 1. **Browse & Search** projects on the home page
-2. **Apply Filters** (category, subcategory, value range)
+2. **Apply Filters** (category, subcategory, county, town, value range)
 3. **Click on a Project** to view details
 4. **Track Projects** for personal monitoring
 5. **Access Dashboard** for insights and tracked projects
@@ -107,4 +118,3 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 Contributions are welcome! Submit a **Pull Request** or open an **Issue** on GitHub.
 
 ---
-

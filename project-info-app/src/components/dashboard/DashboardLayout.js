@@ -31,6 +31,7 @@ const DashboardLayout = ({
   const [availableWidgets, setAvailableWidgets] = useState([]);
   const [widgets, setWidgets] = useState([]);
   const [dashboardLayout, setDashboardLayout] = useState('default'); // 'default', 'compact', 'expanded'
+  const [showWaterfordNotice, setShowWaterfordNotice] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -44,6 +45,14 @@ const DashboardLayout = ({
       loadUserPreferences();
     }
   }, [currentUser, userRole]);
+
+  useEffect(() => {
+    // Check if the notice was previously dismissed
+    const noticeDismissed = localStorage.getItem('waterfordNoticeDismissed');
+    if (noticeDismissed === 'true') {
+      setShowWaterfordNotice(false);
+    }
+  }, []);
 
   const getAvailableWidgets = () => [
     { id: 'summary', type: 'summary-stats', title: 'Summary Statistics', icon: <FaThLarge />, visible: true },
@@ -302,6 +311,12 @@ const DashboardLayout = ({
     }
   };
 
+  const dismissWaterfordNotice = () => {
+    setShowWaterfordNotice(false);
+    // Store the dismissal in localStorage so it won't show again in this session
+    localStorage.setItem('waterfordNoticeDismissed', 'true');
+  };
+
   if (loading) {
     return (
       <div className="dashboard-loading">
@@ -329,6 +344,15 @@ const DashboardLayout = ({
   // Fixed widget container
   return (
     <div className="dashboard-container">
+      {showWaterfordNotice && (
+        <div className="notification-banner">
+          <div className="notification-content">
+            <span className="notification-icon">🆕</span>
+            <p>New data available: County Waterford projects have been added to our database!</p>
+            <button className="dismiss-btn" onClick={dismissWaterfordNotice}>×</button>
+          </div>
+        </div>
+      )}
         {isEditMode && (
           <div className="edit-controls">
             <button onClick={saveLayoutChanges} className="save-btn">

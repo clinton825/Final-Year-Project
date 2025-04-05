@@ -355,10 +355,59 @@ const getProjectCategories = async () => {
   }
 };
 
+// Add function to get available counties
+const getAvailableCounties = async () => {
+  try {
+    // Define known counties in the Building Info system with Waterford now available
+    const predefinedCounties = [
+      'Dublin',
+      'Cork',
+      'Galway',
+      'Waterford',  // New addition
+      'Limerick',
+      'Wexford',
+      'Donegal',
+      'Kerry',
+      'Kildare',
+      'Mayo'
+    ];
+
+    // Verify API connection with a simple request
+    const response = await fetchWithRetry(
+      `https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${process.env.BUILDING_INFO_API_KEY}&ukey=${process.env.BUILDING_INFO_USER_KEY}&limit=1`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    // If we can connect to the API, return all predefined counties
+    return {
+      status: "success",
+      counties: predefinedCounties,
+      total: predefinedCounties.length
+    };
+  } catch (error) {
+    console.error("Error fetching available counties:", error);
+    if (error.code === 'ETIMEDOUT') {
+      throw new Error("The request timed out. Please try again.");
+    }
+    throw error;
+  }
+};
+
 module.exports = {
   getProjectInfoByPlanningID,
   getAllProjects,
   getProjectsByCategory,
   getProjectsByFilters,
-  getProjectCategories
+  getProjectCategories,
+  getAvailableCounties
 };

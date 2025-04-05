@@ -25,6 +25,13 @@ const Projects = () => {
   const [valueRange, setValueRange] = useState({ min: '', max: '' });
   const [expandedCards, setExpandedCards] = useState(new Set());
   const [trackedProjectIds, setTrackedProjectIds] = useState(new Set());
+  const [selectedCounty, setSelectedCounty] = useState('');
+  const [counties, setCounties] = useState(['Waterford', 'Carlow']);
+  const [selectedTown, setSelectedTown] = useState('');
+  const [towns, setTowns] = useState({
+    'Waterford': ['Waterford City', 'Dungarvan', 'Tramore', 'Lismore', 'Ardmore', 'Portlaw', 'Tallow', 'Cappoquin', 'Kilmacthomas'],
+    'Carlow': ['Carlow Town', 'Tullow', 'Bagenalstown', 'Borris', 'Hacketstown', 'Tinnahinch']
+  });
 
   // Fetch subcategories when category changes
   useEffect(() => {
@@ -82,6 +89,7 @@ const Projects = () => {
       filtered = filtered.filter(project => {
         return (
           project.planning_development_address_1?.toLowerCase().includes(searchTermLower) ||
+          project.planning_development_address_2?.toLowerCase().includes(searchTermLower) ||
           project.planning_stage?.toLowerCase().includes(searchTermLower) ||
           project.planning_category?.toLowerCase().includes(searchTermLower)
         );
@@ -100,6 +108,25 @@ const Projects = () => {
       filtered = filtered.filter(project => 
         project.planning_subcategory?.toLowerCase() === selectedSubcategory.toLowerCase()
       );
+    }
+    
+    // Filter by county
+    if (selectedCounty) {
+      filtered = filtered.filter(project => 
+        project.planning_county?.toLowerCase() === selectedCounty.toLowerCase()
+      );
+    }
+    
+    // Filter by town (when a town is selected)
+    if (selectedTown) {
+      filtered = filtered.filter(project => {
+        const address = project.planning_development_address_1 || '';
+        const address2 = project.planning_development_address_2 || '';
+        const addressLower = address.toLowerCase();
+        const address2Lower = address2.toLowerCase();
+        return addressLower.includes(selectedTown.toLowerCase()) || 
+               address2Lower.includes(selectedTown.toLowerCase());
+      });
     }
 
     // Filter by value range
@@ -229,6 +256,17 @@ const Projects = () => {
     setSelectedSubcategory(subcategory);
   };
 
+  // Handle county selection
+  const handleCountyChange = (county) => {
+    setSelectedCounty(county);
+    setSelectedTown(''); // Reset town when county changes
+  };
+  
+  // Handle town selection
+  const handleTownChange = (town) => {
+    setSelectedTown(town);
+  };
+
   const handleValueRangeChange = (type) => (e) => {
     const value = e.target.value;
     // Allow empty values or valid numbers
@@ -282,6 +320,8 @@ const Projects = () => {
     setSearchTerm('');
     setSelectedCategory('');
     setSelectedSubcategory('');
+    setSelectedCounty('');
+    setSelectedTown('');
     setValueRange({ min: '', max: '' });
     // Reset search state but don't fetch new projects
     setSearchPerformed(false);
@@ -304,7 +344,7 @@ const Projects = () => {
       setFilteredProjects(filtered);
       setDisplayedProjects(filtered.slice(0, projectsToShow));
     }
-  }, [searchTerm, selectedCategory, selectedSubcategory, valueRange, projects, projectsToShow]);
+  }, [searchTerm, selectedCategory, selectedSubcategory, selectedCounty, selectedTown, valueRange, projects, projectsToShow]);
 
   // Loading state
   if (loading && searchPerformed) {
@@ -387,6 +427,44 @@ const Projects = () => {
             </select>
           </div>
 
+          {/* County filter */}
+          <div className="filter-section">
+            <label htmlFor="county-filter">County:</label>
+            <select
+              id="county-filter"
+              value={selectedCounty}
+              onChange={(e) => handleCountyChange(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">All Counties</option>
+              {counties.map((county) => (
+                <option key={county} value={county}>
+                  {county}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Town filter - only show when a county is selected */}
+          {selectedCounty && towns[selectedCounty] && (
+            <div className="filter-section">
+              <label htmlFor="town-filter">Town:</label>
+              <select
+                id="town-filter"
+                value={selectedTown}
+                onChange={(e) => handleTownChange(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All Towns</option>
+                {towns[selectedCounty].map((town) => (
+                  <option key={town} value={town}>
+                    {town}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="value-range-container">
             <div className="value-input-group">
               <input
@@ -411,7 +489,7 @@ const Projects = () => {
             </div>
           </div>
 
-          {(searchTerm || selectedCategory || selectedSubcategory || valueRange.min || valueRange.max) && (
+          {(searchTerm || selectedCategory || selectedSubcategory || selectedCounty || selectedTown || valueRange.min || valueRange.max) && (
             <button type="button" onClick={clearFilters} className="clear-filters-btn">
               Clear Filters
             </button>
@@ -475,6 +553,10 @@ const Projects = () => {
                     <div className="meta-row">
                       <span>Value:</span>
                       <span>{project.planning_value || 'N/A'}</span>
+                    </div>
+                    <div className="meta-row">
+                      <span>County:</span>
+                      <span>{project.planning_county || 'N/A'}</span>
                     </div>
                   </div>
                   <div className="project-actions">

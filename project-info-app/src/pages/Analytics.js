@@ -10,9 +10,11 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  Title
+  Title,
+  PointElement,
+  LineElement
 } from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Pie, Bar, Chart } from 'react-chartjs-2';
 import config from '../config';
 import './Analytics.css';
 
@@ -24,7 +26,9 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
-  Title
+  Title,
+  PointElement,
+  LineElement
 );
 
 const Analytics = () => {
@@ -38,8 +42,13 @@ const Analytics = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState('10');
+  const [selectedCounty, setSelectedCounty] = useState('');
+  const [counties, setCounties] = useState(['Waterford', 'Carlow']);
   const [chartData, setChartData] = useState(null);
   const [stagesData, setStagesData] = useState(null);
+  const [countyChartData, setCountyChartData] = useState(null);
+  const [countyProjectsData, setCountyProjectsData] = useState(null);
+  const [timeComparisonData, setTimeComparisonData] = useState(null);
   const [chartReady, setChartReady] = useState(false); // Track if charts are ready to display
 
   // Color palette for charts
@@ -65,13 +74,15 @@ const Analytics = () => {
       setChartReady(false); // Reset chart ready state before updating
       prepareChartData();
       prepareStagesData();
+      prepareCountyData();
+      prepareTimeComparisonData();
       // Add a small delay to ensure charts render properly
       const timer = setTimeout(() => {
         setChartReady(true);
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [projects, selectedCategory, selectedSubcategory, selectedTimeRange]);
+  }, [projects, selectedCategory, selectedSubcategory, selectedTimeRange, selectedCounty]);
 
   const fetchAllProjects = async () => {
     try {
@@ -109,6 +120,9 @@ const Analytics = () => {
       if (!currentUser) {
         setChartData(generateEmptyChartData());
         setStagesData(generateEmptyStagesData());
+        setCountyChartData(generateEmptyCountyData());
+        setCountyProjectsData(generateEmptyCountyData());
+        setTimeComparisonData(generateEmptyTimeComparisonData());
         setChartReady(true);
         return;
       }
@@ -134,18 +148,22 @@ const Analytics = () => {
         
         trackedProjectsData.push({
           id: doc.id,
-          ...projectData
+          ...projectData,
+          planning_value: parseFloat(projectData.planning_value?.replace(/[^0-9.-]+/g, '')) || 0
         });
       });
       
-      console.log(`Analytics: Found ${trackedProjectsData.length} tracked projects`);
+      console.log(`Found ${trackedProjectsData.length} tracked projects for analytics`);
       setTrackedProjects(trackedProjectsData);
       
-      // Even if no projects, generate empty chart data instead of showing error
+      // Only proceed with empty charts if no tracked projects
       if (trackedProjectsData.length === 0) {
         console.log('No tracked projects for analytics, showing empty state');
         setChartData(generateEmptyChartData());
         setStagesData(generateEmptyStagesData());
+        setCountyChartData(generateEmptyCountyData());
+        setCountyProjectsData(generateEmptyCountyData());
+        setTimeComparisonData(generateEmptyTimeComparisonData());
         setError(null);
       }
       
@@ -155,6 +173,9 @@ const Analytics = () => {
       // Don't show error message, just generate empty charts
       setChartData(generateEmptyChartData());
       setStagesData(generateEmptyStagesData());
+      setCountyChartData(generateEmptyCountyData());
+      setCountyProjectsData(generateEmptyCountyData());
+      setTimeComparisonData(generateEmptyTimeComparisonData());
       setChartReady(true);
       setError(null);
     }
@@ -197,31 +218,56 @@ const Analytics = () => {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setFullYear(endDate.getFullYear() - parseInt(selectedTimeRange));
+    
+    console.log(`Time range filter: ${selectedTimeRange} years (from ${startDate.toISOString()} to ${endDate.toISOString()})`);
 
     // Filter projects by date range and category/subcategory if selected
     let filteredProjects = projects.filter(project => {
-      // Handle date conversion - ensure we have a Date object
+      // Handle date conversion - ensure we have a valid Date object
       let projectDate = project.planning_application_date;
       if (typeof projectDate === 'string') {
         projectDate = new Date(projectDate);
       }
       
-      // Skip projects without a valid date
-      if (!projectDate || isNaN(projectDate.getTime())) return false;
+      // Check if the project date is valid
+      const isValidDate = projectDate instanceof Date && !isNaN(projectDate);
       
-      // Check if project is within the selected time range
-      const isInTimeRange = projectDate >= startDate && projectDate <= endDate;
+      // If date is invalid or missing, include it if time range is the max (10 years)
+      if (!isValidDate) {
+        return selectedTimeRange === '10';
+      }
       
-      // Apply category filter if selected
-      const matchesCategory = !selectedCategory || project.planning_category === selectedCategory;
-      
-      // Apply subcategory filter if selected
-      const matchesSubcategory = !selectedSubcategory || project.planning_subcategory === selectedSubcategory;
-      
-      return isInTimeRange && matchesCategory && matchesSubcategory;
+      // Check if the project date is within the selected range
+      return projectDate >= startDate && projectDate <= endDate;
     });
+    
+    console.log(`Filtered to ${filteredProjects.length} projects within date range ${selectedTimeRange}`);
+    
+    // Apply category filter if selected
+    if (selectedCategory) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_category === selectedCategory
+      );
+      console.log(`After category filter: ${filteredProjects.length} projects`);
+    }
+    
+    // Apply subcategory filter if selected
+    if (selectedSubcategory) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_subcategory === selectedSubcategory
+      );
+      console.log(`After subcategory filter: ${filteredProjects.length} projects`);
+    }
+    
+    // Apply county filter if selected
+    if (selectedCounty) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_county === selectedCounty
+      );
+      console.log(`After county filter: ${filteredProjects.length} projects`);
+    }
 
-    console.log(`Filtered to ${filteredProjects.length} projects within date range`);
+    console.log(`Final filtered projects: ${filteredProjects.length}`);
 
     // Group projects by subcategory and calculate total value for each
     const subcategoryTotals = {};
@@ -288,6 +334,11 @@ const Analytics = () => {
         project.planning_subcategory === selectedSubcategory
       );
     }
+    if (selectedCounty) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_county === selectedCounty
+      );
+    }
 
     // Group projects by stage
     const stageCounts = {};
@@ -347,6 +398,183 @@ const Analytics = () => {
     });
   };
 
+  const prepareCountyData = () => {
+    if (projects.length === 0) return;
+
+    // Start with all projects
+    let filteredProjects = [...projects];
+    
+    // Apply category/subcategory filters if selected
+    if (selectedCategory) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_category === selectedCategory
+      );
+    }
+    
+    if (selectedSubcategory) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_subcategory === selectedSubcategory
+      );
+    }
+    
+    // Group projects by county and calculate total value per county
+    const countyData = {};
+    filteredProjects.forEach(project => {
+      const county = project.planning_county || 'Unknown';
+      if (!countyData[county]) {
+        countyData[county] = {
+          count: 0,
+          value: 0
+        };
+      }
+      countyData[county].count += 1;
+      countyData[county].value += (project.planning_value || 0);
+    });
+
+    // Sort counties by value and take top counties (others grouped together)
+    const sortedCounties = Object.entries(countyData)
+      .sort((a, b) => b[1].value - a[1].value);
+    
+    // Prepare chart data
+    const labels = [];
+    const data = [];
+    const backgroundColor = [];
+    
+    sortedCounties.forEach((county, index) => {
+      labels.push(county[0]);
+      data.push(county[1].value);
+      backgroundColor.push(colorPalette[index % colorPalette.length]);
+    });
+    
+    setCountyChartData({
+      labels,
+      datasets: [
+        {
+          label: 'Project Value by County (€)',
+          data,
+          backgroundColor,
+          borderColor: backgroundColor,
+          borderWidth: 1,
+        },
+      ],
+    });
+    
+    // Also set data for project count by county
+    setCountyProjectsData({
+      labels,
+      datasets: [
+        {
+          label: 'Number of Projects by County',
+          data: sortedCounties.map(county => county[1].count),
+          backgroundColor,
+          borderColor: backgroundColor,
+          borderWidth: 1,
+        },
+      ],
+    });
+  };
+
+  const prepareTimeComparisonData = () => {
+    if (projects.length === 0) return;
+    
+    // Group data by year and calculate running totals
+    const yearlyData = {};
+    const currentYear = new Date().getFullYear();
+    
+    // Initialize yearly data structure for the selected time range
+    for (let i = 0; i <= parseInt(selectedTimeRange); i++) {
+      const year = currentYear - i;
+      yearlyData[year] = {
+        count: 0,
+        value: 0
+      };
+    }
+    
+    // Apply filters to projects
+    let filteredProjects = [...projects];
+    
+    if (selectedCategory) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_category === selectedCategory
+      );
+    }
+    
+    if (selectedSubcategory) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_subcategory === selectedSubcategory
+      );
+    }
+    
+    if (selectedCounty) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_county === selectedCounty
+      );
+    }
+    
+    // Group projects by year
+    filteredProjects.forEach(project => {
+      // Get project year from application date
+      let projectDate = project.planning_application_date;
+      if (typeof projectDate === 'string') {
+        projectDate = new Date(projectDate);
+      }
+      
+      // Skip projects with invalid dates
+      if (!(projectDate instanceof Date) || isNaN(projectDate)) {
+        return;
+      }
+      
+      const projectYear = projectDate.getFullYear();
+      
+      // Only include projects within our time range
+      if (projectYear >= currentYear - parseInt(selectedTimeRange) && projectYear <= currentYear) {
+        if (!yearlyData[projectYear]) {
+          yearlyData[projectYear] = { count: 0, value: 0 };
+        }
+        
+        yearlyData[projectYear].count += 1;
+        yearlyData[projectYear].value += (project.planning_value || 0);
+      }
+    });
+    
+    // Convert to arrays for chart.js
+    const years = Object.keys(yearlyData).sort((a, b) => parseInt(a) - parseInt(b));
+    const counts = [];
+    const values = [];
+    
+    years.forEach(year => {
+      counts.push(yearlyData[year].count);
+      values.push(yearlyData[year].value);
+    });
+    
+    // Set time comparison data
+    setTimeComparisonData({
+      labels: years,
+      datasets: [
+        {
+          label: 'Project Count',
+          data: counts,
+          backgroundColor: colorPalette[0] + '80', // Semi-transparent
+          borderColor: colorPalette[0],
+          borderWidth: 1,
+          type: 'bar',
+          yAxisID: 'y'
+        },
+        {
+          label: 'Project Value (€M)',
+          data: values.map(val => val / 1000000), // Convert to millions
+          backgroundColor: colorPalette[1],
+          borderColor: colorPalette[1],
+          borderWidth: 2,
+          type: 'line',
+          yAxisID: 'y1',
+          fill: false,
+          tension: 0.4
+        }
+      ]
+    });
+  };
+
   const handleCategoryChange = (e) => {
     const category = e.target.value;
     setSelectedCategory(category);
@@ -359,6 +587,10 @@ const Analytics = () => {
 
   const handleTimeRangeChange = (e) => {
     setSelectedTimeRange(e.target.value);
+  };
+
+  const handleCountyChange = (e) => {
+    setSelectedCounty(e.target.value);
   };
 
   const formatCurrency = (value) => {
@@ -399,10 +631,50 @@ const Analytics = () => {
     };
   };
 
+  const generateEmptyCountyData = () => {
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          label: 'No county data available',
+          data: [100],
+          backgroundColor: ['#e0e0e0'],
+          borderColor: ['#cccccc'],
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
+
+  const generateEmptyTimeComparisonData = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    
+    for (let i = 0; i < parseInt(selectedTimeRange); i++) {
+      years.push(currentYear - i);
+    }
+    
+    return {
+      labels: years,
+      datasets: [
+        {
+          label: 'No Time Comparison Data',
+          data: Array(years.length).fill(0),
+          backgroundColor: '#e0e0e080',
+          borderColor: '#cccccc',
+          borderWidth: 1,
+        }
+      ]
+    };
+  };
+
   useEffect(() => {
     // Initialize charts with loading state
     setChartData(generateEmptyChartData());
     setStagesData(generateEmptyStagesData());
+    setCountyChartData(generateEmptyCountyData());
+    setCountyProjectsData(generateEmptyCountyData());
+    setTimeComparisonData(generateEmptyTimeComparisonData());
     
     const loadData = async () => {
       try {
@@ -462,6 +734,22 @@ const Analytics = () => {
               {subcategories.map((subcategory, index) => (
                 <option key={index} value={subcategory}>
                   {subcategory}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label>County:</label>
+            <select
+              value={selectedCounty}
+              onChange={handleCountyChange}
+              className="filter-select"
+            >
+              <option value="">All Counties</option>
+              {counties.map((county, index) => (
+                <option key={index} value={county}>
+                  {county}
                 </option>
               ))}
             </select>
@@ -616,6 +904,223 @@ const Analytics = () => {
               </div>
             </div>
           </div>
+
+          <div className="chart-section">
+            <div className="chart-card">
+              <h2>Project Value by County</h2>
+              <div className="chart-description">
+                <p>Distribution of project value across counties</p>
+                {selectedCounty && <p className="selected-filter">Selected County: {selectedCounty}</p>}
+              </div>
+              <div className="chart-wrapper">
+                {chartReady && countyChartData && countyChartData.labels && countyChartData.labels.length > 0 ? (
+                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
+                    <Bar 
+                      data={countyChartData} 
+                      options={{
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                return `${context.label}: ${formatCurrency(context.raw)}`;
+                              }
+                            }
+                          },
+                          title: {
+                            display: false
+                          }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              callback: function(value) {
+                                return formatCurrency(value);
+                              }
+                            },
+                            grid: {
+                              display: true,
+                              drawBorder: false,
+                              lineWidth: 0.5
+                            }
+                          },
+                          x: {
+                            grid: {
+                              display: false
+                            }
+                          }
+                        },
+                        layout: {
+                          padding: 10
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="no-data-message">
+                    <p>No county data available for the selected filters</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="chart-section">
+            <div className="chart-card">
+              <h2>Number of Projects by County</h2>
+              <div className="chart-description">
+                <p>Number of projects in each county</p>
+                {selectedCounty && <p className="selected-filter">Selected County: {selectedCounty}</p>}
+              </div>
+              <div className="chart-wrapper">
+                {chartReady && countyProjectsData && countyProjectsData.labels && countyProjectsData.labels.length > 0 ? (
+                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
+                    <Bar 
+                      data={countyProjectsData} 
+                      options={{
+                        plugins: {
+                          legend: {
+                            display: false,
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                return `${context.label}: ${context.raw} projects`;
+                              }
+                            }
+                          },
+                          title: {
+                            display: false
+                          }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            ticks: {
+                              precision: 0,
+                              font: {
+                                size: 12
+                              }
+                            },
+                            grid: {
+                              display: true,
+                              drawBorder: false,
+                              lineWidth: 0.5
+                            }
+                          },
+                          x: {
+                            ticks: {
+                              font: {
+                                size: 12
+                              }
+                            },
+                            grid: {
+                              display: false
+                            }
+                          }
+                        },
+                        indexAxis: 'y',
+                        barThickness: 30,
+                        layout: {
+                          padding: 10
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="no-data-message">
+                    <p>No county data available for the selected filters</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="chart-section">
+            <div className="chart-card">
+              <h2>Project Trends Over Time</h2>
+              <div className="chart-description">
+                <p>Comparing project count and value over the selected time period</p>
+                <p className="selected-filter">Time Range: Last {selectedTimeRange} years</p>
+              </div>
+              <div className="chart-wrapper">
+                {chartReady && timeComparisonData && timeComparisonData.labels && timeComparisonData.labels.length > 0 ? (
+                  <div style={{ height: '300px', width: '100%', position: 'relative' }}>
+                    <Chart 
+                      type="bar"
+                      data={timeComparisonData} 
+                      options={{
+                        plugins: {
+                          legend: {
+                            display: true,
+                            position: 'top',
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                if (context.dataset.yAxisID === 'y') {
+                                  return `${context.dataset.label}: ${context.raw} projects`;
+                                } else {
+                                  return `${context.dataset.label}: ${formatCurrency(context.raw * 1000000)}`;
+                                }
+                              }
+                            }
+                          }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                          x: {
+                            grid: {
+                              display: false
+                            }
+                          },
+                          y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            title: {
+                              display: true,
+                              text: 'Project Count'
+                            },
+                            grid: {
+                              display: true,
+                              drawBorder: false
+                            }
+                          },
+                          y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                              display: true,
+                              text: 'Value (€M)'
+                            },
+                            grid: {
+                              display: false
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="no-data-message">
+                    <p>No trend data available for the selected time period</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -627,6 +1132,9 @@ const Analytics = () => {
         <div className="summary-card">
           <h3>Tracked Projects</h3>
           <p className="summary-value">{trackedProjects.length}</p>
+          {trackedProjects.length > 0 && (
+            <small className="summary-detail">Last updated: {new Date().toLocaleDateString()}</small>
+          )}
         </div>
         <div className="summary-card">
           <h3>Total Value</h3>
