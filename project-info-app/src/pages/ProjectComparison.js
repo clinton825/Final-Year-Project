@@ -273,14 +273,33 @@ const ProjectComparison = () => {
   };
 
   const prepareTimelineData = () => {
-    return selectedProjects.map(project => ({
-      name: project.planning_title,
-      applicationDate: project.planning_application_date,
-      startDate: project.planning_start_date,
-      completionDate: project.planning_est_completion_date
-    }));
+    return selectedProjects.map(project => {
+      // Parse dates
+      const applicationDate = project.planning_application_date ? new Date(project.planning_application_date) : null;
+      const decisionDate = project.planning_decision_date ? new Date(project.planning_decision_date) : null;
+      
+      // Calculate duration in days if both dates exist
+      let durationDays = 0;
+      if (applicationDate && decisionDate) {
+        durationDays = Math.round((decisionDate - applicationDate) / (1000 * 60 * 60 * 24));
+      }
+      
+      return {
+        id: project.planning_id,
+        title: project.planning_title || 'Unnamed Project',
+        type: project.planning_type || 'Unknown Type',
+        stage: project.planning_stage || 'Unknown Stage',
+        county: project.planning_county || 'Unknown Location',
+        town: project.planning_town || '',
+        applicationDate,
+        decisionDate,
+        durationDays,
+        startTimestamp: applicationDate ? applicationDate.getTime() : 0,
+        endTimestamp: decisionDate ? decisionDate.getTime() : 0
+      };
+    }).filter(project => project.applicationDate); // Filter out projects without timeline data
   };
-
+  
   const prepareStakeholderData = () => {
     return selectedProjects.map(project => ({
       name: project.planning_title,
@@ -394,31 +413,152 @@ const ProjectComparison = () => {
   const COUNTY_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe', '#00C49F'];
   const TOWN_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
 
-  const renderTimeline = () => (
-    <div className="chart">
-      <h4>
-        <span className="icon">📅</span>
-        Project Timeline Comparison
-      </h4>
-      <div className="timeline-section">
-        <div className="timeline-container">
-          {selectedProjects.map(project => (
-            <div key={project.planning_id} className="timeline-item">
-              <h5>{project.planning_title}</h5>
-              <div className="timeline-dates">
-                <p><strong>Application:</strong> {project.planning_application_date ? format(parseISO(project.planning_application_date), 'MMM dd, yyyy') : 'N/A'}</p>
-                <p><strong>Start:</strong> {project.planning_start_date ? format(parseISO(project.planning_start_date), 'MMM dd, yyyy') : 'N/A'}</p>
-                <p><strong>Expected Completion:</strong> {project.planning_completion_date ? format(parseISO(project.planning_completion_date), 'MMM dd, yyyy') : 'N/A'}</p>
-                {project.planning_actual_completion_date && (
-                  <p><strong>Actual Completion:</strong> {format(parseISO(project.planning_actual_completion_date), 'MMM dd, yyyy')}</p>
-                )}
-              </div>
+  const renderTimeline = () => {
+    const timelineData = prepareTimelineData();
+    
+    if (timelineData.length === 0) {
+      return (
+        <div className="empty-chart">
+          <p>Selected projects don't have timeline information</p>
+        </div>
+      );
+    }
+    
+    // Find the earliest and latest dates across all projects
+    const allDates = timelineData.reduce((acc, project) => {
+      if (project.applicationDate) acc.push(project.applicationDate);
+      if (project.decisionDate) acc.push(project.decisionDate);
+      return acc;
+    }, []);
+    
+    const earliestDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : new Date();
+    const latestDate = allDates.length > 0 ? new Date(Math.max(...allDates.map(d => d.getTime()))) : new Date();
+    
+    // Add 10% padding on each side
+    const totalTimespan = latestDate - earliestDate;
+    const paddedEarliest = new Date(earliestDate.getTime() - totalTimespan * 0.1);
+    const paddedLatest = new Date(latestDate.getTime() + totalTimespan * 0.1);
+    
+    // Calculate total timespan for scaling
+    const totalDays = Math.ceil((paddedLatest - paddedEarliest) / (1000 * 60 * 60 * 24));
+    
+    return (
+      <div className="timeline-comparison">
+        <div className="timeline-header">
+          <h4>
+            <span className="icon">📅</span>
+            Project Timelines Comparison
+          </h4>
+          <div className="timeline-legend">
+            <div className="legend-item application">
+              <span className="legend-dot"></span>
+              <span>Application Date</span>
             </div>
-          ))}
+            <div className="legend-item decision">
+              <span className="legend-dot"></span>
+              <span>Decision Date</span>
+            </div>
+            <div className="legend-item duration">
+              <span className="legend-line"></span>
+              <span>Processing Duration</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="timeline-container">
+          {/* Timeline scale */}
+          <div className="timeline-scale">
+            {Array.from({ length: 5 }).map((_, i) => {
+              const date = new Date(paddedEarliest.getTime() + (totalTimespan * i / 4));
+              return (
+                <div key={i} className="scale-mark" style={{ left: `${(i * 100) / 4}%` }}>
+                  <span>{format(date, 'MMM yyyy')}</span>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Individual project timelines */}
+          <div className="timelines-grid">
+            {timelineData.map((project, index) => {
+              // Calculate position percentages
+              const startPercent = project.applicationDate ? 
+                ((project.applicationDate - paddedEarliest) / (paddedLatest - paddedEarliest)) * 100 : 0;
+              
+              const endPercent = project.decisionDate ? 
+                ((project.decisionDate - paddedEarliest) / (paddedLatest - paddedEarliest)) * 100 : startPercent + 5;
+              
+              return (
+                <div key={project.id} className="project-timeline">
+                  <div className="timeline-project-info">
+                    <h5>{project.title}</h5>
+                    <div className="timeline-project-meta">
+                      <span>{project.type}</span>
+                      <span className="county-badge">{project.county}</span>
+                      {project.town && <span className="town-badge">{project.town}</span>}
+                    </div>
+                  </div>
+                  
+                  <div className="timeline-track">
+                    <div className="timeline-line">
+                      {/* Application date marker */}
+                      <div 
+                        className="timeline-marker application-marker" 
+                        style={{ left: `${startPercent}%` }}
+                        title={`Application: ${project.applicationDate ? format(project.applicationDate, 'dd MMM yyyy') : 'Unknown'}`}
+                      >
+                        <div className="marker-label">
+                          {project.applicationDate ? format(project.applicationDate, 'dd MMM yyyy') : ''}
+                        </div>
+                      </div>
+                      
+                      {/* Decision date marker */}
+                      {project.decisionDate && (
+                        <div 
+                          className="timeline-marker decision-marker" 
+                          style={{ left: `${endPercent}%` }}
+                          title={`Decision: ${format(project.decisionDate, 'dd MMM yyyy')}`}
+                        >
+                          <div className="marker-label">
+                            {format(project.decisionDate, 'dd MMM yyyy')}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Duration line */}
+                      {project.applicationDate && project.decisionDate && (
+                        <div 
+                          className="duration-line"
+                          style={{ 
+                            left: `${startPercent}%`, 
+                            width: `${endPercent - startPercent}%` 
+                          }}
+                          title={`Duration: ${project.durationDays} days`}
+                        >
+                          <span className="duration-label">{project.durationDays} days</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="timeline-metrics">
+                    <div className="timeline-metric">
+                      <span className="metric-label">Processing Time</span>
+                      <span className="metric-value">{project.durationDays || 'N/A'} days</span>
+                    </div>
+                    <div className="timeline-metric">
+                      <span className="metric-label">Current Stage</span>
+                      <span className="metric-value">{project.stage}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderSizeMetrics = () => (
     <div className="chart">
