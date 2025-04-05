@@ -476,3 +476,124 @@
     width: 100%;
   }
 }
+
+/* County Comparison Analysis */
+.comparison-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.comparison-metrics {
+  width: 100%;
+}
+
+.metric-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: space-between;
+}
+
+.county-metric-card {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  flex: 1;
+  min-width: 280px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.county-metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.county-metric-card h3 {
+  color: var(--primary-color);
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.metric-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.county-progress {
+  margin-top: 15px;
+}
+
+.progress-item {
+  margin-bottom: 10px;
+}
+
+.progress-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.progress-bar {
+  height: 8px;
+  background-color: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+}
+
+.comparison-chart {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.comparison-chart h3 {
+  font-size: 16px;
+  margin-bottom: 15px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+@media (min-width: 992px) {
+  .comparison-container {
+    flex-direction: row;
+  }
+  
+  .comparison-metrics {
+    width: 60%;
+  }
+  
+  .comparison-chart {
+    width: 40%;
+    margin-top: 0;
+  }
+}
