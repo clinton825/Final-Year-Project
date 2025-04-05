@@ -412,36 +412,81 @@ export function AuthProvider({ children }) {
       
       console.log('Handling successful login for user:', user.email);
       
-      // Update user document in Firestore
+      // Update user document in Firestore with retry mechanism
       const userRef = doc(db, 'users', user.uid);
       
+      // Retry function for Firestore operations
+      const retryOperation = async (operation, maxRetries = 3, delay = 1000) => {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            return await operation();
+          } catch (error) {
+            console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
+            lastError = error;
+            
+            if (attempt < maxRetries) {
+              // Wait before next retry with exponential backoff
+              await new Promise(resolve => setTimeout(resolve, delay * attempt));
+            }
+          }
+        }
+        
+        throw lastError; // Throw the last error after all retries failed
+      };
+      
       try {
-        const userDoc = await getDoc(userRef);
+        // Get user document with retry
+        const userDoc = await retryOperation(async () => {
+          return await getDoc(userRef);
+        });
         
         if (!userDoc.exists()) {
-          // Create new user document
-          await setDoc(userRef, {
-            displayName: user.displayName || user.email.split('@')[0],
-            email: user.email,
-            createdAt: new Date(),
-            lastLogin: new Date(),
+          // Create new user document with retry
+          await retryOperation(async () => {
+            await setDoc(userRef, {
+              displayName: user.displayName || user.email.split('@')[0],
+              email: user.email,
+              createdAt: new Date(),
+              lastLogin: new Date(),
+              lastUpdated: new Date() // Add this field to track updates
+            });
           });
           console.log('Created new user document in Firestore');
         } else {
-          // Update existing user's last login
-          await updateDoc(userRef, {
-            lastLogin: new Date()
+          // Update existing user's last login with retry
+          await retryOperation(async () => {
+            await updateDoc(userRef, {
+              lastLogin: new Date(),
+              lastUpdated: new Date() // Add this field to track updates
+            });
           });
+          console.log('Updated user document in Firestore with new login timestamp');
         }
         
+        // Fetch the latest user data after update to ensure we have the most current data
+        const updatedUserDoc = await retryOperation(async () => {
+          return await getDoc(userRef);
+        });
+        
         // Store user data in localStorage for offline access
-        const userData = userDoc.exists() 
-          ? { ...userDoc.data(), uid: user.uid } 
+        const userData = updatedUserDoc.exists() 
+          ? { ...updatedUserDoc.data(), uid: user.uid } 
           : { displayName: user.displayName || user.email.split('@')[0], email: user.email, uid: user.uid };
+        
         storeUserDataLocally(userData);
+        console.log('User data stored locally after successful Firestore update');
       } catch (error) {
-        console.error('Error handling user document:', error);
-        // Continue execution even if user document handling fails
+        console.error('Error handling user document after retries:', error);
+        // Store basic user data locally even if Firestore fails
+        storeUserDataLocally({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          fallbackData: true,
+          lastUpdated: new Date()
+        });
       }
       
       // Initialize database collections for this user
