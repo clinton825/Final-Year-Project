@@ -30,7 +30,10 @@ const ProjectComparison = () => {
     stakeholderTypes: [],
     stages: [],
     counties: ['Waterford', 'Carlow'],
-    towns: {},
+    towns: {
+      'Waterford': ['Waterford City', 'Dungarvan', 'Tramore', 'Lismore', 'Ardmore', 'Portlaw', 'Tallow', 'Cappoquin', 'Kilmacthomas'],
+      'Carlow': ['Carlow Town', 'Tullow', 'Bagenalstown', 'Borris', 'Hacketstown', 'Tinnahinch']
+    },
     valueRanges: [
       { label: 'All', value: 'all' },
       { label: 'Under €1M', value: 'under1m' },
@@ -54,28 +57,27 @@ const ProjectComparison = () => {
       ))];
       const counties = [...new Set(availableProjects.map(p => p.planning_county).filter(Boolean))];
       
-      // Group towns by county
-      const towns = {};
+      // Group towns by county from project data
+      const townsFromData = {};
       availableProjects.forEach(project => {
         if (project.planning_county && project.planning_town) {
-          if (!towns[project.planning_county]) {
-            towns[project.planning_county] = new Set();
+          if (!townsFromData[project.planning_county]) {
+            townsFromData[project.planning_county] = new Set();
           }
-          towns[project.planning_county].add(project.planning_town);
+          townsFromData[project.planning_county].add(project.planning_town);
         }
       });
       
       // Convert Set to Array for each county
-      const townsByCounty = {};
-      Object.keys(towns).forEach(county => {
-        townsByCounty[county] = [...towns[county]].sort();
-      });
-      
-      // Add empty town arrays for counties that don't have towns in the data
-      // This ensures the town dropdown is enabled even if no towns are found
-      counties.forEach(county => {
+      const townsByCounty = { ...filterOptions.towns }; // Start with hardcoded towns
+      Object.keys(townsFromData).forEach(county => {
         if (!townsByCounty[county]) {
-          townsByCounty[county] = [];
+          townsByCounty[county] = [...townsFromData[county]].sort();
+        } else {
+          // Merge with existing towns, avoiding duplicates
+          const existingTowns = new Set(townsByCounty[county]);
+          townsFromData[county].forEach(town => existingTowns.add(town));
+          townsByCounty[county] = [...existingTowns].sort();
         }
       });
       
@@ -88,7 +90,7 @@ const ProjectComparison = () => {
         projectTypes: types,
         stakeholderTypes: stakeholders,
         stages: stages,
-        counties: [...prev.counties, ...counties.filter(county => !prev.counties.includes(county))],
+        counties: [...new Set([...prev.counties, ...counties])],
         towns: townsByCounty
       }));
     }
@@ -104,14 +106,61 @@ const ProjectComparison = () => {
     }
   }, [filters.county, filters.town, filterOptions.towns]);
 
+  useEffect(() => {
+    // Apply filters whenever filters state changes or when availableProjects changes
+    if (availableProjects.length > 0) {
+      const filtered = getFilteredProjects();
+      console.log(`Filtered projects: ${filtered.length} of ${availableProjects.length}`);
+      // Log filter values for debugging
+      console.log('Current filters:', {
+        projectType: filters.projectType,
+        stakeholderType: filters.stakeholderType,
+        stage: filters.stage,
+        valueRange: filters.valueRange,
+        county: filters.county,
+        town: filters.town
+      });
+    }
+  }, [filters, availableProjects]);
+
   const fetchProjects = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`${config.API_URL}/api/projects`);
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
       const data = await response.json();
-      setAvailableProjects(data.projects);
+      
+      // Preprocess projects to ensure planning_town and planning_county are standardized
+      const processedProjects = data.projects.map(project => {
+        // Make sure county names are standardized
+        if (project.planning_county) {
+          project.planning_county = project.planning_county.trim();
+        }
+        
+        // Make sure town names are standardized
+        if (project.planning_town) {
+          project.planning_town = project.planning_town.trim();
+        }
+        
+        // For projects without town but with county, set default town to match filters
+        if (!project.planning_town && project.planning_county) {
+          const countyTowns = filterOptions.towns[project.planning_county];
+          if (countyTowns && countyTowns.length > 0) {
+            // Check if address contains any town name
+            const address = `${project.planning_development_address_1 || ''} ${project.planning_development_address_2 || ''}`.toLowerCase();
+            const matchingTown = countyTowns.find(town => address.includes(town.toLowerCase()));
+            if (matchingTown) {
+              project.planning_town = matchingTown;
+            }
+          }
+        }
+        
+        return project;
+      });
+      
+      setAvailableProjects(processedProjects);
       setLoading(false);
     } catch (error) {
       setError(error.message);
@@ -144,6 +193,11 @@ const ProjectComparison = () => {
       const countyMatch = !filters.county || project.planning_county === filters.county;
       const townMatch = !filters.town || project.planning_town === filters.town;
       
+      // Debug logging for town filtering
+      if (filters.town && project.planning_county === filters.county) {
+        console.log(`Project town: "${project.planning_town}", Selected town: "${filters.town}", Match: ${project.planning_town === filters.town}`);
+      }
+      
       return typeMatch && stageMatch && stakeholderMatch && valueMatch && countyMatch && townMatch;
     }).sort((a, b) => {
       switch (filters.sortBy) {
@@ -162,18 +216,40 @@ const ProjectComparison = () => {
   };
 
   const handleProjectSelect = (project) => {
-    if (selectedProjects.find(p => p.planning_id === project.planning_id)) {
-      const updatedProjects = selectedProjects.filter(p => p.planning_id !== project.planning_id);
-      setSelectedProjects(updatedProjects);
-      // Show all projects again if none are selected
-      if (updatedProjects.length === 0) {
+    // Preprocess the project to ensure town and county data is standardized
+    const processedProject = { ...project };
+    
+    // Standardize county
+    if (processedProject.planning_county) {
+      processedProject.planning_county = processedProject.planning_county.trim();
+    }
+    
+    // Standardize town
+    if (processedProject.planning_town) {
+      processedProject.planning_town = processedProject.planning_town.trim();
+    }
+    
+    // Check if the project is already selected
+    if (selectedProjects.find(p => p.planning_id === processedProject.planning_id)) {
+      // Remove project from selection
+      setSelectedProjects(prev => prev.filter(p => p.planning_id !== processedProject.planning_id));
+      
+      // If all projects are unselected, set showAllProjects to true
+      if (selectedProjects.length === 1) {
         setShowAllProjects(true);
       }
-    } else if (selectedProjects.length < 3) {
-      setSelectedProjects([...selectedProjects, project]);
-      // Hide unselected projects when we start comparing
-      setShowAllProjects(false);
+    } else {
+      // Add project to selection (limited to 3 projects)
+      if (selectedProjects.length < 3) {
+        setSelectedProjects(prev => [...prev, processedProject]);
+        setShowAllProjects(false);
+      } else {
+        // Could show an alert or toast here that max is reached
+        console.log('Maximum of 3 projects can be selected for comparison');
+      }
     }
+    
+    console.log('Selected projects after update:', selectedProjects.length);
   };
 
   const handleResetComparison = () => {
@@ -220,7 +296,9 @@ const ProjectComparison = () => {
     
     // Group projects by county
     selectedProjects.forEach(project => {
-      const county = project.planning_county || 'Unknown';
+      // Apply standard preprocessing to ensure consistency
+      const county = project.planning_county ? project.planning_county.trim() : 'Unknown';
+      
       if (!countyData[county]) {
         countyData[county] = {
           county,
@@ -231,22 +309,37 @@ const ProjectComparison = () => {
         };
       }
       
+      // Parse value properly, handling potential non-numeric values
+      let value = 0;
+      if (project.planning_value) {
+        // Remove currency symbols and commas, then parse
+        const cleanValue = project.planning_value.toString().replace(/[€,$,£,\s,]/g, '');
+        value = parseFloat(cleanValue) || 0;
+      }
+      
       countyData[county].projectCount += 1;
-      countyData[county].totalValue += parseFloat(project.planning_value) || 0;
+      countyData[county].totalValue += value;
       countyData[county].projects.push(project);
+      
+      // Debug log to see actual values being calculated
+      console.log(`Project in ${county}: Value ${value} from original ${project.planning_value}`);
     });
+    
+    console.log('County data before calculations:', countyData);
     
     // Calculate averages and format data
     return Object.values(countyData).map(item => {
+      // Avoid division by zero
+      const avgValue = item.projectCount > 0 ? item.totalValue / item.projectCount : 0;
+      
       return {
         ...item,
-        averageValue: item.totalValue / item.projectCount,
         totalValue: item.totalValue / 1000000, // Convert to millions
-        averageValue: (item.totalValue / item.projectCount) / 1000000 // Convert to millions
+        averageValue: avgValue / 1000000 // Convert to millions
       };
     });
   };
-
+  
   const prepareTownComparisonData = () => {
     if (selectedProjects.length === 0) return [];
     
@@ -256,8 +349,8 @@ const ProjectComparison = () => {
     selectedProjects.forEach(project => {
       if (!project.planning_town) return;
       
-      const town = project.planning_town;
-      const county = project.planning_county || 'Unknown';
+      const town = project.planning_town.trim();
+      const county = project.planning_county ? project.planning_county.trim() : 'Unknown';
       const key = `${town} (${county})`;
       
       if (!townData[key]) {
@@ -272,18 +365,28 @@ const ProjectComparison = () => {
         };
       }
       
+      // Parse value properly, handling potential non-numeric values
+      let value = 0;
+      if (project.planning_value) {
+        // Remove currency symbols and commas, then parse
+        const cleanValue = project.planning_value.toString().replace(/[€,$,£,\s,]/g, '');
+        value = parseFloat(cleanValue) || 0;
+      }
+      
       townData[key].projectCount += 1;
-      townData[key].totalValue += parseFloat(project.planning_value) || 0;
+      townData[key].totalValue += value;
       townData[key].projects.push(project);
     });
     
     // Calculate averages and format data
     return Object.values(townData).map(item => {
+      // Avoid division by zero
+      const avgValue = item.projectCount > 0 ? item.totalValue / item.projectCount : 0;
+      
       return {
         ...item,
-        averageValue: item.totalValue / item.projectCount,
         totalValue: item.totalValue / 1000000, // Convert to millions
-        averageValue: (item.totalValue / item.projectCount) / 1000000 // Convert to millions
+        averageValue: avgValue / 1000000 // Convert to millions
       };
     });
   };
@@ -358,10 +461,21 @@ const ProjectComparison = () => {
     const countyData = prepareCountyComparisonData();
     const townData = prepareTownComparisonData();
     
-    if (countyData.length === 0) {
+    console.log('County data for visualization:', countyData);
+    console.log('Town data for visualization:', townData);
+    
+    if (selectedProjects.length === 0) {
       return (
         <div className="empty-chart">
           <p>Select projects to compare county metrics</p>
+        </div>
+      );
+    }
+    
+    if (countyData.length === 0) {
+      return (
+        <div className="empty-chart">
+          <p>Selected projects don't have county information</p>
         </div>
       );
     }
