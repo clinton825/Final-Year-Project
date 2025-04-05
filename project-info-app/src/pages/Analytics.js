@@ -486,77 +486,65 @@ const Analytics = () => {
   const prepareCountyData = () => {
     if (projects.length === 0) return;
 
-    // Start with all projects
-    let filteredProjects = [...projects];
-    
-    // Apply category/subcategory filters if selected
-    if (selectedCategory) {
-      filteredProjects = filteredProjects.filter(project => 
-        project.planning_category === selectedCategory
-      );
-    }
-    
-    if (selectedSubcategory) {
-      filteredProjects = filteredProjects.filter(project => 
-        project.planning_subcategory === selectedSubcategory
-      );
-    }
-    
-    // Group projects by county and calculate total value per county
+    // Only include Waterford and Carlow counties
+    const validCounties = ['Waterford', 'Carlow'];
     const countyData = {};
-    filteredProjects.forEach(project => {
-      const county = project.planning_county || 'Unknown';
-      if (!countyData[county]) {
-        countyData[county] = {
-          count: 0,
-          value: 0
-        };
+    
+    validCounties.forEach(county => {
+      countyData[county] = 0;
+    });
+    
+    projects.forEach(project => {
+      const county = project.planning_county;
+      if (validCounties.includes(county)) {
+        countyData[county] = (countyData[county] || 0) + (project.planning_value || 0);
       }
-      countyData[county].count += 1;
-      countyData[county].value += (project.planning_value || 0);
     });
+    
+    const data = {
+      labels: Object.keys(countyData),
+      datasets: [{
+        label: 'Project Value',
+        data: Object.values(countyData),
+        backgroundColor: colorPalette.slice(0, Object.keys(countyData).length),
+        borderColor: colorPalette.slice(0, Object.keys(countyData).length),
+        borderWidth: 1
+      }]
+    };
+    
+    setCountyChartData(data);
+  };
 
-    // Sort counties by value and take top counties (others grouped together)
-    const sortedCounties = Object.entries(countyData)
-      .sort((a, b) => b[1].value - a[1].value);
+  const prepareCountyProjectsData = () => {
+    if (projects.length === 0) return;
+
+    // Only include Waterford and Carlow counties
+    const validCounties = ['Waterford', 'Carlow'];
+    const countyData = {};
     
-    // Prepare chart data
-    const labels = [];
-    const data = [];
-    const backgroundColor = [];
-    
-    sortedCounties.forEach((county, index) => {
-      labels.push(county[0]);
-      data.push(county[1].value);
-      backgroundColor.push(colorPalette[index % colorPalette.length]);
+    validCounties.forEach(county => {
+      countyData[county] = 0;
     });
     
-    setCountyChartData({
-      labels,
-      datasets: [
-        {
-          label: 'Project Value by County (€)',
-          data,
-          backgroundColor,
-          borderColor: backgroundColor,
-          borderWidth: 1,
-        },
-      ],
+    projects.forEach(project => {
+      const county = project.planning_county;
+      if (validCounties.includes(county)) {
+        countyData[county] = (countyData[county] || 0) + 1;
+      }
     });
     
-    // Also set data for project count by county
-    setCountyProjectsData({
-      labels,
-      datasets: [
-        {
-          label: 'Number of Projects by County',
-          data: sortedCounties.map(county => county[1].count),
-          backgroundColor,
-          borderColor: backgroundColor,
-          borderWidth: 1,
-        },
-      ],
-    });
+    const data = {
+      labels: Object.keys(countyData),
+      datasets: [{
+        label: 'Number of Projects',
+        data: Object.values(countyData),
+        backgroundColor: colorPalette.slice(0, Object.keys(countyData).length),
+        borderColor: colorPalette.slice(0, Object.keys(countyData).length),
+        borderWidth: 1
+      }]
+    };
+    
+    setCountyProjectsData(data);
   };
 
   const prepareTimeComparisonData = () => {
@@ -688,46 +676,38 @@ const Analytics = () => {
 
   const generateEmptyChartData = () => {
     return {
-      labels: ['No Data'],
-      datasets: [
-        {
-          label: 'No tracked projects',
-          data: [100],
-          backgroundColor: ['#e0e0e0'],
-          borderColor: ['#cccccc'],
-          borderWidth: 1,
-        },
-      ],
+      labels: ['No Data Available'],
+      datasets: [{
+        data: [1],
+        backgroundColor: ['#e0e0e0'],
+        borderWidth: 0
+      }]
     };
   };
 
   const generateEmptyStagesData = () => {
     return {
-      labels: ['No Data'],
-      datasets: [
-        {
-          label: 'No projects in this stage',
-          data: [100],
-          backgroundColor: ['#e0e0e0'],
-          borderColor: ['#cccccc'],
-          borderWidth: 1,
-        },
-      ],
+      labels: ['Planning', 'Design', 'Construction', 'Completed'],
+      datasets: [{
+        label: 'Projects',
+        data: [0, 0, 0, 0],
+        backgroundColor: colorPalette[0],
+        borderColor: colorPalette[0],
+        borderWidth: 1
+      }]
     };
   };
 
   const generateEmptyCountyData = () => {
     return {
-      labels: ['No Data'],
-      datasets: [
-        {
-          label: 'No county data available',
-          data: [100],
-          backgroundColor: ['#e0e0e0'],
-          borderColor: ['#cccccc'],
-          borderWidth: 1,
-        },
-      ],
+      labels: ['Waterford', 'Carlow'],
+      datasets: [{
+        label: 'Projects',
+        data: [0, 0],
+        backgroundColor: [colorPalette[0], colorPalette[1]],
+        borderColor: [colorPalette[0], colorPalette[1]],
+        borderWidth: 1
+      }]
     };
   };
 
@@ -793,8 +773,7 @@ const Analytics = () => {
         category: 'Commercial',
         subcategory: 'Mixed Use',
         county: 'Waterford',
-        stage: 'Planning',
-        added_date: '2023-01-15'
+        stage: 'Planning'
       },
       {
         id: 'sample2',
@@ -804,8 +783,7 @@ const Analytics = () => {
         category: 'Healthcare',
         subcategory: 'Hospital',
         county: 'Carlow',
-        stage: 'Construction',
-        added_date: '2023-03-22'
+        stage: 'Construction'
       },
       {
         id: 'sample3',
@@ -815,8 +793,7 @@ const Analytics = () => {
         category: 'Residential',
         subcategory: 'Housing',
         county: 'Waterford',
-        stage: 'Planning',
-        added_date: '2023-05-10'
+        stage: 'Planning'
       },
       {
         id: 'sample4',
@@ -826,8 +803,7 @@ const Analytics = () => {
         category: 'Energy',
         subcategory: 'Renewable',
         county: 'Carlow',
-        stage: 'Design',
-        added_date: '2023-02-05'
+        stage: 'Design'
       },
       {
         id: 'sample5',
@@ -837,8 +813,7 @@ const Analytics = () => {
         category: 'Infrastructure',
         subcategory: 'Roads',
         county: 'Waterford',
-        stage: 'Construction',
-        added_date: '2023-04-18'
+        stage: 'Construction'
       }
     ];
   };
