@@ -40,27 +40,125 @@ const RecentActivityWidget = ({ data }) => {
         
         const querySnapshot = await getDocs(activityQuery);
         
+        if (querySnapshot.empty) {
+          console.log('No activities found for user');
+          setActivities([]);
+          setLoading(false);
+          return;
+        }
+        
+        // Get project details for all activities to ensure we have accurate names
         const activityList = [];
+        const projectDetailsMap = new Map(); // Map to store project details to avoid duplicate lookups
+        
+        // First pass - collect all activities and their project IDs
+        const activitiesData = [];
         querySnapshot.forEach((doc) => {
           const activityData = doc.data();
-          
-          // Format the timestamp
-          const timestamp = activityData.timestamp ? 
-            new Date(activityData.timestamp.toDate()) : 
-            new Date();
-          
-          // Create a formatted activity object
-          activityList.push({
+          activitiesData.push({
             id: doc.id,
-            type: activityData.type,
-            projectId: activityData.projectId,
-            projectTitle: activityData.projectTitle || 'Unknown Project',
-            timestamp,
-            formattedTime: formatTimestamp(timestamp)
+            ...activityData
           });
+          
+          // Add project ID to the list of projects to fetch
+          if (activityData.projectId && !projectDetailsMap.has(activityData.projectId)) {
+            projectDetailsMap.set(activityData.projectId, null);
+          }
         });
         
-        console.log(`Found ${activityList.length} activities`);
+        // Try to fetch project details for all project IDs found in activities
+        // This helps us ensure we display correct names
+        if (projectDetailsMap.size > 0) {
+          try {
+            const projectIds = Array.from(projectDetailsMap.keys());
+            console.log(`Fetching details for ${projectIds.length} projects`);
+            
+            // For each project ID, try to get its data from the trackedProjects collection
+            for (const projectId of projectIds) {
+              // Look for projects with this ID in trackedProjects collection
+              const trackedProjectsRef = collection(db, 'trackedProjects');
+              const projectQuery = query(
+                trackedProjectsRef,
+                where('projectId', '==', projectId)
+              );
+              
+              const projectSnapshot = await getDocs(projectQuery);
+              if (!projectSnapshot.empty) {
+                // Use the first found project data
+                const projectData = projectSnapshot.docs[0].data();
+                projectDetailsMap.set(projectId, projectData);
+              } else {
+                // Try another query using planning_id
+                const planningIdQuery = query(
+                  trackedProjectsRef,
+                  where('planning_id', '==', projectId)
+                );
+                
+                const planningIdSnapshot = await getDocs(planningIdQuery);
+                if (!planningIdSnapshot.empty) {
+                  const projectData = planningIdSnapshot.docs[0].data();
+                  projectDetailsMap.set(projectId, projectData);
+                }
+              }
+            }
+          } catch (projectError) {
+            console.error('Error fetching project details:', projectError);
+            // Continue with available data
+          }
+        }
+        
+        // Second pass - format activities with enhanced project details when available
+        for (const activity of activitiesData) {
+          // Format the timestamp
+          const timestamp = activity.timestamp ? 
+            new Date(activity.timestamp.toDate()) : 
+            new Date();
+          
+          // Get project details if available
+          let projectTitle = activity.projectTitle || 'Unknown Project';
+          let projectType = 'Unknown';
+          let projectLocation = null;
+          
+          const projectDetails = projectDetailsMap.get(activity.projectId);
+          if (projectDetails) {
+            // Extract the best available title from project details
+            projectTitle = 
+              projectDetails.planning_title || 
+              projectDetails.planning_name || 
+              projectDetails.title || 
+              projectDetails.name || 
+              activity.projectTitle || 
+              'Project #' + activity.projectId.substring(0, 6);
+            
+            // Extract additional useful information
+            projectType = 
+              projectDetails.planning_category || 
+              projectDetails.category || 
+              projectDetails.type || 
+              'Unknown';
+              
+            projectLocation = 
+              projectDetails.planning_location || 
+              projectDetails.location || 
+              projectDetails.planning_county || 
+              null;
+          }
+          
+          // Create an enhanced activity object
+          activityList.push({
+            id: activity.id,
+            type: activity.type,
+            projectId: activity.projectId,
+            projectTitle: projectTitle,
+            projectType: projectType,
+            projectLocation: projectLocation,
+            timestamp: timestamp,
+            formattedTime: formatTimestamp(timestamp),
+            noteText: activity.noteText // For note activities
+          });
+        }
+        
+        console.log(`Found ${activityList.length} activities with enhanced details`);
         setActivities(activityList);
       } catch (error) {
         console.error('Error fetching activities:', error);
@@ -159,6 +257,19 @@ const RecentActivityWidget = ({ data }) => {
             <div className="activity-content">
               <p className="activity-description">{getActivityDescription(activity)}</p>
               <span className="activity-time">{activity.formattedTime}</span>
+              {activity.projectType && (
+                <span className="activity-project-type">
+                  ({activity.projectType})
+                </span>
+              )}
+              {activity.projectLocation && (
+                <span className="activity-project-location">
+                  {activity.projectLocation}
+                </span>
+              )}
+              {activity.noteText && (
+                <p className="activity-note-text">{activity.noteText}</p>
+              )}
             </div>
           </li>
         ))}

@@ -54,6 +54,45 @@ const ProjectDetails = () => {
     }
   }, [success]);
 
+  // Add a retry mechanism for API fetches
+  const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
+    let retries = 0;
+    
+    while (retries < maxRetries) {
+      try {
+        const response = await fetch(url, options);
+        if (response.ok) {
+          return response;
+        }
+        
+        // If response was not ok, and this is not the last retry,
+        // log and continue to the next retry
+        if (retries < maxRetries - 1) {
+          console.warn(`Fetch attempt ${retries + 1} failed with status ${response.status}. Retrying...`);
+          retries++;
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+          continue;
+        }
+        
+        // If this was the last retry, return the failed response
+        return response;
+      } catch (error) {
+        // If there's a network error and this is not the last retry
+        if (retries < maxRetries - 1) {
+          console.warn(`Fetch attempt ${retries + 1} failed with error: ${error.message}. Retrying...`);
+          retries++;
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+          continue;
+        }
+        
+        // If this was the last retry, throw the error
+        throw error;
+      }
+    }
+  };
+
   const fetchProjectDetails = async (planningId) => {
     try {
       setLoading(true);
@@ -177,7 +216,7 @@ const ProjectDetails = () => {
       // STEP 2: Try to fetch from the API (even if we already have Firestore data)
       try {
         console.log(`Fetching from API: ${API_BASE_URL}/api/project/${idToUse}`);
-        const response = await fetch(`${API_BASE_URL}/api/project/${idToUse}`);
+        const response = await fetchWithRetry(`${API_BASE_URL}/api/project/${idToUse}`);
         
         if (response.ok) {
           const data = await response.json();
@@ -231,10 +270,10 @@ const ProjectDetails = () => {
         finalData = {
           planning_id: idToUse,
           planning_title: 'Unnamed Project',
-          planning_description: 'No description available for this project.',
-          planning_category: 'Category not available',
-          planning_stage: 'Stage not available',
-          planning_value: 'Value not available'
+          planning_description: 'Failed to load project details. Please try again later.',
+          planning_category: 'Not Available',
+          planning_stage: 'Not Available',
+          planning_value: 'Not Available'
         };
       }
       
@@ -423,7 +462,7 @@ const ProjectDetails = () => {
         
         // Try to get fresh API data if possible
         try {
-          const response = await fetch(`${API_BASE_URL}/api/project/${actualPlanningId}`);
+          const response = await fetchWithRetry(`${API_BASE_URL}/api/project/${actualPlanningId}`);
           
           if (response.ok) {
             const data = await response.json();

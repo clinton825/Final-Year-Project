@@ -49,6 +49,40 @@
 .activity-time {
   font-size: 0.8rem;
   color: #777;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.activity-project-type {
+  font-size: 0.8rem;
+  color: #666;
+  background-color: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  display: inline-block;
+}
+
+.activity-project-location {
+  font-size: 0.8rem;
+  color: #666;
+  display: block;
+  margin-top: 4px;
+}
+
+.activity-note-text {
+  font-size: 0.85rem;
+  color: #555;
+  margin: 6px 0 0 0;
+  padding: 6px;
+  background-color: #f5f5f5;
+  border-left: 3px solid #ddd;
+  border-radius: 0 4px 4px 0;
+  white-space: normal;
+  word-break: break-word;
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Activity types */

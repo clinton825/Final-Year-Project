@@ -70,17 +70,41 @@ configureAuthPersistence();
 // Initialize Firestore with optimized settings for faster loading
 let db;
 try {
-  console.log('Initializing Firestore with persistent cache...');
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-      cacheSizeBytes: CACHE_SIZE_UNLIMITED
-    })
-  });
+  console.log('Initializing Firestore with optimized settings...');
+  
+  // In production (deployed version), use more conservative settings
+  const isProduction = window.location.hostname !== 'localhost';
+  
+  if (isProduction) {
+    console.log('Using production Firestore configuration with performance optimizations');
+    // In production, use a more conservative cache size and simpler configuration
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+        // Use a defined cache size in production to avoid memory issues
+        cacheSizeBytes: 41943040 // 40MB
+      })
+    });
+  } else {
+    // In development, use unlimited cache for better debugging
+    console.log('Using development Firestore configuration with unlimited cache');
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+        cacheSizeBytes: CACHE_SIZE_UNLIMITED
+      })
+    });
+  }
   
   // Enable offline persistence in the background
   const enableOfflinePersistence = async () => {
     try {
+      // Skip persistence on deployment to improve initial loading time
+      if (isProduction) {
+        console.log('Skipping Firestore offline persistence in production for better initial performance');
+        return;
+      }
+      
       console.log('Enabling Firestore offline persistence...');
       await enableIndexedDbPersistence(db);
       console.log('Firestore offline persistence enabled successfully');
@@ -103,9 +127,9 @@ try {
   }, 1000);
   
 } catch (error) {
-  console.error('Error initializing Firestore with persistent cache:', error);
+  console.error('Error initializing Firestore with optimized settings:', error);
   console.log('Falling back to default Firestore configuration');
-  // Fallback to standard initialization if persistent cache fails
+  // Fallback to standard initialization if optimized settings fail
   db = getFirestore(app);
 }
 

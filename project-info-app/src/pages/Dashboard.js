@@ -647,6 +647,33 @@ const Dashboard = () => {
     loadUserData();
   }, [currentUser]);
 
+  // Add initializeData function reference at component level, before the useEffect
+  const initializeDataWithDelay = () => {
+    if (currentUser) {
+      console.log('Loading dashboard data with delay...');
+      fetchTrackedProjects();
+      fetchAllProjectNotes();
+      fetchDashboardSettings();
+      loadDashboardCache();
+    }
+  };
+
+  // Add retry logic for fetching tracked projects
+  useEffect(() => {
+    // Use a timeout to prevent excessive resource usage in deployed environment
+    const isProduction = window.location.hostname !== 'localhost';
+    const timeoutDelay = isProduction ? 800 : 300; // Longer delay in production
+    
+    const loadTimeout = setTimeout(() => {
+      if (currentUser) {
+        console.log('Loading dashboard data with delay...');
+        initializeDataWithDelay();
+      }
+    }, timeoutDelay);
+    
+    return () => clearTimeout(loadTimeout);
+  }, [currentUser]);
+
   useEffect(() => {
     const initializeData = async () => {
       if (currentUser) {
