@@ -9,9 +9,13 @@ import NotesList from '../components/notes/NotesList';
 import GettingStartedWidget from '../components/onboarding/GettingStartedWidget';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
-import { FaCog, FaHome, FaSave, FaTimes, FaUndo } from 'react-icons/fa';
+import { FaCog, FaHome, FaTimes, FaUndo, FaChartBar, FaTable, FaThLarge, FaChartPie, FaHistory } from 'react-icons/fa';
 import './Dashboard.css';
 import './GettingStartedToggle.css';
+import SpendingChartWidget from '../components/dashboard/widgets/SpendingChartWidget';
+import ProjectStageWidget from '../components/dashboard/widgets/ProjectStageWidget';
+import TrackedProjectsWidget from '../components/dashboard/widgets/TrackedProjectsWidget';
+import RecentActivityWidget from '../components/dashboard/widgets/RecentActivityWidget';
 
 // Export the updateDashboardCache function
 export const updateDashboardCache = async (currentUser, trackedProjects, setDashboardCache) => {
@@ -115,13 +119,14 @@ const Dashboard = () => {
     layout: 'grid', // grid, list, or map
     visibleWidgets: ['trackedProjects', 'visualizations', 'notes']
   });
-  const [dashboardCache, setDashboardCache] = useState(null);
-  const [expandedNotesProjects, setExpandedNotesProjects] = useState([]);
-  const [chartData, setChartData] = useState({
-    categories: [],
-    values: []
+  const [dashboardCache, setDashboardCache] = useState({
+    isLoading: true,
+    totalTrackedProjects: 0,
+    projectsByStatus: {},
+    valueByCategory: {}
   });
   const [projectNotes, setProjectNotes] = useState({});
+  const [expandedNotes, setExpandedNotes] = useState({});
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [userRole, setUserRole] = useState('standard');
 
@@ -234,10 +239,10 @@ const Dashboard = () => {
 
   // Function to toggle notes visibility for a project
   const toggleNotesVisibility = (projectId) => {
-    if (expandedNotesProjects.includes(projectId)) {
-      setExpandedNotesProjects(expandedNotesProjects.filter(id => id !== projectId));
+    if (expandedNotes[projectId]) {
+      setExpandedNotes(prev => ({ ...prev, [projectId]: !prev[projectId] }));
     } else {
-      setExpandedNotesProjects([...expandedNotesProjects, projectId]);
+      setExpandedNotes(prev => ({ ...prev, [projectId]: true }));
     }
   };
 
@@ -558,11 +563,6 @@ const Dashboard = () => {
       const chartCategories = Object.keys(valueByCategory);
       const chartValues = Object.values(valueByCategory);
       
-      setChartData({
-        categories: chartCategories,
-        values: chartValues
-      });
-      
       // Update dashboard cache
       if (Object.keys(projectsByStatus).length > 0 || Object.keys(valueByCategory).length > 0) {
         updateDashboardCache(currentUser, trackedProjects, setDashboardCache);
@@ -812,30 +812,75 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="dashboard-container">
+    <div style={{
+      width: '100%',
+      maxWidth: '1200px',
+      margin: '0 auto',
+      padding: '20px',
+      boxSizing: 'border-box'
+    }}>
       {/* Welcome Header Section */}
-      <div className="dashboard-header">
-        <div className="welcome-message">
-          <h1>Welcome, {userData?.firstName || currentUser?.displayName?.split(' ')[0] || 'User'}!</h1>
-          <p>Your personalized infrastructure project tracker dashboard</p>
+      <div style={{
+        backgroundColor: '#f8f9fa',
+        borderRadius: '10px',
+        padding: '25px',
+        marginBottom: '25px',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '20px'
+      }}>
+        <div style={{flex: '1'}}>
+          <h1 style={{margin: '0 0 8px 0', fontSize: '1.75rem', color: '#333'}}>
+            Welcome, {userData?.firstName || currentUser?.displayName?.split(' ')[0] || 'User'}!
+          </h1>
+          <p style={{margin: '0', color: '#666'}}>Your personalized infrastructure project tracker dashboard</p>
         </div>
         
         {/* Dashboard Controls */}
-        <div className="dashboard-actions">
+        <div style={{display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap'}}>
           {isCustomizing ? (
-            <div className="customization-controls">
-              <button onClick={() => setIsCustomizing(false)} className="cancel-customize-btn">
+            <div style={{display: 'flex', gap: '10px'}}>
+              <button 
+                onClick={() => setIsCustomizing(false)} 
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#f8f9fa',
+                  color: '#666',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
                 <FaTimes /> Cancel
               </button>
             </div>
           ) : (
-            <button onClick={() => setIsCustomizing(true)} className="customize-dashboard-btn">
+            <button 
+              onClick={() => setIsCustomizing(true)} 
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#4e73df',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
               <FaCog /> Customize Dashboard
             </button>
           )}
           
           {/* Getting Started Widget */}
-          <div className="getting-started-toggle-container">
+          <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
             <label className="switch">
               <input 
                 type="checkbox" 
@@ -844,14 +889,24 @@ const Dashboard = () => {
               />
               <span className="slider round"></span>
             </label>
-            <span className="toggle-label">Show Getting Started Guide</span>
+            <span style={{color: '#666', fontSize: '0.9rem'}}>Show Getting Started Guide</span>
           </div>
         </div>
       </div>
 
       {isOffline && (
-        <div className="offline-warning">
-          <p>You are currently offline. Some features may be limited.</p>
+        <div style={{
+          backgroundColor: '#fff3cd',
+          color: '#856404',
+          padding: '10px 15px',
+          borderRadius: '6px',
+          marginBottom: '20px',
+          border: '1px solid #ffeeba',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <p style={{margin: '0'}}>You are currently offline. Some features may be limited.</p>
         </div>
       )}
 
@@ -862,27 +917,218 @@ const Dashboard = () => {
         />
       )}
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div style={{
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          padding: '10px 15px',
+          borderRadius: '6px',
+          marginBottom: '20px',
+          border: '1px solid #f5c6cb'
+        }}>
+          {error}
+        </div>
+      )}
       
       {/* Customizable Dashboard Layout */}
       {loading ? (
-        <div className="loading-spinner-container">
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '50px 20px',
+          backgroundColor: '#fff',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+          margin: '20px 0'
+        }}>
           <div className="loading-spinner"></div>
-          <p>Loading your personalized dashboard...</p>
+          <p style={{marginTop: '15px', color: '#666'}}>Loading your personalized dashboard...</p>
         </div>
       ) : (
-        <DashboardLayout
-          trackedProjects={trackedProjects}
-          projectsByStatus={dashboardCache?.projectsByStatus || {}}
-          valueByCategory={dashboardCache?.valueByCategory || {}}
-          userRole={userRole}
-          userData={userData}
-          untrackProject={untrackProject}
-          loading={loading || (dashboardCache && dashboardCache.isLoading)}
-          isEditMode={isCustomizing}
-          onLayoutSave={() => setIsCustomizing(false)}
-          onEditModeToggle={() => setIsCustomizing(!isCustomizing)}
-        />
+        <div style={{width: '100%'}}>
+          {/* Summary Stats Section */}
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '20px',
+            marginBottom: '25px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e0e0e0'
+          }}>
+            <h3 style={{
+              margin: '0 0 20px 0',
+              fontSize: '1.2rem',
+              color: '#333',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              borderBottom: '1px solid #e0e0e0',
+              paddingBottom: '10px'
+            }}>
+              <FaThLarge style={{color: '#4e73df'}} /> Summary Statistics
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: '20px'
+            }}>
+              <div style={{
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                padding: '20px',
+                textAlign: 'center'
+              }}>
+                <div style={{fontSize: '2rem', color: '#4e73df', marginBottom: '10px'}}>
+                  {trackedProjects.length}
+                </div>
+                <div style={{color: '#666', fontSize: '0.9rem'}}>Tracked Projects</div>
+              </div>
+              <div style={{
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                padding: '20px',
+                textAlign: 'center'
+              }}>
+                <div style={{fontSize: '2rem', color: '#4e73df', marginBottom: '10px'}}>
+                  €{(dashboardCache?.valueByCategory ? 
+                    Object.values(dashboardCache.valueByCategory).reduce((sum, value) => sum + value, 0) : 0)
+                    .toLocaleString()}
+                </div>
+                <div style={{color: '#666', fontSize: '0.9rem'}}>Total Value</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Spending Distribution & Project Stages - Two Column Layout */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+            gap: '25px',
+            marginBottom: '25px'
+          }}>
+            {/* Spending Chart */}
+            <div style={{
+              backgroundColor: '#fff',
+              borderRadius: '8px',
+              padding: '20px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+              border: '1px solid #e0e0e0'
+            }}>
+              <h3 style={{
+                margin: '0 0 20px 0',
+                fontSize: '1.2rem',
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                borderBottom: '1px solid #e0e0e0',
+                paddingBottom: '10px'
+              }}>
+                <FaChartBar style={{color: '#4e73df'}} /> Spending Distribution
+              </h3>
+              <SpendingChartWidget 
+                data={{ 
+                  valueByCategory: dashboardCache?.valueByCategory || {},
+                  loading: dashboardCache?.isLoading || false
+                }} 
+              />
+            </div>
+            
+            {/* Project Stages */}
+            <div style={{
+              backgroundColor: '#fff',
+              borderRadius: '8px',
+              padding: '20px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+              border: '1px solid #e0e0e0'
+            }}>
+              <h3 style={{
+                margin: '0 0 20px 0',
+                fontSize: '1.2rem',
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                borderBottom: '1px solid #e0e0e0',
+                paddingBottom: '10px'
+              }}>
+                <FaChartPie style={{color: '#4e73df'}} /> Project Stages
+              </h3>
+              <ProjectStageWidget 
+                data={{
+                  projectsByStatus: dashboardCache?.projectsByStatus || {},
+                  loading: dashboardCache?.isLoading || false
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Tracked Projects Section */}
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '20px',
+            marginBottom: '25px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e0e0e0'
+          }}>
+            <h3 style={{
+              margin: '0 0 20px 0',
+              fontSize: '1.2rem',
+              color: '#333',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              borderBottom: '1px solid #e0e0e0',
+              paddingBottom: '10px'
+            }}>
+              <FaTable style={{color: '#4e73df'}} /> Tracked Projects
+            </h3>
+            <TrackedProjectsWidget 
+              data={{
+                trackedProjects: trackedProjects || [],
+                untrackProject: untrackProject,
+                loading: loading,
+                showNotes: expandedNotes,
+                projectNotes: projectNotes,
+                onToggleNotes: toggleNotesVisibility,
+                onAddNote: addProjectNote,
+                onUpdateNote: updateProjectNote,
+                onDeleteNote: deleteProjectNote
+              }}
+            />
+          </div>
+          
+          {/* Recent Activity Section */}
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '20px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e0e0e0'
+          }}>
+            <h3 style={{
+              margin: '0 0 20px 0',
+              fontSize: '1.2rem',
+              color: '#333',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              borderBottom: '1px solid #e0e0e0',
+              paddingBottom: '10px'
+            }}>
+              <FaHistory style={{color: '#4e73df'}} /> Recent Activity
+            </h3>
+            <RecentActivityWidget 
+              data={{
+                userId: currentUser?.uid,
+                limit: 5
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

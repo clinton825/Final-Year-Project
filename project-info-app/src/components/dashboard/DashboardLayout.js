@@ -376,7 +376,7 @@ const DashboardLayout = ({
           </div>
         )}
       
-      {/* Dashboard Content - Simple Flexbox Layout */}
+      {/* Dashboard Content - Improved Grid Layout */}
       <div className="dashboard-content">
         {/* Full Width Summary Stats */}
         <div className="dashboard-row">
@@ -397,21 +397,39 @@ const DashboardLayout = ({
           </div>
         </div>
         
-        {/* Two Column Row - Now only showing spending */}
+        {/* Two Column Row for Spending and Timeline Charts */}
         <div className="dashboard-row">
-          <div className="dashboard-widget full-width">
-            <div className="widget-header">
-              <h3><FaChartBar /> Spending Distribution</h3>
-              {isEditMode && (
-                <div className="widget-controls">
-                  <button className="widget-toggle-btn" onClick={() => removeWidget('spending')}>
-                    <FaTimes />
-                  </button>
-                </div>
-              )}
+          <div className="dashboard-row-split">
+            <div className="dashboard-widget">
+              <div className="widget-header">
+                <h3><FaChartBar /> Spending Distribution</h3>
+                {isEditMode && (
+                  <div className="widget-controls">
+                    <button className="widget-toggle-btn" onClick={() => removeWidget('spending')}>
+                      <FaTimes />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="widget-content">
+                {renderWidget('spending-chart')}
+              </div>
             </div>
-            <div className="widget-content">
-              {renderWidget('spending-chart')}
+            
+            <div className="dashboard-widget">
+              <div className="widget-header">
+                <h3><FaChartPie /> Project Stages</h3>
+                {isEditMode && (
+                  <div className="widget-controls">
+                    <button className="widget-toggle-btn" onClick={() => removeWidget('stages')}>
+                      <FaTimes />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="widget-content">
+                {renderWidget('project-stage')}
+              </div>
             </div>
           </div>
         </div>

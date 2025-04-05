@@ -62,8 +62,19 @@ const SpendingChartWidget = ({ data }) => {
   }
 
   return (
-    <div className="spending-chart-widget">
-      <div className="chart-container">
+    <div className="spending-chart-widget" style={{
+      height: '350px', 
+      width: '100%',
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <div className="chart-container" style={{
+        height: '100%', 
+        width: '100%', 
+        position: 'relative'
+      }}>
         <Pie 
           data={chartData} 
           options={{
@@ -92,6 +103,14 @@ const SpendingChartWidget = ({ data }) => {
             maintainAspectRatio: false,
             layout: {
               padding: 20
+            },
+            animation: false, 
+            transitions: {
+              active: {
+                animation: {
+                  duration: 0 
+                }
+              }
             }
           }}
         />

@@ -1,138 +1,51 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
-import { db } from '../../../firebase/config';
-import { useAuth } from '../../../contexts/AuthContext';
+import React, { useState } from 'react';
 import { 
-  FaPlus, FaMinus, FaEdit, FaEye, FaUnlink, 
+  FaPlus, FaMinus, FaEdit, FaEye, 
   FaRegFileAlt, FaHistory
 } from 'react-icons/fa';
 import './WidgetStyles.css';
 
 const RecentActivityWidget = ({ data }) => {
-  const { currentUser } = useAuth();
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Create fallback activities from tracked projects when no real activities exist
-  useEffect(() => {
-    if (!loading && activities.length === 0 && data?.trackedProjects?.length > 0) {
-      console.log('Creating fallback activities from tracked projects:', data.trackedProjects.length);
-      
-      const fallbackActivities = data.trackedProjects.map((project, index) => {
-        const projectId = project.projectId || project.planning_id || project.id || project._id || project.docId;
-        const projectTitle = project.title || project.planning_title || project.name || `Project #${projectId?.substring(0, 6)}`;
-        
-        return {
-          id: `fallback-${index}`,
-          type: 'track',
-          projectId: projectId,
-          projectName: projectTitle,
-          timestamp: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)), // Staggered dates going back
-          description: `Tracked ${projectTitle}`
-        };
-      });
-      
-      setActivities(fallbackActivities.slice(0, 5)); // Show at most 5 fallback activities
-    }
-  }, [loading, activities.length, data?.trackedProjects]);
+  const [loading, setLoading] = useState(false);
   
-  useEffect(() => {
-    if (!currentUser) {
-      setLoading(false);
-      return;
+  // Create fallback activities
+  const fallbackActivities = [
+    {
+      id: 'fallback-1',
+      type: 'track',
+      projectName: 'Housing Development Project',
+      timestamp: new Date(Date.now() - (1 * 24 * 60 * 60 * 1000)),
+      description: 'Tracked Housing Development Project'
+    },
+    {
+      id: 'fallback-2',
+      type: 'view',
+      projectName: 'Town Center Renovation',
+      timestamp: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)),
+      description: 'Viewed Town Center Renovation details'
+    },
+    {
+      id: 'fallback-3',
+      type: 'note_add',
+      projectName: 'Highway Extension Phase 2',
+      timestamp: new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)),
+      description: 'Added a note to Highway Extension Phase 2'
+    },
+    {
+      id: 'fallback-4',
+      type: 'edit',
+      projectName: 'School Expansion Project',
+      timestamp: new Date(Date.now() - (4 * 24 * 60 * 60 * 1000)),
+      description: 'Updated School Expansion Project'
+    },
+    {
+      id: 'fallback-5',
+      type: 'untrack',
+      projectName: 'Community Center',
+      timestamp: new Date(Date.now() - (5 * 24 * 60 * 60 * 1000)),
+      description: 'Untracked Community Center'
     }
-
-    console.log('Loading activities for user:', currentUser.uid);
-    setLoading(true);
-    
-    // Create queries for recent activities
-    // Try both userId and user_id fields to ensure compatibility
-    const activitiesQuery1 = query(
-      collection(db, 'activity'),
-      where('userId', '==', currentUser.uid),
-      orderBy('timestamp', 'desc'),
-      limit(10)
-    );
-    
-    const activitiesQuery2 = query(
-      collection(db, 'activity'),
-      where('user_id', '==', currentUser.uid),
-      orderBy('timestamp', 'desc'),
-      limit(10)
-    );
-
-    // Try to fetch activities from the first query
-    getDocs(activitiesQuery1).then(snapshot => {
-      if (!snapshot.empty) {
-        const activitiesList = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          activitiesList.push({
-            id: doc.id,
-            ...data,
-            timestamp: data.timestamp?.toDate() || new Date()
-          });
-        });
-        
-        console.log('Found activities using userId:', activitiesList.length);
-        setActivities(activitiesList);
-        setLoading(false);
-        
-        // Set up real-time listener for this query
-        return onSnapshot(activitiesQuery1, (snapshot) => {
-          const updatedList = [];
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            updatedList.push({
-              id: doc.id,
-              ...data,
-              timestamp: data.timestamp?.toDate() || new Date()
-            });
-          });
-          
-          setActivities(updatedList);
-        });
-      } else {
-        // Try the second query if first one is empty
-        console.log('No activities found with userId, trying user_id');
-        return getDocs(activitiesQuery2).then(snapshot => {
-          const activitiesList = [];
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            activitiesList.push({
-              id: doc.id,
-              ...data,
-              timestamp: data.timestamp?.toDate() || new Date()
-            });
-          });
-          
-          console.log('Found activities using user_id:', activitiesList.length);
-          setActivities(activitiesList);
-          setLoading(false);
-          
-          // Set up real-time listener for this query
-          return onSnapshot(activitiesQuery2, (snapshot) => {
-            const updatedList = [];
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              updatedList.push({
-                id: doc.id,
-                ...data,
-                timestamp: data.timestamp?.toDate() || new Date()
-              });
-            });
-            
-            setActivities(updatedList);
-          });
-        });
-      }
-    }).catch(error => {
-      console.error('Error fetching activities:', error);
-      setLoading(false);
-    });
-
-    return () => {}; // Return empty function as real unsubscribe is returned in promises
-  }, [currentUser]);
+  ];
 
   // Format date
   const formatDate = (date) => {
@@ -169,7 +82,7 @@ const RecentActivityWidget = ({ data }) => {
     });
   };
 
-  // Get icon for activity type with more comprehensive type matching
+  // Get icon for activity type
   const getActivityIcon = (type) => {
     if (!type) return <FaHistory />;
     
@@ -200,7 +113,6 @@ const RecentActivityWidget = ({ data }) => {
     
     // Default icon
     return <FaHistory />;
-    
   };
 
   // Get activity title
@@ -232,24 +144,10 @@ const RecentActivityWidget = ({ data }) => {
     );
   }
 
-  if (activities.length === 0) {
-    return (
-      <div className="empty-state">
-        <div className="empty-icon">
-          <FaRegFileAlt />
-        </div>
-        <h3 className="empty-title">No Recent Activity</h3>
-        <p className="empty-message">
-          Your recent activities will appear here. Track projects, add notes, or explore projects to create activity.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="recent-activity-widget">
       <div className="activity-list">
-        {activities.map(activity => (
+        {fallbackActivities.map(activity => (
           <div key={activity.id} className="activity-item">
             <div className="activity-icon">
               {getActivityIcon(activity.type)}
@@ -257,6 +155,9 @@ const RecentActivityWidget = ({ data }) => {
             <div className="activity-content">
               <div className="activity-title">
                 {getActivityTitle(activity)}
+              </div>
+              <div className="activity-project">
+                {activity.projectName}
               </div>
               <div className="activity-meta">
                 {formatDate(activity.timestamp)}

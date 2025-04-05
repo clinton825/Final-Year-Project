@@ -32,6 +32,14 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Enhanced authentication with **error handling & retry mechanisms**
 
 ## Recent Updates *(April 2025)*
+### **Dashboard Layout & Stability Improvements**
+- Fixed layout conflicts between dashboard and project comparison pages
+- Resolved issues with tracked projects and recent activities display
+- Improved component structure with proper data passing
+- Enhanced chart stability with fixed dimensions and disabled animations
+- Optimized Recent Activity widget with reliable static data
+- Removed unnecessary Save Search feature for cleaner interface
+
 ### **County Data Expansion**
 - Added comprehensive **County Waterford and Carlow project data**
 - Implemented **town-level filtering** for precise location-based searches

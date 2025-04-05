@@ -66,13 +66,27 @@ const ProjectStageWidget = ({ data }) => {
 
   return (
     <div className="project-stage-widget">
-      <div className="chart-container">
+      <div className="chart-container" style={{
+        height: '300px', 
+        width: '100%', 
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
         <Bar 
           data={chartData} 
           options={{
             plugins: {
               legend: {
-                display: false,
+                position: 'right',
+                labels: {
+                  boxWidth: 15,
+                  padding: 15,
+                  font: {
+                    size: 12
+                  }
+                }
               },
               tooltip: {
                 callbacks: {
@@ -84,6 +98,17 @@ const ProjectStageWidget = ({ data }) => {
             },
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+              padding: 20
+            },
+            animation: false, // Disable animations
+            transitions: {
+              active: {
+                animation: {
+                  duration: 0 // Disable transitions
+                }
+              }
+            },
             scales: {
               y: {
                 beginAtZero: true,
@@ -111,10 +136,7 @@ const ProjectStageWidget = ({ data }) => {
               }
             },
             indexAxis: 'y',
-            barThickness: 20,
-            layout: {
-              padding: 10
-            }
+            barThickness: 20
           }}
         />
       </div>

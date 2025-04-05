@@ -7,7 +7,17 @@ import { useAuth } from '../../../contexts/AuthContext';
 import './TrackedProjectsWidget.css';
 
 const TrackedProjectsWidget = ({ data }) => {
-  const { trackedProjects, untrackProject: parentUntrackProject } = data || {};
+  const { 
+    trackedProjects = [], 
+    untrackProject: parentUntrackProject,
+    loading = false,
+    showNotes = {},
+    projectNotes = {},
+    onToggleNotes,
+    onAddNote,
+    onUpdateNote,
+    onDeleteNote
+  } = data || {};
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [untrackingProjects, setUntrackingProjects] = useState({});

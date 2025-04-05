@@ -1,8 +1,436 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import './ProjectComparison.css';
 import config from '../config';
+
+// Define critical inline styles to ensure baseline styling
+const styles = {
+  container: {
+    padding: '20px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  },
+  heading: {
+    fontSize: '1.8rem',
+    marginBottom: '8px',
+    color: '#333',
+  },
+  subtitle: {
+    fontSize: '1rem',
+    color: '#666',
+    marginBottom: '25px',
+  },
+  filterContainer: {
+    backgroundColor: '#fff',
+    borderRadius: '10px',
+    padding: '20px',
+    marginBottom: '25px',
+    border: '1px solid #e0e0e0',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+  },
+  filterHeading: {
+    fontSize: '1.2rem',
+    marginTop: 0,
+    marginBottom: '15px',
+    fontWeight: 600,
+    color: '#333',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  filterRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: '15px',
+    marginBottom: '10px',
+  },
+  filterGroup: {
+    marginBottom: '15px',
+  },
+  filterLabel: {
+    display: 'block',
+    marginBottom: '8px',
+    fontSize: '0.9rem',
+    fontWeight: 500,
+    color: '#666',
+  },
+  filterSelect: {
+    width: '100%',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    border: '1px solid #e0e0e0',
+    backgroundColor: '#fff',
+    fontSize: '0.9rem',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    border: '1px solid #e0e0e0',
+  },
+  selectedProjectCard: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '15px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+    border: '1px solid #e0e0e0',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+  },
+  addCard: {
+    backgroundColor: '#f8f9fa',
+    border: '2px dashed #e0e0e0',
+    borderRadius: '10px',
+    padding: '25px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s, border-color 0.2s',
+    minHeight: '150px',
+    maxWidth: '300px',
+  },
+  addIcon: {
+    fontSize: '2rem',
+    color: '#666',
+    marginBottom: '10px',
+    width: '50px',
+    height: '50px',
+    backgroundColor: '#f0f2f5',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabsContainer: {
+    display: 'flex',
+    gap: '2px',
+    overflowX: 'auto',
+    paddingBottom: '10px',
+    marginBottom: '20px',
+    borderBottom: '1px solid #e0e0e0',
+  },
+  tab: {
+    padding: '10px 16px',
+    border: '1px solid #e0e0e0',
+    backgroundColor: '#f8f9fa',
+    color: '#666',
+    borderRadius: '6px 6px 0 0',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    marginBottom: '-1px',
+  },
+  activeTab: {
+    backgroundColor: '#4e73df',
+    color: 'white',
+    borderColor: '#4e73df',
+  },
+  chartContainer: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    border: '1px solid #e0e0e0',
+    width: '100%',
+    height: 'auto',
+    minHeight: '400px',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    zIndex: 1000,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '20px',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '1200px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    padding: '25px',
+    boxShadow: '0 5px 20px rgba(0, 0, 0, 0.3)',
+    border: '1px solid #e0e0e0',
+  }
+};
+
+// Add these styling objects for specific components
+const countyStyles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '25px',
+    overflow: 'visible',
+    height: 'auto',
+    width: '100%',
+  },
+  chartRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '25px',
+    marginBottom: '30px',
+    height: 'auto',
+    minHeight: '350px',
+    width: '100%',
+  },
+  chartCol: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+    border: '1px solid #e0e0e0',
+    height: 'auto',
+    minHeight: '350px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  header: {
+    marginTop: 0,
+    marginBottom: '15px',
+    fontSize: '1.1rem',
+    color: '#333',
+    width: '100%',
+    borderBottom: '1px solid #e0e0e0',
+    paddingBottom: '10px',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  metricsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+    border: '1px solid #e0e0e0',
+    marginTop: '20px',
+    width: '100%',
+  },
+  metricsHeader: {
+    marginTop: 0,
+    marginBottom: '15px',
+    fontSize: '1.1rem',
+    color: '#333',
+    display: 'flex',
+    alignItems: 'center',
+    borderBottom: '1px solid #e0e0e0',
+    paddingBottom: '10px',
+  },
+  metricsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+    gap: '15px',
+    marginTop: '10px',
+  },
+  metricCard: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '15px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+    borderLeft: '4px solid #8884d8',
+    border: '1px solid #e0e0e0',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+  },
+  metricCardHeading: {
+    marginTop: 0,
+    marginBottom: '10px',
+    fontSize: '1rem',
+    color: '#333',
+  },
+  metricRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '10px',
+  },
+  metric: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  metricLabel: {
+    fontSize: '0.8rem',
+    color: '#666',
+  },
+  metricValue: {
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: '#333',
+  },
+  emptyChart: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '300px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    textAlign: 'center',
+    padding: '20px',
+    border: '1px solid #e0e0e0',
+    color: '#666',
+  }
+};
+
+const timelineStyles = {
+  container: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+    border: '1px solid #e0e0e0',
+    width: '100%',
+    height: 'auto',
+    minHeight: '400px',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '25px',
+    flexWrap: 'wrap',
+    gap: '15px',
+    borderBottom: '1px solid #e0e0e0',
+    paddingBottom: '10px',
+  },
+  title: {
+    margin: 0,
+    fontSize: '1.1rem',
+    color: '#333',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  legend: {
+    display: 'flex',
+    gap: '15px',
+  },
+  legendItem: {
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '0.85rem',
+    color: '#666',
+  },
+  legendDot: (color) => ({
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    marginRight: '5px',
+    backgroundColor: color,
+  }),
+  legendLine: {
+    width: '20px',
+    height: '3px',
+    marginRight: '5px',
+    backgroundColor: '#4e73df',
+  },
+  grid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '30px',
+    overflow: 'visible',
+    paddingRight: '10px',
+    height: 'auto',
+    minHeight: '400px',
+  },
+  projectTimeline: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '20px',
+    border: '1px solid #e0e0e0',
+    marginBottom: '20px',
+    position: 'relative',
+    display: 'grid',
+    gridTemplateColumns: '200px 1fr 200px',
+    gap: '15px',
+    alignItems: 'center',
+    height: 'auto',
+    minHeight: '150px',
+  },
+  projectInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '5px',
+  },
+  projectTitle: {
+    margin: '0 0 8px 0',
+    fontSize: '1rem',
+    color: '#333',
+    fontWeight: 600,
+  },
+  projectMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '5px',
+    fontSize: '0.85rem',
+    color: '#666',
+  },
+  timelineTrack: {
+    position: 'relative',
+    padding: '10px 0',
+    width: '100%',
+  },
+  timelineLine: {
+    position: 'relative',
+    height: '6px',
+    backgroundColor: '#f0f2f5',
+    borderRadius: '3px',
+    width: '100%',
+  },
+  timelineMarker: (color) => ({
+    position: 'absolute',
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    backgroundColor: color,
+    transform: 'translateX(-50%) translateY(-3px)',
+    zIndex: 2,
+  }),
+  durationLine: {
+    position: 'absolute',
+    height: '6px',
+    backgroundColor: '#4e73df',
+    borderRadius: '3px',
+    top: '0',
+  },
+  metrics: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  metric: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  metricLabel: {
+    fontSize: '0.8rem',
+    color: '#666',
+  },
+  metricValue: {
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    color: '#333',
+  },
+  emptyTimeline: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '300px',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    textAlign: 'center',
+    padding: '20px',
+    border: '1px solid #e0e0e0',
+    color: '#666',
+  }
+};
+
+// Add these console logs to help debug
+console.log('ProjectComparison component loaded');
+console.log('CSS file should be imported');
 
 const ProjectComparison = () => {
   const [selectedProjects, setSelectedProjects] = useState([]);
@@ -10,8 +438,9 @@ const ProjectComparison = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('budget');
-  const [showAllProjects, setShowAllProjects] = useState(true);
+  const [showAllProjects, setShowAllProjects] = useState(false);
   const [showTownView, setShowTownView] = useState(false);
+  const [filtersApplied, setFiltersApplied] = useState(false);
 
   // New state for filters
   const [filters, setFilters] = useState({
@@ -95,7 +524,7 @@ const ProjectComparison = () => {
       }));
     }
   }, [availableProjects]);
-  
+
   // Reset town when county changes
   useEffect(() => {
     if (filters.county === '' || !filterOptions.towns[filters.county]?.includes(filters.town)) {
@@ -181,6 +610,29 @@ const ProjectComparison = () => {
       ...prev,
       [filterType]: value
     }));
+    
+    // If this is the first filter being applied, set filtersApplied to true
+    if (!filtersApplied && value !== '' && filterType !== 'sortBy') {
+      setFiltersApplied(true);
+    }
+    
+    // If all filters are cleared, set filtersApplied back to false
+    if (filterType !== 'sortBy' && value === '') {
+      const updatedFilters = {
+        ...filters,
+        [filterType]: value
+      };
+      
+      const anyFilterApplied = 
+        updatedFilters.projectType !== '' || 
+        updatedFilters.stakeholderType !== '' || 
+        updatedFilters.stage !== '' || 
+        updatedFilters.valueRange !== 'all' || 
+        updatedFilters.county !== '' || 
+        updatedFilters.town !== '';
+      
+      setFiltersApplied(anyFilterApplied);
+    }
   };
 
   const getFilteredProjects = () => {
@@ -192,11 +644,6 @@ const ProjectComparison = () => {
       const valueMatch = filters.valueRange === 'all' || getValueRange(project.planning_value) === filters.valueRange;
       const countyMatch = !filters.county || project.planning_county === filters.county;
       const townMatch = !filters.town || project.planning_town === filters.town;
-      
-      // Debug logging for town filtering
-      if (filters.town && project.planning_county === filters.county) {
-        console.log(`Project town: "${project.planning_town}", Selected town: "${filters.town}", Match: ${project.planning_town === filters.town}`);
-      }
       
       return typeMatch && stageMatch && stakeholderMatch && valueMatch && countyMatch && townMatch;
     }).sort((a, b) => {
@@ -418,7 +865,7 @@ const ProjectComparison = () => {
     
     if (timelineData.length === 0) {
       return (
-        <div className="empty-chart">
+        <div style={timelineStyles.emptyTimeline} className="project-comparison-timeline-empty">
           <p>Selected projects don't have timeline information</p>
         </div>
       );
@@ -443,118 +890,148 @@ const ProjectComparison = () => {
     const totalDays = Math.ceil((paddedLatest - paddedEarliest) / (1000 * 60 * 60 * 24));
     
     return (
-      <div className="timeline-comparison">
-        <div className="timeline-header">
-          <h4>
-            <span className="icon">📅</span>
+      <div style={timelineStyles.container} className="project-comparison-timeline">
+        <div style={timelineStyles.header} className="project-comparison-timeline-header">
+          <h4 style={timelineStyles.title} className="project-comparison-timeline-title">
+            <span style={{marginRight: '8px'}}>📅</span>
             Project Timelines Comparison
           </h4>
-          <div className="timeline-legend">
-            <div className="legend-item application">
-              <span className="legend-dot"></span>
+          <div style={timelineStyles.legend} className="project-comparison-timeline-legend">
+            <div style={timelineStyles.legendItem} className="project-comparison-legend-item">
+              <div style={timelineStyles.legendDot('#4e73df')}></div>
               <span>Application Date</span>
             </div>
-            <div className="legend-item decision">
-              <span className="legend-dot"></span>
+            <div style={timelineStyles.legendItem} className="project-comparison-legend-item">
+              <div style={timelineStyles.legendDot('#1cc88a')}></div>
               <span>Decision Date</span>
             </div>
-            <div className="legend-item duration">
-              <span className="legend-line"></span>
+            <div style={timelineStyles.legendItem} className="project-comparison-legend-item">
+              <div style={timelineStyles.legendLine}></div>
               <span>Processing Duration</span>
             </div>
           </div>
         </div>
         
-        <div className="timeline-container">
+        <div style={timelineStyles.grid}>
           {/* Timeline scale */}
-          <div className="timeline-scale">
+          <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 0'}}>
             {Array.from({ length: 5 }).map((_, i) => {
               const date = new Date(paddedEarliest.getTime() + (totalTimespan * i / 4));
               return (
-                <div key={i} className="scale-mark" style={{ left: `${(i * 100) / 4}%` }}>
-                  <span>{format(date, 'MMM yyyy')}</span>
+                <div key={i} style={{flex: 1, display: 'flex', justifyContent: 'center'}}>
+                  <span style={{fontSize: '0.8rem', color: '#666'}}>{format(date, 'MMM yyyy')}</span>
                 </div>
               );
             })}
           </div>
           
           {/* Individual project timelines */}
-          <div className="timelines-grid">
-            {timelineData.map((project, index) => {
-              // Calculate position percentages
-              const startPercent = project.applicationDate ? 
-                ((project.applicationDate - paddedEarliest) / (paddedLatest - paddedEarliest)) * 100 : 0;
-              
-              const endPercent = project.decisionDate ? 
-                ((project.decisionDate - paddedEarliest) / (paddedLatest - paddedEarliest)) * 100 : startPercent + 5;
-              
-              return (
-                <div key={project.id} className="project-timeline">
-                  <div className="timeline-project-info">
-                    <h5>{project.title}</h5>
-                    <div className="timeline-project-meta">
-                      <span>{project.type}</span>
-                      <span className="county-badge">{project.county}</span>
-                      {project.town && <span className="town-badge">{project.town}</span>}
-                    </div>
-                  </div>
-                  
-                  <div className="timeline-track">
-                    <div className="timeline-line">
-                      {/* Application date marker */}
-                      <div 
-                        className="timeline-marker application-marker" 
-                        style={{ left: `${startPercent}%` }}
-                        title={`Application: ${project.applicationDate ? format(project.applicationDate, 'dd MMM yyyy') : 'Unknown'}`}
-                      >
-                        <div className="marker-label">
-                          {project.applicationDate ? format(project.applicationDate, 'dd MMM yyyy') : ''}
-                        </div>
-                      </div>
-                      
-                      {/* Decision date marker */}
-                      {project.decisionDate && (
-                        <div 
-                          className="timeline-marker decision-marker" 
-                          style={{ left: `${endPercent}%` }}
-                          title={`Decision: ${format(project.decisionDate, 'dd MMM yyyy')}`}
-                        >
-                          <div className="marker-label">
-                            {format(project.decisionDate, 'dd MMM yyyy')}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Duration line */}
-                      {project.applicationDate && project.decisionDate && (
-                        <div 
-                          className="duration-line"
-                          style={{ 
-                            left: `${startPercent}%`, 
-                            width: `${endPercent - startPercent}%` 
-                          }}
-                          title={`Duration: ${project.durationDays} days`}
-                        >
-                          <span className="duration-label">{project.durationDays} days</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="timeline-metrics">
-                    <div className="timeline-metric">
-                      <span className="metric-label">Processing Time</span>
-                      <span className="metric-value">{project.durationDays || 'N/A'} days</span>
-                    </div>
-                    <div className="timeline-metric">
-                      <span className="metric-label">Current Stage</span>
-                      <span className="metric-value">{project.stage}</span>
-                    </div>
-                  </div>
+          {timelineData.map((project, index) => (
+            <div key={project.id} style={timelineStyles.projectTimeline}>
+              <div style={timelineStyles.projectInfo}>
+                <h5 style={timelineStyles.projectTitle}>{project.title}</h5>
+                <div style={timelineStyles.projectMeta}>
+                  <span>{project.type}</span>
+                  <span className="county-badge">{project.county}</span>
+                  {project.town && <span className="town-badge">{project.town}</span>}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+              
+              <div style={timelineStyles.timelineTrack}>
+                <div style={timelineStyles.timelineLine}>
+                  {/* Application date marker */}
+                  <div 
+                    style={{
+                      ...timelineStyles.timelineMarker('#4e73df'),
+                      left: `${((project.applicationDate - paddedEarliest) / (paddedLatest - paddedEarliest)) * 100}%`
+                    }}
+                    title={`Application: ${project.applicationDate ? format(project.applicationDate, 'dd MMM yyyy') : 'Unknown'}`}
+                  >
+                    <div style={{
+                      position: 'absolute',
+                      fontSize: '0.75rem',
+                      whiteSpace: 'nowrap',
+                      color: '#666',
+                      top: '-25px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: '#fff',
+                      padding: '2px 5px',
+                      borderRadius: '3px',
+                      border: '1px solid #e0e0e0',
+                    }}>
+                      {project.applicationDate ? format(project.applicationDate, 'dd MMM yyyy') : ''}
+                    </div>
+                  </div>
+                  
+                  {/* Decision date marker */}
+                  {project.decisionDate && (
+                    <div 
+                      style={{
+                        ...timelineStyles.timelineMarker('#1cc88a'),
+                        left: `${((project.decisionDate - paddedEarliest) / (paddedLatest - paddedEarliest)) * 100}%`
+                      }}
+                      title={`Decision: ${format(project.decisionDate, 'dd MMM yyyy')}`}
+                    >
+                      <div style={{
+                        position: 'absolute',
+                        fontSize: '0.75rem',
+                        whiteSpace: 'nowrap',
+                        color: '#666',
+                        top: '-25px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#fff',
+                        padding: '2px 5px',
+                        borderRadius: '3px',
+                        border: '1px solid #e0e0e0',
+                      }}>
+                        {format(project.decisionDate, 'dd MMM yyyy')}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Duration line */}
+                  {project.applicationDate && project.decisionDate && (
+                    <div 
+                      style={{
+                        ...timelineStyles.durationLine,
+                        left: `${((project.applicationDate - paddedEarliest) / (paddedLatest - paddedEarliest)) * 100}%`,
+                        width: `${(((project.decisionDate - project.applicationDate) / (paddedLatest - paddedEarliest)) * 100)}%`
+                      }}
+                      title={`Duration: ${project.durationDays} days`}
+                    >
+                      <span style={{
+                        position: 'absolute',
+                        fontSize: '0.8rem',
+                        whiteSpace: 'nowrap',
+                        color: '#fff',
+                        top: '-20px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#4e73df',
+                        padding: '2px 5px',
+                        borderRadius: '3px',
+                      }}>
+                        {project.durationDays} days
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div style={timelineStyles.metrics}>
+                <div style={timelineStyles.metric}>
+                  <span style={timelineStyles.metricLabel}>Processing Time</span>
+                  <span style={timelineStyles.metricValue}>{project.durationDays || 'N/A'} days</span>
+                </div>
+                <div style={timelineStyles.metric}>
+                  <span style={timelineStyles.metricLabel}>Current Stage</span>
+                  <span style={timelineStyles.metricValue}>{project.stage}</span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -606,7 +1083,7 @@ const ProjectComparison = () => {
     
     if (selectedProjects.length === 0) {
       return (
-        <div className="empty-chart">
+        <div style={countyStyles.emptyChart} className="project-comparison-county-empty">
           <p>Select projects to compare county metrics</p>
         </div>
       );
@@ -614,7 +1091,7 @@ const ProjectComparison = () => {
     
     if (countyData.length === 0) {
       return (
-        <div className="empty-chart">
+        <div style={countyStyles.emptyChart} className="project-comparison-county-empty">
           <p>Selected projects don't have county information</p>
         </div>
       );
@@ -626,16 +1103,34 @@ const ProjectComparison = () => {
     }));
     
     return (
-      <div className="county-comparison">
-        <div className="comparison-tabs">
+      <div style={countyStyles.container} className="project-comparison-county">
+        <div style={{display: 'flex', gap: '10px', marginBottom: '20px'}} className="project-comparison-county-tabs">
           <button 
-            className={`comparison-tab ${showTownView ? '' : 'active'}`}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: !showTownView ? '#4e73df' : '#f8f9fa',
+              color: !showTownView ? 'white' : '#666',
+              border: '1px solid #e0e0e0',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+            }}
+            className="project-comparison-county-tab"
             onClick={() => setShowTownView(false)}
           >
             County View
           </button>
           <button 
-            className={`comparison-tab ${showTownView ? 'active' : ''}`}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: showTownView ? '#4e73df' : '#f8f9fa',
+              color: showTownView ? 'white' : '#666',
+              border: '1px solid #e0e0e0',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+            }}
+            className="project-comparison-county-tab"
             onClick={() => setShowTownView(true)}
           >
             Town View
@@ -643,12 +1138,11 @@ const ProjectComparison = () => {
         </div>
         
         {!showTownView ? (
-          // County View
           <>
-            <div className="chart-row">
-              <div className="chart-col">
-                <h4>
-                  <span className="icon">📊</span>
+            <div style={countyStyles.chartRow}>
+              <div style={countyStyles.chartCol}>
+                <h4 style={countyStyles.header}>
+                  <span style={{marginRight: '8px'}}>📊</span>
                   Project Value by County (Millions €)
                 </h4>
                 <BarChart width={500} height={300} data={countyData}>
@@ -660,9 +1154,9 @@ const ProjectComparison = () => {
                 </BarChart>
               </div>
               
-              <div className="chart-col">
-                <h4>
-                  <span className="icon">🥧</span>
+              <div style={countyStyles.chartCol}>
+                <h4 style={countyStyles.header}>
+                  <span style={{marginRight: '8px'}}>🥧</span>
                   Value Distribution
                 </h4>
                 <PieChart width={300} height={300}>
@@ -686,24 +1180,33 @@ const ProjectComparison = () => {
               </div>
             </div>
             
-            <div className="county-metrics">
-              <h4>County Project Metrics</h4>
-              <div className="metrics-grid">
+            <div style={countyStyles.metricsContainer}>
+              <h4 style={countyStyles.metricsHeader}>
+                <span style={{marginRight: '8px'}}>🏆</span>
+                County Project Metrics
+              </h4>
+              <div style={countyStyles.metricsGrid}>
                 {countyData.map((county, index) => (
-                  <div key={index} className="county-metric-card" style={{borderLeftColor: COUNTY_COLORS[index % COUNTY_COLORS.length]}}>
-                    <h5>{county.county}</h5>
-                    <div className="metric-row">
-                      <div className="metric">
-                        <span className="metric-label">Projects</span>
-                        <span className="metric-value">{county.projectCount}</span>
+                  <div 
+                    key={index} 
+                    style={{
+                      ...countyStyles.metricCard,
+                      borderLeftColor: COUNTY_COLORS[index % COUNTY_COLORS.length]
+                    }}
+                  >
+                    <h5 style={countyStyles.metricCardHeading}>{county.county}</h5>
+                    <div style={countyStyles.metricRow}>
+                      <div style={countyStyles.metric}>
+                        <span style={countyStyles.metricLabel}>Projects</span>
+                        <span style={countyStyles.metricValue}>{county.projectCount}</span>
                       </div>
-                      <div className="metric">
-                        <span className="metric-label">Total Value</span>
-                        <span className="metric-value">€{county.totalValue.toFixed(2)}M</span>
+                      <div style={countyStyles.metric}>
+                        <span style={countyStyles.metricLabel}>Total Value</span>
+                        <span style={countyStyles.metricValue}>€{county.totalValue.toFixed(2)}M</span>
                       </div>
-                      <div className="metric">
-                        <span className="metric-label">Avg. Value</span>
-                        <span className="metric-value">€{county.averageValue.toFixed(2)}M</span>
+                      <div style={countyStyles.metric}>
+                        <span style={countyStyles.metricLabel}>Avg. Value</span>
+                        <span style={countyStyles.metricValue}>€{county.averageValue.toFixed(2)}M</span>
                       </div>
                     </div>
                   </div>
@@ -712,12 +1215,11 @@ const ProjectComparison = () => {
             </div>
           </>
         ) : (
-          // Town View
           <>
-            <div className="chart-row">
-              <div className="chart-col">
-                <h4>
-                  <span className="icon">🏙️</span>
+            <div style={countyStyles.chartRow}>
+              <div style={countyStyles.chartCol}>
+                <h4 style={countyStyles.header}>
+                  <span style={{marginRight: '8px'}}>🏙️</span>
                   Project Value by Town (Millions €)
                 </h4>
                 {townData.length > 0 ? (
@@ -729,18 +1231,29 @@ const ProjectComparison = () => {
                     <Bar dataKey="totalValue" fill="#82ca9d" name="Total Value (€M)" />
                   </BarChart>
                 ) : (
-                  <div className="empty-chart-message">
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '300px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '6px',
+                    padding: '20px',
+                    border: '1px solid #e0e0e0',
+                    color: '#666',
+                    fontStyle: 'italic'
+                  }}>
                     <p>No town data available for the selected projects</p>
                   </div>
                 )}
               </div>
               
-              <div className="chart-col">
-                <h4>
-                  <span className="icon">📈</span>
-                  Projects per Town
-                </h4>
-                {townData.length > 0 ? (
+              {townData.length > 0 && (
+                <div style={countyStyles.chartCol}>
+                  <h4 style={countyStyles.header}>
+                    <span style={{marginRight: '8px'}}>📈</span>
+                    Projects per Town
+                  </h4>
                   <BarChart width={500} height={300} data={townData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="fullName" tick={{fontSize: 10}} />
@@ -748,44 +1261,45 @@ const ProjectComparison = () => {
                     <Tooltip />
                     <Bar dataKey="projectCount" fill="#ffc658" name="Number of Projects" />
                   </BarChart>
-                ) : (
-                  <div className="empty-chart-message">
-                    <p>No town data available for the selected projects</p>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
             
-            <div className="town-metrics">
-              <h4>Town Project Metrics</h4>
-              {townData.length > 0 ? (
-                <div className="metrics-grid">
+            {townData.length > 0 && (
+              <div style={countyStyles.metricsContainer}>
+                <h4 style={countyStyles.metricsHeader}>
+                  <span style={{marginRight: '8px'}}>🏙️</span>
+                  Town Project Metrics
+                </h4>
+                <div style={countyStyles.metricsGrid}>
                   {townData.map((town, index) => (
-                    <div key={index} className="town-metric-card" style={{borderLeftColor: TOWN_COLORS[index % TOWN_COLORS.length]}}>
-                      <h5>{town.fullName}</h5>
-                      <div className="metric-row">
-                        <div className="metric">
-                          <span className="metric-label">Projects</span>
-                          <span className="metric-value">{town.projectCount}</span>
+                    <div 
+                      key={index} 
+                      style={{
+                        ...countyStyles.metricCard,
+                        borderLeftColor: TOWN_COLORS[index % TOWN_COLORS.length]
+                      }}
+                    >
+                      <h5 style={countyStyles.metricCardHeading}>{town.fullName}</h5>
+                      <div style={countyStyles.metricRow}>
+                        <div style={countyStyles.metric}>
+                          <span style={countyStyles.metricLabel}>Projects</span>
+                          <span style={countyStyles.metricValue}>{town.projectCount}</span>
                         </div>
-                        <div className="metric">
-                          <span className="metric-label">Total Value</span>
-                          <span className="metric-value">€{town.totalValue.toFixed(2)}M</span>
+                        <div style={countyStyles.metric}>
+                          <span style={countyStyles.metricLabel}>Total Value</span>
+                          <span style={countyStyles.metricValue}>€{town.totalValue.toFixed(2)}M</span>
                         </div>
-                        <div className="metric">
-                          <span className="metric-label">Avg. Value</span>
-                          <span className="metric-value">€{town.averageValue.toFixed(2)}M</span>
+                        <div style={countyStyles.metric}>
+                          <span style={countyStyles.metricLabel}>Avg. Value</span>
+                          <span style={countyStyles.metricValue}>€{town.averageValue.toFixed(2)}M</span>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="empty-metrics-message">
-                  <p>Select projects with town data to view town metrics</p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -793,12 +1307,13 @@ const ProjectComparison = () => {
   };
 
   const renderFilters = () => (
-    <div className="filters-container">
-      <h3>Filter Projects</h3>
-      <div className="filter-row">
-        <div className="filter-group">
-          <label>Project Type</label>
+    <div style={styles.filterContainer}>
+      <h3 style={styles.filterHeading}>🔍 Filter Projects</h3>
+      <div style={styles.filterRow}>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Project Type</label>
           <select 
+            style={styles.filterSelect}
             value={filters.projectType}
             onChange={(e) => handleFilterChange('projectType', e.target.value)}
           >
@@ -809,9 +1324,10 @@ const ProjectComparison = () => {
           </select>
         </div>
         
-        <div className="filter-group">
-          <label>Project Stage</label>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Project Stage</label>
           <select 
+            style={styles.filterSelect}
             value={filters.stage}
             onChange={(e) => handleFilterChange('stage', e.target.value)}
           >
@@ -822,12 +1338,12 @@ const ProjectComparison = () => {
           </select>
         </div>
         
-        <div className="filter-group">
-          <label>County</label>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>County</label>
           <select 
+            style={styles.filterSelect}
             value={filters.county}
             onChange={(e) => handleFilterChange('county', e.target.value)}
-            className="county-filter"
           >
             <option value="">All Counties</option>
             {filterOptions.counties.map((county, index) => (
@@ -836,12 +1352,12 @@ const ProjectComparison = () => {
           </select>
         </div>
 
-        <div className="filter-group">
-          <label>Town</label>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Town</label>
           <select 
+            style={styles.filterSelect}
             value={filters.town}
             onChange={(e) => handleFilterChange('town', e.target.value)}
-            className="town-filter"
             disabled={!filters.county}
           >
             <option value="">All Towns</option>
@@ -851,9 +1367,10 @@ const ProjectComparison = () => {
           </select>
         </div>
 
-        <div className="filter-group">
-          <label>Stakeholder Type</label>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Stakeholder Type</label>
           <select 
+            style={styles.filterSelect}
             value={filters.stakeholderType}
             onChange={(e) => handleFilterChange('stakeholderType', e.target.value)}
           >
@@ -864,9 +1381,10 @@ const ProjectComparison = () => {
           </select>
         </div>
 
-        <div className="filter-group">
-          <label>Value Range</label>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Value Range</label>
           <select 
+            style={styles.filterSelect}
             value={filters.valueRange}
             onChange={(e) => handleFilterChange('valueRange', e.target.value)}
           >
@@ -876,9 +1394,10 @@ const ProjectComparison = () => {
           </select>
         </div>
 
-        <div className="filter-group">
-          <label>Sort By</label>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Sort By</label>
           <select 
+            style={styles.filterSelect}
             value={filters.sortBy}
             onChange={(e) => handleFilterChange('sortBy', e.target.value)}
           >
@@ -892,155 +1411,383 @@ const ProjectComparison = () => {
     </div>
   );
 
-  if (loading) return <div className="loading">Loading projects...</div>;
-  if (error) return <div className="error">{error}</div>;
+  if (loading) return <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>Loading projects...</div>;
+  if (error) return <div style={{textAlign: 'center', padding: '20px', color: '#e74a3b'}}>{error}</div>;
 
   const filteredProjects = getFilteredProjects();
 
-  return (
-    <div className="comparison-container">
-      <h2>
-        <span className="icon">⇄</span> 
-        Project Comparison
-      </h2>
-      <p className="subtitle">Compare infrastructure projects across different metrics</p>
+  const pageContainerStyle = {
+    padding: '20px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  };
 
-      {showAllProjects ? (
-        <>
-          {renderFilters()}
-          <div className="comparison-content">
-            <div className="project-selection">
-              <h3>Select Projects to Compare (Max 3)</h3>
-              <div className="project-list">
-                {filteredProjects.map(project => (
+  return (
+    <div style={pageContainerStyle}>
+      <h2 style={styles.heading}>Project Comparison</h2>
+      <p style={styles.subtitle}>Compare infrastructure projects across different metrics</p>
+      
+      <div style={styles.filterContainer}>
+        <h3 style={styles.filterHeading}>🔍 Filter Projects</h3>
+        <div style={styles.filterRow}>
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Project Type</label>
+            <select 
+              style={styles.filterSelect}
+              value={filters.projectType}
+              onChange={(e) => handleFilterChange('projectType', e.target.value)}
+            >
+              <option value="">All Types</option>
+              {filterOptions.projectTypes.map((type, index) => (
+                <option key={index} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Project Stage</label>
+            <select 
+              style={styles.filterSelect}
+              value={filters.stage}
+              onChange={(e) => handleFilterChange('stage', e.target.value)}
+            >
+              <option value="">All Stages</option>
+              {filterOptions.stages.map((stage, index) => (
+                <option key={index} value={stage}>{stage}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>County</label>
+            <select 
+              style={styles.filterSelect}
+              value={filters.county}
+              onChange={(e) => handleFilterChange('county', e.target.value)}
+            >
+              <option value="">All Counties</option>
+              {filterOptions.counties.map((county, index) => (
+                <option key={index} value={county}>{county}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Town</label>
+            <select 
+              style={styles.filterSelect}
+              value={filters.town}
+              onChange={(e) => handleFilterChange('town', e.target.value)}
+              disabled={!filters.county}
+            >
+              <option value="">All Towns</option>
+              {filters.county && filterOptions.towns[filters.county]?.map((town, index) => (
+                <option key={index} value={town}>{town}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Stakeholder Type</label>
+            <select 
+              style={styles.filterSelect}
+              value={filters.stakeholderType}
+              onChange={(e) => handleFilterChange('stakeholderType', e.target.value)}
+            >
+              <option value="">All Stakeholders</option>
+              {filterOptions.stakeholderTypes.map((type, index) => (
+                <option key={index} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Value Range</label>
+            <select 
+              style={styles.filterSelect}
+              value={filters.valueRange}
+              onChange={(e) => handleFilterChange('valueRange', e.target.value)}
+            >
+              {filterOptions.valueRanges.map((range, index) => (
+                <option key={index} value={range.value}>{range.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Sort By</label>
+            <select 
+              style={styles.filterSelect}
+              value={filters.sortBy}
+              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+            >
+              <option value="value">Project Value</option>
+              <option value="size">Project Size</option>
+              <option value="date">Application Date</option>
+              <option value="stage">Project Stage</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      {loading ? (
+        <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>Loading projects...</div>
+      ) : error ? (
+        <div style={{textAlign: 'center', padding: '20px', color: '#e74a3b'}}>{error}</div>
+      ) : (
+        <div style={styles.card}>
+          <div style={{marginBottom: '25px'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+              <h3 style={{margin: 0, fontSize: '1.2rem', color: '#333', display: 'flex', alignItems: 'center'}}>
+                📋 Selected Projects
+              </h3>
+              {selectedProjects.length > 0 && (
+                <button 
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'rgba(231, 74, 59, 0.1)',
+                    color: '#e74a3b',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                    cursor: 'pointer'
+                  }}
+                  onClick={handleResetComparison}
+                >
+                  Reset Comparison
+                </button>
+              )}
+            </div>
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px'}}>
+              {selectedProjects.map(project => (
+                <div 
+                  key={project.planning_id} 
+                  style={styles.selectedProjectCard}
+                >
+                  <div style={{
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start',
+                    marginBottom: '15px',
+                    paddingBottom: '10px',
+                    borderBottom: '1px solid #e0e0e0'
+                  }}>
+                    <h4 style={{margin: 0, fontSize: '1.1rem', color: '#333', fontWeight: 600}}>{project.planning_title}</h4>
+                    <button 
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: '#666',
+                        fontSize: '1.2rem',
+                        padding: 0,
+                        cursor: 'pointer',
+                        width: '28px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%'
+                      }}
+                      onClick={() => handleProjectSelect(project)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                    <span style={{fontSize: '0.9rem', color: '#666', padding: '4px 0'}}>Type: {project.planning_type}</span>
+                    <span style={{fontSize: '0.9rem', color: '#666', padding: '4px 0'}}>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
+                    <span style={{fontSize: '0.9rem', color: '#666', padding: '4px 0'}}>Stage: {project.planning_stage}</span>
+                    {project.planning_county && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(35, 75, 142, 0.1)',
+                        color: '#234b8e',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '0.85rem',
+                        marginTop: '5px',
+                        fontWeight: 500
+                      }}>County: {project.planning_county}</span>
+                    )}
+                    {project.planning_town && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(30, 127, 94, 0.1)',
+                        color: '#1e7f5e',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '0.85rem',
+                        marginTop: '5px',
+                        fontWeight: 500
+                      }}>Town: {project.planning_town}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {selectedProjects.length < 3 && (
+                <div 
+                  style={styles.addCard}
+                  onClick={() => setShowAllProjects(true)}
+                >
+                  <div style={styles.addIcon}>+</div>
+                  <p style={{margin: 0, fontSize: '1rem', color: '#666'}}>Add Another Project</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {selectedProjects.length > 0 && (
+            <div>
+              <div style={styles.tabsContainer}>
+                <button 
+                  style={{...styles.tab, ...(activeTab === 'budget' ? styles.activeTab : {})}}
+                  onClick={() => setActiveTab('budget')}
+                >
+                  Budget Analysis
+                </button>
+                <button 
+                  style={{...styles.tab, ...(activeTab === 'timeline' ? styles.activeTab : {})}}
+                  onClick={() => setActiveTab('timeline')}
+                >
+                  Timeline
+                </button>
+                <button 
+                  style={{...styles.tab, ...(activeTab === 'metrics' ? styles.activeTab : {})}}
+                  onClick={() => setActiveTab('metrics')}
+                >
+                  Size Metrics
+                </button>
+                <button 
+                  style={{...styles.tab, ...(activeTab === 'stakeholders' ? styles.activeTab : {})}}
+                  onClick={() => setActiveTab('stakeholders')}
+                >
+                  Stakeholders
+                </button>
+                <button 
+                  style={{...styles.tab, ...(activeTab === 'county' ? styles.activeTab : {})}}
+                  onClick={() => setActiveTab('county')}
+                >
+                  County Analysis
+                </button>
+              </div>
+
+              <div style={styles.chartContainer}>
+                {activeTab === 'budget' && (
+                  <div>
+                    <h4 style={{marginTop: 0, marginBottom: '20px', fontSize: '1.1rem', color: '#333', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px'}}>
+                      💰 Budget Comparison (Millions)
+                    </h4>
+                    <BarChart width={500} height={300} data={prepareChartData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => `€${value.toFixed(2)}M`} />
+                      <Legend />
+                      <Bar dataKey="value" fill="#8884d8" name="Project Value (€M)" />
+                    </BarChart>
+                  </div>
+                )}
+                {activeTab === 'timeline' && renderTimeline()}
+                {activeTab === 'metrics' && renderSizeMetrics()}
+                {activeTab === 'stakeholders' && renderStakeholderAnalysis()}
+                {activeTab === 'county' && renderCountyComparison()}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showAllProjects && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #e0e0e0'}}>
+              <h3 style={{margin: 0, fontSize: '1.3rem', color: '#333', display: 'flex', alignItems: 'center'}}>
+                📋 Available Projects
+              </h3>
+              <button 
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#f8f9fa',
+                  color: '#666',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '6px',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                onClick={() => setShowAllProjects(false)}
+              >
+                Close
+              </button>
+            </div>
+            
+            {!filtersApplied ? (
+              <div style={{textAlign: 'center', padding: '50px 20px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e0e0e0', margin: '20px 0'}}>
+                <div style={{fontSize: '3rem', marginBottom: '15px', color: '#666'}}>🔍</div>
+                <h4 style={{margin: '0 0 15px 0', fontSize: '1.2rem', color: '#333'}}>Apply filters to see projects</h4>
+                <p style={{margin: '5px 0', color: '#666', maxWidth: '500px', marginLeft: 'auto', marginRight: 'auto'}}>Use the filters above to narrow down projects by type, county, value range, or other criteria.</p>
+                <p style={{margin: '5px 0', color: '#666', maxWidth: '500px', marginLeft: 'auto', marginRight: 'auto'}}>This helps us show you the most relevant results and improves page performance.</p>
+              </div>
+            ) : getFilteredProjects().length === 0 ? (
+              <div style={{textAlign: 'center', padding: '50px 20px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e0e0e0', margin: '20px 0'}}>
+                <div style={{fontSize: '3rem', marginBottom: '15px', color: '#666'}}>📋</div>
+                <h4 style={{margin: '0 0 15px 0', fontSize: '1.2rem', color: '#333'}}>No projects match your filters</h4>
+                <p style={{margin: '5px 0', color: '#666', maxWidth: '500px', marginLeft: 'auto', marginRight: 'auto'}}>Try adjusting your filter criteria to see more results.</p>
+              </div>
+            ) : (
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px'}}>
+                {getFilteredProjects().map(project => (
                   <div 
                     key={project.planning_id} 
-                    className={`project-item ${selectedProjects.find(p => p.planning_id === project.planning_id) ? 'selected' : ''}`}
+                    style={{
+                      ...styles.selectedProjectCard,
+                      ...(selectedProjects.some(p => p.planning_id === project.planning_id) ? {
+                        border: '2px solid #4e73df',
+                        backgroundColor: 'rgba(78, 115, 223, 0.1)'
+                      } : {}),
+                      cursor: 'pointer'
+                    }}
                     onClick={() => handleProjectSelect(project)}
                   >
-                    <h4>{project.planning_title}</h4>
-                    <div className="project-meta">
-                      <span>Type: {project.planning_type}</span>
-                      <span>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
-                      <span>Stage: {project.planning_stage}</span>
+                    <h4 style={{margin: 0, fontSize: '1rem', color: '#333'}}>{project.planning_title}</h4>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                      <span style={{fontSize: '0.9rem', color: '#666', padding: '4px 0'}}>Type: {project.planning_type}</span>
+                      <span style={{fontSize: '0.9rem', color: '#666', padding: '4px 0'}}>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
+                      <span style={{fontSize: '0.9rem', color: '#666', padding: '4px 0'}}>Stage: {project.planning_stage}</span>
                       {project.planning_county && (
-                        <span className="county-badge">County: {project.planning_county}</span>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(35, 75, 142, 0.1)',
+                          color: '#234b8e',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem',
+                          marginTop: '5px',
+                          fontWeight: 500
+                        }}>County: {project.planning_county}</span>
                       )}
                       {project.planning_town && (
-                        <span className="town-badge">Town: {project.planning_town}</span>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(30, 127, 94, 0.1)',
+                          color: '#1e7f5e',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem',
+                          marginTop: '5px',
+                          fontWeight: 500
+                        }}>Town: {project.planning_town}</span>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="comparison-content">
-          <div className="selected-projects-header">
-            <h3>Selected Projects</h3>
-            <button 
-              className="reset-button"
-              onClick={handleResetComparison}
-            >
-              Reset Comparison
-            </button>
-          </div>
-          <div className="selected-projects-grid">
-            {selectedProjects.map(project => (
-              <div 
-                key={project.planning_id} 
-                className="selected-project-card"
-              >
-                <div className="card-header">
-                  <h4>{project.planning_title}</h4>
-                  <button 
-                    className="remove-button"
-                    onClick={() => handleProjectSelect(project)}
-                  >
-                    ×
-                  </button>
-                </div>
-                <div className="project-meta">
-                  <span>Type: {project.planning_type}</span>
-                  <span>Value: €{formatValue(project.planning_value).toLocaleString()}</span>
-                  <span>Stage: {project.planning_stage}</span>
-                  {project.planning_county && (
-                    <span className="county-badge">County: {project.planning_county}</span>
-                  )}
-                  {project.planning_town && (
-                    <span className="town-badge">Town: {project.planning_town}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-            {selectedProjects.length < 3 && (
-              <div 
-                className="add-project-card"
-                onClick={() => setShowAllProjects(true)}
-              >
-                <div className="add-icon">+</div>
-                <p>Add Another Project</p>
-              </div>
             )}
-          </div>
-
-          <div className="comparison-charts">
-            <div className="tabs">
-              <button 
-                className={`tab ${activeTab === 'budget' ? 'active' : ''}`}
-                onClick={() => setActiveTab('budget')}
-              >
-                Budget Analysis
-              </button>
-              <button 
-                className={`tab ${activeTab === 'timeline' ? 'active' : ''}`}
-                onClick={() => setActiveTab('timeline')}
-              >
-                Timeline
-              </button>
-              <button 
-                className={`tab ${activeTab === 'metrics' ? 'active' : ''}`}
-                onClick={() => setActiveTab('metrics')}
-              >
-                Size Metrics
-              </button>
-              <button 
-                className={`tab ${activeTab === 'stakeholders' ? 'active' : ''}`}
-                onClick={() => setActiveTab('stakeholders')}
-              >
-                Stakeholders
-              </button>
-              <button 
-                className={`tab ${activeTab === 'county' ? 'active' : ''}`}
-                onClick={() => setActiveTab('county')}
-              >
-                County Analysis
-              </button>
-            </div>
-
-            <div className="chart-container">
-              {activeTab === 'budget' && (
-                <div className="chart">
-                  <h4>
-                    <span className="icon">💰</span>
-                    Budget Comparison (Millions)
-                  </h4>
-                  <BarChart width={500} height={300} data={prepareChartData()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#8884d8" />
-                  </BarChart>
-                </div>
-              )}
-              {activeTab === 'timeline' && renderTimeline()}
-              {activeTab === 'metrics' && renderSizeMetrics()}
-              {activeTab === 'stakeholders' && renderStakeholderAnalysis()}
-              {activeTab === 'county' && renderCountyComparison()}
-            </div>
           </div>
         </div>
       )}

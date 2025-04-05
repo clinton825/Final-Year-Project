@@ -13,6 +13,9 @@ coverage
 build
 dist
 
+# Project documentation
+PROJECT_REPORT.md
+
 # Cache and logs
 .cache
 **/.cache

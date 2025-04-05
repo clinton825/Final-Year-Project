@@ -2747,3 +2747,54 @@ section h2 {
     grid-template-columns: 1fr;
   }
 }
+
+/* Ensure dashboard specific styles */
+.dashboard-specific {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.dashboard-specific-header {
+  width: 100%;
+  position: relative;
+  z-index: 5;
+  margin-bottom: 25px !important;
+}
+
+/* Reset any potential conflicting styles */
+.dashboard-specific .dashboard-content,
+.dashboard-specific .dashboard-grid,
+.dashboard-specific .dashboard-card,
+.dashboard-specific .stat-card,
+.dashboard-specific .project-card,
+.dashboard-specific .dashboard-actions,
+.dashboard-specific .widget-container {
+  position: relative !important;
+  width: auto !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure dashboard uses proper spacing and layout */
+.dashboard-specific .dashboard-content {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+  gap: 25px !important;
+  width: 100% !important;
+  margin-top: 20px !important;
+}
+
+/* Make sure dashboard cards maintain proper styling */
+.dashboard-specific .dashboard-card {
+  background-color: #fff !important;
+  border-radius: 10px !important;
+  padding: 20px !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #e6e6e6 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
