@@ -1,51 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FaPlus, FaMinus, FaEdit, FaEye, 
   FaRegFileAlt, FaHistory
 } from 'react-icons/fa';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../../../firebase/config';
+import { useAuth } from '../../../contexts/AuthContext';
 import './WidgetStyles.css';
 
 const RecentActivityWidget = ({ data }) => {
-  const [loading, setLoading] = useState(false);
+  const { currentUser } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState([]);
+  const [error, setError] = useState(null);
   
-  // Create fallback activities
-  const fallbackActivities = [
-    {
-      id: 'fallback-1',
-      type: 'track',
-      projectName: 'Housing Development Project',
-      timestamp: new Date(Date.now() - (1 * 24 * 60 * 60 * 1000)),
-      description: 'Tracked Housing Development Project'
-    },
-    {
-      id: 'fallback-2',
-      type: 'view',
-      projectName: 'Town Center Renovation',
-      timestamp: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)),
-      description: 'Viewed Town Center Renovation details'
-    },
-    {
-      id: 'fallback-3',
-      type: 'note_add',
-      projectName: 'Highway Extension Phase 2',
-      timestamp: new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)),
-      description: 'Added a note to Highway Extension Phase 2'
-    },
-    {
-      id: 'fallback-4',
-      type: 'edit',
-      projectName: 'School Expansion Project',
-      timestamp: new Date(Date.now() - (4 * 24 * 60 * 60 * 1000)),
-      description: 'Updated School Expansion Project'
-    },
-    {
-      id: 'fallback-5',
-      type: 'untrack',
-      projectName: 'Community Center',
-      timestamp: new Date(Date.now() - (5 * 24 * 60 * 60 * 1000)),
-      description: 'Untracked Community Center'
-    }
-  ];
+  // Fetch real activity data from Firestore
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (!currentUser) {
+        setLoading(false);
+        setActivities([]);
+        return;
+      }
+      
+      // Check if we're in development mode
+      const isDevelopment = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1';
+      
+      try {
+        setLoading(true);
+        
+        // In development mode, we can use sample data for testing
+        if (isDevelopment) {
+          console.log('Running in development mode, using sample activities');
+          // Create development sample data with timestamps that work properly
+          const sampleActivities = [
+            {
+              id: 'dev-1',
+              type: 'track',
+              projectTitle: 'Housing Development Project',
+              timestamp: new Date(Date.now() - (1 * 24 * 60 * 60 * 1000)),
+              userId: currentUser.uid
+            },
+            {
+              id: 'dev-2',
+              type: 'view',
+              projectTitle: 'Town Center Renovation',
+              timestamp: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)),
+              userId: currentUser.uid
+            },
+            {
+              id: 'dev-3',
+              type: 'note_add',
+              projectTitle: 'Highway Extension Phase 2',
+              timestamp: new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)),
+              userId: currentUser.uid
+            }
+          ];
+          
+          setActivities(sampleActivities);
+          setLoading(false);
+          return;
+        }
+        
+        // In production, use real Firestore data
+        const activitiesRef = collection(db, 'activity');
+        const activitiesQuery = query(
+          activitiesRef,
+          where('userId', '==', currentUser.uid),
+          orderBy('timestamp', 'desc'),
+          limit(10) // Limit to 10 most recent activities
+        );
+        
+        const querySnapshot = await getDocs(activitiesQuery);
+        const activitiesData = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          activitiesData.push({
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate?.() || new Date(),
+          });
+        });
+        
+        console.log(`Fetched ${activitiesData.length} activities for dashboard`);
+        setActivities(activitiesData);
+        setError(null);
+      } catch (error) {
+        console.error('Error fetching activities:', error);
+        setError('Failed to load recent activities');
+        setActivities([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchActivities();
+  }, [currentUser]);
 
   // Format date
   const formatDate = (date) => {
@@ -144,10 +196,29 @@ const RecentActivityWidget = ({ data }) => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="error-state">
+        <FaHistory size={24} />
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (activities.length === 0) {
+    return (
+      <div className="empty-state">
+        <FaHistory size={24} />
+        <p>No recent activities found</p>
+        <small>Your activities will appear here as you interact with projects</small>
+      </div>
+    );
+  }
+
   return (
     <div className="recent-activity-widget">
       <div className="activity-list">
-        {fallbackActivities.map(activity => (
+        {activities.map(activity => (
           <div key={activity.id} className="activity-item">
             <div className="activity-icon">
               {getActivityIcon(activity.type)}
@@ -157,7 +228,7 @@ const RecentActivityWidget = ({ data }) => {
                 {getActivityTitle(activity)}
               </div>
               <div className="activity-project">
-                {activity.projectName}
+                {activity.projectTitle || activity.projectName || 'Unknown project'}
               </div>
               <div className="activity-meta">
                 {formatDate(activity.timestamp)}
