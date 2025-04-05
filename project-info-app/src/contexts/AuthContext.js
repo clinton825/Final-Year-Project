@@ -15,7 +15,7 @@ import {
   reauthenticateWithCredential,
   updatePassword
 } from '@firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from '@firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, increment } from '@firebase/firestore';
 import { auth, db, storage } from '../firebase/config';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { databaseInitService } from '../services/databaseInitService';
@@ -147,14 +147,50 @@ export function AuthProvider({ children }) {
     return sendPasswordResetEmail(auth, email);
   }
 
-  function googleSignIn() {
-    const provider = new GoogleAuthProvider();
-    return signInWithPopup(auth, provider);
+  async function googleSignIn() {
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      
+      // Ensure user data is saved to Firestore
+      const user = result.user;
+      await ensureUserInFirestore(user, {
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+        provider: 'google',
+        lastLogin: new Date()
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      setAuthError(error.message);
+      throw error;
+    }
   }
 
-  function githubSignIn() {
-    const provider = new GithubAuthProvider();
-    return signInWithPopup(auth, provider);
+  async function githubSignIn() {
+    try {
+      const provider = new GithubAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      
+      // Ensure user data is saved to Firestore
+      const user = result.user;
+      await ensureUserInFirestore(user, {
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+        provider: 'github',
+        lastLogin: new Date()
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('GitHub sign-in error:', error);
+      setAuthError(error.message);
+      throw error;
+    }
   }
 
   async function updateUserProfile(userData) {
@@ -412,82 +448,11 @@ export function AuthProvider({ children }) {
       
       console.log('Handling successful login for user:', user.email);
       
-      // Update user document in Firestore with retry mechanism
-      const userRef = doc(db, 'users', user.uid);
-      
-      // Retry function for Firestore operations
-      const retryOperation = async (operation, maxRetries = 3, delay = 1000) => {
-        let lastError;
-        
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            return await operation();
-          } catch (error) {
-            console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
-            lastError = error;
-            
-            if (attempt < maxRetries) {
-              // Wait before next retry with exponential backoff
-              await new Promise(resolve => setTimeout(resolve, delay * attempt));
-            }
-          }
-        }
-        
-        throw lastError; // Throw the last error after all retries failed
-      };
-      
-      try {
-        // Get user document with retry
-        const userDoc = await retryOperation(async () => {
-          return await getDoc(userRef);
-        });
-        
-        if (!userDoc.exists()) {
-          // Create new user document with retry
-          await retryOperation(async () => {
-            await setDoc(userRef, {
-              displayName: user.displayName || user.email.split('@')[0],
-              email: user.email,
-              createdAt: new Date(),
-              lastLogin: new Date(),
-              lastUpdated: new Date() // Add this field to track updates
-            });
-          });
-          console.log('Created new user document in Firestore');
-        } else {
-          // Update existing user's last login with retry
-          await retryOperation(async () => {
-            await updateDoc(userRef, {
-              lastLogin: new Date(),
-              lastUpdated: new Date() // Add this field to track updates
-            });
-          });
-          console.log('Updated user document in Firestore with new login timestamp');
-        }
-        
-        // Fetch the latest user data after update to ensure we have the most current data
-        const updatedUserDoc = await retryOperation(async () => {
-          return await getDoc(userRef);
-        });
-        
-        // Store user data in localStorage for offline access
-        const userData = updatedUserDoc.exists() 
-          ? { ...updatedUserDoc.data(), uid: user.uid } 
-          : { displayName: user.displayName || user.email.split('@')[0], email: user.email, uid: user.uid };
-        
-        storeUserDataLocally(userData);
-        console.log('User data stored locally after successful Firestore update');
-      } catch (error) {
-        console.error('Error handling user document after retries:', error);
-        // Store basic user data locally even if Firestore fails
-        storeUserDataLocally({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || user.email.split('@')[0],
-          fallbackData: true,
-          lastUpdated: new Date()
-        });
-      }
+      // Use the ensureUserInFirestore function to ensure user data is in Firestore
+      await ensureUserInFirestore(user, {
+        lastLogin: new Date(),
+        loginCount: increment(1)
+      });
       
       // Initialize database collections for this user
       try {
@@ -502,6 +467,87 @@ export function AuthProvider({ children }) {
       console.error('Error in handleSuccessfulLogin:', error);
       // We don't throw the error to prevent blocking the auth flow
     }
+  };
+
+  // Function to ensure a user exists in Firestore
+  const ensureUserInFirestore = async (user, additionalData = {}) => {
+    if (!user || !user.uid) return;
+    
+    const retryOperation = async (operation, maxRetries = 3, delay = 1000) => {
+      let lastError;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          return await operation();
+        } catch (error) {
+          console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
+          lastError = error;
+          
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, delay * attempt));
+          }
+        }
+      }
+      
+      throw lastError;
+    };
+    
+    try {
+      // Check if user document exists
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await retryOperation(() => getDoc(userRef));
+      
+      if (!userDoc.exists()) {
+        // Create new user document
+        const userData = {
+          displayName: user.displayName || user.email?.split('@')[0] || 'User',
+          email: user.email || '',
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          lastUpdated: new Date(),
+          ...additionalData
+        };
+        
+        await retryOperation(() => setDoc(userRef, userData));
+        console.log(`Created new user document in Firestore for ${user.email || user.uid}`);
+        
+        // Store in localStorage
+        storeUserDataLocally({
+          uid: user.uid,
+          ...userData
+        });
+      } else {
+        // Update existing user
+        const updateData = {
+          lastLogin: new Date(),
+          lastUpdated: new Date(),
+          ...additionalData
+        };
+        
+        await retryOperation(() => updateDoc(userRef, updateData));
+        console.log(`Updated existing user in Firestore: ${user.email || user.uid}`);
+        
+        // Get updated user data and store locally
+        const updatedDoc = await retryOperation(() => getDoc(userRef));
+        if (updatedDoc.exists()) {
+          storeUserDataLocally({
+            uid: user.uid,
+            ...updatedDoc.data()
+          });
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error ensuring user in Firestore:', error);
+      return false;
+    }
+  };
+
+  // Function to synchronize all authenticated users with Firestore
+  const syncAllUsersWithFirestore = async () => {
+    console.error('This function is not available in client-side applications. It requires Firebase Admin SDK.');
+    return false;
   };
 
   // Effect to handle auth state changes
@@ -572,7 +618,8 @@ export function AuthProvider({ children }) {
     reauthenticateUser,
     getUserData,
     getLocalUserData,
-    storeUserDataLocally
+    storeUserDataLocally,
+    ensureUserInFirestore
   };
 
   return (
