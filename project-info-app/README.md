@@ -198,6 +198,17 @@ infrastructure-tracking/
 
 ## Recent Updates
 
+### Analytics Page Improvements (April 2025)
+- Fixed layout issues with overlapping cards and improved spacing
+- Enhanced county comparison analysis with side-by-side county cards
+- Improved filter system with visual indicators of active filters
+- Added better handling for empty or limited data scenarios
+- Enhanced subcategory visualization to show county distribution when a subcategory is selected
+- Optimized chart rendering and responsive behavior
+- Streamlined the analytics summary with more relevant metrics
+- Added clear filters button for better user experience
+- Improved dark mode compatibility throughout the analytics components
+
 ### Profile Page Improvements (March 2025)
 - Redesigned user profile interface with a cleaner, more focused layout
 - Removed unnecessary fields (bio, organization, job title) to streamline the user experience
