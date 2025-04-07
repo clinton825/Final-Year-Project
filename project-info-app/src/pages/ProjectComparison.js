@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { format, parseISO } from 'date-fns';
+import { Pie as ChartJsPie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip as ChartJsTooltip, Legend as ChartJsLegend } from 'chart.js';
 import config from '../config';
+
+// Register Chart.js components
+ChartJS.register(ArcElement, ChartJsTooltip, ChartJsLegend);
 
 // Define critical inline styles to ensure baseline styling
 const styles = {
@@ -1154,30 +1159,64 @@ const ProjectComparison = () => {
                 </BarChart>
               </div>
               
-              <div style={countyStyles.chartCol}>
+              <div style={{...countyStyles.chartCol, padding: '0 30px'}}>
                 <h4 style={countyStyles.header}>
                   <span style={{marginRight: '8px'}}>🥧</span>
                   Value Distribution
                 </h4>
-                <PieChart width={400} height={350}>
-                  <Pie
-                    data={pieData}
-                    cx={200}
-                    cy={150}
-                    labelLine={true}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="value"
-                    nameKey="name"
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COUNTY_COLORS[index % COUNTY_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend />
-                  <Tooltip formatter={(value) => `€${value.toFixed(2)}M`} />
-                </PieChart>
+                <div style={{width: '100%', height: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
+                  <ChartJsPie
+                    data={{
+                      labels: pieData.map(item => item.name),
+                      datasets: [{
+                        label: 'Value Distribution',
+                        data: pieData.map(item => item.value),
+                        backgroundColor: COUNTY_COLORS,
+                        borderColor: COUNTY_COLORS,
+                        borderWidth: 1
+                      }]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'bottom',
+                          labels: {
+                            padding: 20,
+                            font: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            generateLabels: (chart) => {
+                              const datasets = chart.data.datasets;
+                              const totalValue = datasets[0].data.reduce((a, b) => a + b, 0);
+                              
+                              return chart.data.labels.map((label, i) => {
+                                const percentage = ((datasets[0].data[i] / totalValue) * 100).toFixed(1);
+                                return {
+                                  text: `${label}: ${percentage}%`,
+                                  fillStyle: datasets[0].backgroundColor[i],
+                                  hidden: false,
+                                  index: i
+                                };
+                              });
+                            }
+                          }
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: (context) => {
+                              const totalValue = context.dataset.data.reduce((total, value) => total + value, 0);
+                              const percentage = ((context.raw / totalValue) * 100).toFixed(1);
+                              return `${context.label}: €${context.raw.toFixed(2)}M (${percentage}%)`;
+                            }
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </div>
             
@@ -1546,12 +1585,14 @@ const ProjectComparison = () => {
                 <button 
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: 'rgba(231, 74, 59, 0.1)',
-                    color: '#e74a3b',
-                    border: 'none',
+                    backgroundColor: '#f8f9fa',
+                    color: '#666',
+                    border: '1px solid #e0e0e0',
                     borderRadius: '6px',
                     fontSize: '0.9rem',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center'
                   }}
                   onClick={handleResetComparison}
                 >
