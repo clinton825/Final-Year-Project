@@ -90,12 +90,21 @@ const Analytics = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState('10');
+  const [timeRangeOptions] = useState([
+    { value: '1', label: 'Last 1 Year' },
+    { value: '3', label: 'Last 3 Years' },
+    { value: '5', label: 'Last 5 Years' },
+    { value: '10', label: 'Last 10 Years' },
+    { value: '15', label: 'Last 15 Years' },
+    { value: '20', label: 'Last 20 Years' },
+  ]);
   const [selectedCounty, setSelectedCounty] = useState('');
-  const [counties, setCounties] = useState(['Waterford', 'Carlow']);
+  const [counties, setCounties] = useState([]);
   const [chartData, setChartData] = useState(null);
   const [stagesData, setStagesData] = useState(null);
   const [countyChartData, setCountyChartData] = useState(null);
   const [countyProjectsData, setCountyProjectsData] = useState(null);
+  const [subcategoryChartData, setSubcategoryChartData] = useState(null);
   const [chartReady, setChartReady] = useState(false); // Track if charts are ready to display
   const [offlineMode, setOfflineMode] = useState(false);
   const [pageReady, setPageReady] = useState(false); // Track if the page structure is ready
@@ -168,6 +177,8 @@ const Analytics = () => {
       prepareChartData();
       prepareStagesData();
       prepareCountyData();
+      prepareCountyProjectsData();
+      prepareSubcategoryData();
       
       // Add a small delay to ensure charts render properly
       const timer = setTimeout(() => {
@@ -228,6 +239,7 @@ const Analytics = () => {
         setStagesData(generateEmptyStagesData());
         setCountyChartData(generateEmptyCountyData());
         setCountyProjectsData(generateEmptyCountyData());
+        setSubcategoryChartData(generateEmptySubcategoryData());
         setChartReady(true);
         return;
       }
@@ -268,6 +280,7 @@ const Analytics = () => {
         setStagesData(generateEmptyStagesData());
         setCountyChartData(generateEmptyCountyData());
         setCountyProjectsData(generateEmptyCountyData());
+        setSubcategoryChartData(generateEmptySubcategoryData());
         setError(null);
       }
       
@@ -279,6 +292,7 @@ const Analytics = () => {
       setStagesData(generateEmptyStagesData());
       setCountyChartData(generateEmptyCountyData());
       setCountyProjectsData(generateEmptyCountyData());
+      setSubcategoryChartData(generateEmptySubcategoryData());
       setChartReady(true);
       setError(null);
     }
@@ -312,6 +326,15 @@ const Analytics = () => {
     } catch (error) {
       console.error('Error fetching subcategories:', error);
     }
+  };
+
+  const extractCounties = (projectsData) => {
+    const uniqueCounties = [...new Set(projectsData
+      .filter(project => project.planning_county)
+      .map(project => project.planning_county))];
+    
+    setCounties(uniqueCounties);
+    return uniqueCounties;
   };
 
   const prepareChartData = () => {
@@ -597,17 +620,43 @@ const Analytics = () => {
   const prepareCountyData = () => {
     if (projects.length === 0) return;
 
-    // Only include Waterford and Carlow counties
-    const validCounties = ['Waterford', 'Carlow'];
+    // Use all counties from project data
     const countyData = {};
     
-    validCounties.forEach(county => {
+    // Initialize counties with 0 values
+    counties.forEach(county => {
       countyData[county] = 0;
     });
     
-    projects.forEach(project => {
+    // Filter projects based on user selections
+    let filteredProjects = [...projects];
+    
+    if (selectedCategory) {
+      filteredProjects = filteredProjects.filter(p => p.planning_category === selectedCategory);
+    }
+    
+    if (selectedSubcategory) {
+      filteredProjects = filteredProjects.filter(p => p.planning_subcategory === selectedSubcategory);
+    }
+    
+    if (selectedTimeRange) {
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - parseInt(selectedTimeRange));
+      filteredProjects = filteredProjects.filter(p => {
+        if (!p.planning_decision_date) return true;
+        const decisionDate = new Date(p.planning_decision_date);
+        return decisionDate >= cutoffDate;
+      });
+    }
+    
+    if (selectedCounty) {
+      filteredProjects = filteredProjects.filter(p => p.planning_county === selectedCounty);
+    }
+    
+    // Calculate values by county
+    filteredProjects.forEach(project => {
       const county = project.planning_county;
-      if (validCounties.includes(county)) {
+      if (county && counties.includes(county)) {
         countyData[county] = (countyData[county] || 0) + (project.planning_value || 0);
       }
     });
@@ -629,17 +678,43 @@ const Analytics = () => {
   const prepareCountyProjectsData = () => {
     if (projects.length === 0) return;
 
-    // Only include Waterford and Carlow counties
-    const validCounties = ['Waterford', 'Carlow'];
+    // Use all counties from project data
     const countyData = {};
     
-    validCounties.forEach(county => {
+    // Initialize counties with 0 values
+    counties.forEach(county => {
       countyData[county] = 0;
     });
     
-    projects.forEach(project => {
+    // Filter projects based on user selections
+    let filteredProjects = [...projects];
+    
+    if (selectedCategory) {
+      filteredProjects = filteredProjects.filter(p => p.planning_category === selectedCategory);
+    }
+    
+    if (selectedSubcategory) {
+      filteredProjects = filteredProjects.filter(p => p.planning_subcategory === selectedSubcategory);
+    }
+    
+    if (selectedTimeRange) {
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - parseInt(selectedTimeRange));
+      filteredProjects = filteredProjects.filter(p => {
+        if (!p.planning_decision_date) return true;
+        const decisionDate = new Date(p.planning_decision_date);
+        return decisionDate >= cutoffDate;
+      });
+    }
+    
+    if (selectedCounty) {
+      filteredProjects = filteredProjects.filter(p => p.planning_county === selectedCounty);
+    }
+    
+    // Count projects by county
+    filteredProjects.forEach(project => {
       const county = project.planning_county;
-      if (validCounties.includes(county)) {
+      if (county && counties.includes(county)) {
         countyData[county] = (countyData[county] || 0) + 1;
       }
     });
@@ -656,6 +731,73 @@ const Analytics = () => {
     };
     
     setCountyProjectsData(data);
+  };
+
+  const prepareSubcategoryData = () => {
+    if (projects.length === 0) return;
+    
+    // Filter projects based on user selections
+    let filteredProjects = [...projects];
+    
+    if (selectedCategory) {
+      filteredProjects = filteredProjects.filter(p => p.planning_category === selectedCategory);
+    }
+    
+    if (selectedTimeRange) {
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - parseInt(selectedTimeRange));
+      filteredProjects = filteredProjects.filter(p => {
+        if (!p.planning_decision_date) return true;
+        const decisionDate = new Date(p.planning_decision_date);
+        return decisionDate >= cutoffDate;
+      });
+    }
+    
+    if (selectedCounty) {
+      filteredProjects = filteredProjects.filter(p => p.planning_county === selectedCounty);
+    }
+    
+    // Group projects by subcategory and calculate total value
+    const subcategoryData = {};
+    
+    filteredProjects.forEach(project => {
+      const subcategory = project.planning_subcategory || 'Unspecified';
+      if (!subcategoryData[subcategory]) {
+        subcategoryData[subcategory] = 0;
+      }
+      subcategoryData[subcategory] += (project.planning_value || 0);
+    });
+
+    // If no data is available after filtering, show message for all subcategories
+    if (Object.keys(subcategoryData).length === 0) {
+      if (selectedCategory) {
+        // If a category is selected but no subcategories, show "No subcategories"
+        subcategoryData['No subcategories found'] = 1;
+      } else {
+        // If no category is selected, show all subcategories across all projects
+        projects.forEach(project => {
+          const subcategory = project.planning_subcategory || 'Unspecified';
+          if (!subcategoryData[subcategory]) {
+            subcategoryData[subcategory] = 0;
+          }
+          subcategoryData[subcategory] += (project.planning_value || 0);
+        });
+      }
+    }
+    
+    // Prepare chart data format
+    const data = {
+      labels: Object.keys(subcategoryData),
+      datasets: [{
+        label: 'Project Value',
+        data: Object.values(subcategoryData),
+        backgroundColor: colorPalette.slice(0, Object.keys(subcategoryData).length),
+        borderColor: colorPalette.slice(0, Object.keys(subcategoryData).length),
+        borderWidth: 1
+      }]
+    };
+    
+    setSubcategoryChartData(data);
   };
 
   const handleCategoryChange = (e) => {
@@ -709,13 +851,30 @@ const Analytics = () => {
   };
 
   const generateEmptyCountyData = () => {
+    // Generate empty county data with proper structure
+    const emptyLabels = counties.length > 0 ? counties : ['No Counties Available'];
+    const emptyValues = counties.length > 0 ? counties.map(() => 0) : [0];
+    
     return {
-      labels: ['Waterford', 'Carlow'],
+      labels: emptyLabels,
+      datasets: [{
+        label: 'County Value',
+        data: emptyValues,
+        backgroundColor: colorPalette.slice(0, emptyLabels.length),
+        borderColor: colorPalette.slice(0, emptyLabels.length),
+        borderWidth: 1
+      }]
+    };
+  };
+
+  const generateEmptySubcategoryData = () => {
+    return {
+      labels: ['No Subcategories Available'],
       datasets: [{
         label: 'Projects',
-        data: [0, 0],
-        backgroundColor: [colorPalette[0], colorPalette[1]],
-        borderColor: [colorPalette[0], colorPalette[1]],
+        data: [0],
+        backgroundColor: colorPalette[0],
+        borderColor: colorPalette[0],
         borderWidth: 1
       }]
     };
@@ -727,6 +886,7 @@ const Analytics = () => {
     setStagesData(generateEmptyStagesData());
     setCountyChartData(generateEmptyCountyData());
     setCountyProjectsData(generateEmptyCountyData());
+    setSubcategoryChartData(generateEmptySubcategoryData());
     
     const loadData = async () => {
       try {
@@ -748,6 +908,12 @@ const Analytics = () => {
     
     loadData();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (projects.length > 0) {
+      extractCounties(projects);
+    }
+  }, [projects]);
 
   // Function to clear all filters
   const clearAllFilters = () => {
@@ -784,94 +950,80 @@ const Analytics = () => {
         </div>
 
         <div className="filters-section">
-          <div className="filter-controls">
+          <div className="filter-controls-row">
             <div className="filter-group">
-              <label>Category:</label>
-              <select
+              <label htmlFor="categoryFilter">Category</label>
+              <select 
+                id="categoryFilter" 
                 value={selectedCategory}
                 onChange={handleCategoryChange}
                 className="filter-select"
               >
                 <option value="">All Categories</option>
-                {categories.map((category, index) => (
-                  <option key={index} value={category}>
-                    {category}
-                  </option>
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
                 ))}
               </select>
             </div>
-            
             <div className="filter-group">
-              <label>Subcategory:</label>
-              <select
+              <label htmlFor="subcategoryFilter">Subcategory</label>
+              <select 
+                id="subcategoryFilter" 
                 value={selectedSubcategory}
                 onChange={handleSubcategoryChange}
                 className="filter-select"
                 disabled={!selectedCategory}
               >
                 <option value="">All Subcategories</option>
-                {subcategories.map((subcategory, index) => (
-                  <option key={index} value={subcategory}>
-                    {subcategory}
-                  </option>
+                {subcategories.map(subcategory => (
+                  <option key={subcategory} value={subcategory}>{subcategory}</option>
                 ))}
               </select>
             </div>
-            
             <div className="filter-group">
-              <label>County:</label>
-              <select
+              <label htmlFor="countyFilter">County</label>
+              <select 
+                id="countyFilter" 
                 value={selectedCounty}
                 onChange={handleCountyChange}
                 className="filter-select"
               >
                 <option value="">All Counties</option>
-                {counties.map((county, index) => (
-                  <option key={index} value={county}>
-                    {county}
-                  </option>
+                {counties.map(county => (
+                  <option key={county} value={county}>{county}</option>
                 ))}
               </select>
             </div>
-            
             <div className="filter-group">
-              <label>Time Range:</label>
-              <select
+              <label htmlFor="timeRangeFilter">Time Range</label>
+              <select 
+                id="timeRangeFilter" 
                 value={selectedTimeRange}
                 onChange={handleTimeRangeChange}
                 className="filter-select"
               >
-                <option value="1">Last 1 Year</option>
-                <option value="3">Last 3 Years</option>
-                <option value="5">Last 5 Years</option>
-                <option value="10">Last 10 Years</option>
+                {timeRangeOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </div>
-            
-            {activeFilters.length > 0 && (
-              <div className="filter-group filter-actions">
-                <button 
-                  className="clear-filters-btn" 
-                  onClick={clearAllFilters}
-                  aria-label="Clear all filters"
-                >
-                  Clear All Filters
-                </button>
-              </div>
-            )}
           </div>
           
           {activeFilters.length > 0 && (
             <div className="active-filters">
-              <span className="active-filters-label">Active Filters:</span>
-              <div className="filter-tags">
-                {activeFilters.map((filter, index) => (
-                  <span key={index} className="filter-tag">{filter}</span>
-                ))}
-              </div>
-              <div className="filtered-count">
-                Showing {filteredProjectCount} projects
-              </div>
+              <span>Active Filters: </span>
+              {activeFilters.map((filter, index) => (
+                <span key={index} className="filter-badge">
+                  {filter}
+                </span>
+              ))}
+              <button 
+                className="clear-filters-btn" 
+                onClick={clearAllFilters}
+                aria-label="Clear all filters"
+              >
+                Clear All
+              </button>
             </div>
           )}
         </div>
@@ -885,318 +1037,282 @@ const Analytics = () => {
           <div className="error-message">{error}</div>
         ) : (
           <div className="charts-container">
-            <div className="chart-section">
-              <div className="chart-card">
-                <h2>Subcategory Spending Distribution</h2>
-                <div className="chart-description">
-                  <p>
-                    {selectedSubcategory 
-                      ? `Distribution of ${selectedSubcategory} projects by county` 
-                      : 'Distribution of project value across different subcategories for the selected time period'}
-                  </p>
-                </div>
-                <div className="chart-wrapper">
-                  {chartReady && chartData && chartData.labels && chartData.labels.length > 0 ? (
-                    <ChartWrapper chartType="Pie" title="Subcategory Spending Distribution">
-                      <Pie 
-                        data={chartData} 
-                        options={{
-                          plugins: {
-                            legend: {
-                              position: 'right',
-                              labels: {
-                                usePointStyle: true,
-                                padding: 15,
-                                font: {
-                                  size: 12
-                                }
-                              }
-                            },
-                            tooltip: {
-                              callbacks: {
-                                label: function(context) {
-                                  let label = context.label || '';
-                                  let value = context.raw || 0;
-                                  return `${label}: ${formatCurrency(value)}`;
-                                }
-                              }
-                            },
-                            title: {
-                              display: false
-                            }
-                          },
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          layout: {
-                            padding: 10
-                          }
-                        }}
-                      />
-                    </ChartWrapper>
-                  ) : (
-                    <div className="no-data-message">
-                      <p>No data available for the selected filters</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            {chartReady ? (
+              <>
+                <h2 className="section-title">Project Analytics Dashboard</h2>
+                <p className="section-description">Interactive visualization of infrastructure project data.</p>
 
-            <div className="chart-section">
-              <div className="chart-card">
-                <h2>Projects by Stage</h2>
-                <div className="chart-description">
-                  <p>Number of projects in each development stage</p>
+                <div className="analytics-summary">
+                  <div className="summary-card">
+                    <h3>Total Projects</h3>
+                    <p className="summary-value">{projects.length}</p>
+                  </div>
+                  <div className="summary-card">
+                    <h3>Total Value</h3>
+                    <p className="summary-value">
+                      {formatCurrency(projects.reduce((total, project) => total + (project.planning_value || 0), 0))}
+                    </p>
+                  </div>
+                  <div className="summary-card">
+                    <h3>Active Filters</h3>
+                    <p className="summary-value">{activeFilters.length}</p>
+                    <small className="summary-detail">Showing {filteredProjectCount} filtered projects</small>
+                  </div>
                 </div>
-                <div className="chart-wrapper">
-                  {chartReady && stagesData && stagesData.labels && stagesData.labels.length > 0 ? (
-                    <ChartWrapper chartType="Bar" title="Projects by Stage">
+
+                {/* First row of charts - Category and Stage data */}
+                <div className="chart-row">
+                  <div className="chart-container">
+                    <h3>Category Value Distribution</h3>
+                    <ChartWrapper chartType="Pie" title="Category Value Distribution">
+                      <Pie data={chartData} options={{
+                        responsive: true,
+                        plugins: {
+                          legend: { position: 'right' },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                return `${context.label}: ${formatCurrency(context.raw)}`;
+                              }
+                            }
+                          }
+                        }
+                      }} />
+                    </ChartWrapper>
+                  </div>
+                  <div className="chart-container">
+                    <h3>Projects by Stage</h3>
+                    <ChartWrapper chartType="Bar" title="Projects by Status">
                       <Bar 
-                        data={stagesData} 
+                        data={stagesData}
                         options={{
-                          plugins: {
-                            legend: {
-                              display: false,
-                            },
-                            tooltip: {
-                              callbacks: {
-                                label: function(context) {
-                                  return `${context.dataset.label}: ${context.raw} projects`;
-                                }
-                              }
-                            },
-                            title: {
-                              display: false
-                            }
-                          },
                           responsive: true,
-                          maintainAspectRatio: false,
-                          scales: {
-                            y: {
-                              beginAtZero: true,
-                              ticks: {
-                                precision: 0,
-                                font: {
-                                  size: 12
-                                }
-                              },
-                              grid: {
-                                display: true,
-                                drawBorder: false,
-                                lineWidth: 0.5
-                              }
-                            },
-                            x: {
-                              ticks: {
-                                font: {
-                                  size: 12
-                                }
-                              },
-                              grid: {
-                                display: false
-                              }
-                            }
-                          },
-                          indexAxis: 'y',
-                          barThickness: 30,
-                          layout: {
-                            padding: 10
+                          plugins: {
+                            legend: { position: 'top' }
                           }
                         }}
                       />
                     </ChartWrapper>
-                  ) : (
-                    <div className="no-data-message">
-                      <p>No stage data available</p>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="chart-section">
-              <div className="chart-card">
-                <h2>Project Value by County</h2>
-                <div className="chart-description">
-                  <p>Distribution of project value across counties</p>
-                  {selectedCounty && <p className="selected-filter">Selected County: {selectedCounty}</p>}
+                {/* Second row of charts - Subcategory and County data */}
+                <div className="chart-row">
+                  <div className="chart-container">
+                    <h3>Subcategory Spending Distribution</h3>
+                    <ChartWrapper chartType="Pie" title="Subcategory Distribution">
+                      <Pie 
+                        data={subcategoryChartData}
+                        options={{
+                          responsive: true,
+                          plugins: {
+                            legend: { position: 'right' },
+                            tooltip: {
+                              callbacks: {
+                                label: (context) => {
+                                  const label = context.label || '';
+                                  const value = context.raw || 0;
+                                  const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                  const percentage = Math.round((value / total) * 100);
+                                  return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                                }
+                              }
+                            },
+                            title: {
+                              display: true,
+                              text: selectedCategory ? 
+                                `Spending Distribution for ${selectedCategory}` : 
+                                'Spending Distribution for All Categories'
+                            }
+                          }
+                        }}
+                      />
+                    </ChartWrapper>
+                  </div>
+                  <div className="chart-container">
+                    <h3>Projects Count by County</h3>
+                    <ChartWrapper chartType="Pie" title="County Projects Distribution">
+                      <Pie 
+                        data={countyProjectsData}
+                        options={{
+                          responsive: true,
+                          plugins: {
+                            legend: { position: 'right' }
+                          }
+                        }}
+                      />
+                    </ChartWrapper>
+                  </div>
                 </div>
-                <div className="chart-wrapper">
-                  {chartReady && countyChartData && countyChartData.labels && countyChartData.labels.length > 0 ? (
-                    <ChartWrapper chartType="Bar" title="Project Value by County">
+
+                {/* Third row of charts - Project Value by County */}
+                <div className="chart-row">
+                  <div className="chart-container">
+                    <h3>Project Value by County</h3>
+                    <ChartWrapper chartType="Bar" title="County Value Distribution">
                       <Bar 
                         data={countyChartData} 
                         options={{
+                          responsive: true,
                           plugins: {
-                            legend: {
-                              display: false,
-                            },
+                            legend: { position: 'top' },
                             tooltip: {
                               callbacks: {
-                                label: function(context) {
-                                  return `${context.label}: ${formatCurrency(context.raw)}`;
+                                label: (context) => {
+                                  return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
                                 }
                               }
-                            },
-                            title: {
-                              display: false
                             }
-                          },
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          scales: {
-                            y: {
-                              beginAtZero: true,
-                              ticks: {
-                                callback: function(value) {
-                                  return formatCurrency(value);
-                                }
-                              },
-                              grid: {
-                                display: true,
-                                drawBorder: false,
-                                lineWidth: 0.5
-                              }
-                            },
-                            x: {
-                              grid: {
-                                display: false
-                              }
-                            }
-                          },
-                          layout: {
-                            padding: 10
                           }
                         }}
                       />
                     </ChartWrapper>
-                  ) : (
-                    <div className="no-data-message">
-                      <p>No county data available for the selected filters</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="chart-section">
-              <div className="chart-card">
-                <h2>County Comparison Analysis</h2>
-                <div className="chart-description">
-                  <p>Comparative analysis of key metrics between counties</p>
-                </div>
-                <div className="comparison-container">
-                  {chartReady ? (
-                    <>
-                      <div className="comparison-metrics">
-                        {/* Waterford Card */}
-                        <div className="county-metric-card">
-                          <h3>Waterford</h3>
-                          <div className="metric-row">
-                            <div className="metric">
-                              <span className="metric-label">Projects</span>
-                              <span className="metric-value">65</span>
-                            </div>
-                            <div className="metric">
-                              <span className="metric-label">Total Value</span>
-                              <span className="metric-value">€169,124,670</span>
+                  </div>
+                  
+                  <div className="chart-container">
+                    <h3>Comparative Analysis</h3>
+                    <div className="comparative-metrics">
+                      <div className="metrics-grid">
+                        {selectedCategory && (
+                          <div className="metric-group">
+                            <h4>Category: {selectedCategory}</h4>
+                            <div className="metric-item">
+                              <span>{projects.filter(p => p.planning_category === selectedCategory).length} Projects</span>
+                              <span>{formatCurrency(
+                                projects
+                                  .filter(p => p.planning_category === selectedCategory)
+                                  .reduce((sum, p) => sum + (p.planning_value || 0), 0)
+                              )}</span>
                             </div>
                           </div>
-                          <div className="metric-row">
-                            <div className="metric">
-                              <span className="metric-label">Avg. Value</span>
-                              <span className="metric-value">€2,601,918</span>
-                            </div>
-                            <div className="metric">
-                              <span className="metric-label">Categories</span>
-                              <span className="metric-value">3</span>
-                            </div>
-                          </div>
-                          <div className="county-progress">
-                            <div className="progress-item">
-                              <span className="progress-label">Planning</span>
-                              <div className="progress-bar">
-                                <div className="progress-fill" style={{ width: '65%' }}></div>
-                              </div>
-                            </div>
-                            <div className="progress-item">
-                              <span className="progress-label">Construction</span>
-                              <div className="progress-bar">
-                                <div className="progress-fill" style={{ width: '35%' }}></div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                        )}
                         
-                        {/* Carlow Card */}
-                        <div className="county-metric-card">
-                          <h3>Carlow</h3>
-                          <div className="metric-row">
-                            <div className="metric">
-                              <span className="metric-label">Projects</span>
-                              <span className="metric-value">35</span>
-                            </div>
-                            <div className="metric">
-                              <span className="metric-label">Total Value</span>
-                              <span className="metric-value">€215,281,170</span>
-                            </div>
-                          </div>
-                          <div className="metric-row">
-                            <div className="metric">
-                              <span className="metric-label">Avg. Value</span>
-                              <span className="metric-value">€6,151,000</span>
-                            </div>
-                            <div className="metric">
-                              <span className="metric-label">Categories</span>
-                              <span className="metric-value">4</span>
+                        {selectedCounty && (
+                          <div className="metric-group">
+                            <h4>County: {selectedCounty}</h4>
+                            <div className="metric-item">
+                              <span>{projects.filter(p => p.planning_county === selectedCounty).length} Projects</span>
+                              <span>{formatCurrency(
+                                projects
+                                  .filter(p => p.planning_county === selectedCounty)
+                                  .reduce((sum, p) => sum + (p.planning_value || 0), 0)
+                              )}</span>
                             </div>
                           </div>
-                          <div className="county-progress">
-                            <div className="progress-item">
-                              <span className="progress-label">Planning</span>
-                              <div className="progress-bar">
-                                <div className="progress-fill" style={{ width: '45%' }}></div>
-                              </div>
-                            </div>
-                            <div className="progress-item">
-                              <span className="progress-label">Construction</span>
-                              <div className="progress-bar">
-                                <div className="progress-fill" style={{ width: '55%' }}></div>
-                              </div>
+                        )}
+
+                        {selectedTimeRange && (
+                          <div className="metric-group">
+                            <h4>Last {selectedTimeRange} Years</h4>
+                            <div className="metric-item">
+                              <span>Avg {(projects.length / (selectedTimeRange ? parseInt(selectedTimeRange) : 1)).toFixed(1)} Projects/Year</span>
+                              <span>Avg {formatCurrency(
+                                projects.reduce((sum, p) => sum + (p.planning_value || 0), 0) / 
+                                (selectedTimeRange ? parseInt(selectedTimeRange) : 1)
+                              )}/Year</span>
                             </div>
                           </div>
-                        </div>
+                        )}
+                        
+                        {!selectedCategory && !selectedCounty && !selectedTimeRange && (
+                          <div className="metric-group empty-selection">
+                            <p>Select filters to see comparative analysis</p>
+                          </div>
+                        )}
                       </div>
-                    </>
-                  ) : (
-                    <div className="loading-container">
-                      <div className="loading-spinner"></div>
-                      <p>Loading comparison data...</p>
                     </div>
-                  )}
+                  </div>
                 </div>
+
+                {/* County Metrics Cards section */}
+                <div className="county-metrics-section">
+                  <h3>County Metrics</h3>
+                  <div className="county-metrics-container">
+                    {counties.length > 0 ? (
+                      counties.map(county => {
+                        // Calculate county-specific metrics
+                        const countyProjects = projects.filter(p => p.planning_county === county);
+                        const countyProjectCount = countyProjects.length;
+                        const countyTotalValue = countyProjects.reduce((sum, p) => sum + (p.planning_value || 0), 0);
+                        const countyAvgValue = countyProjectCount > 0 ? countyTotalValue / countyProjectCount : 0;
+                        
+                        // Calculate project stages for county
+                        const planningCount = countyProjects.filter(p => 
+                          p.planning_status === 'Application' || 
+                          p.planning_status === 'Decision').length;
+                        const constructionCount = countyProjects.filter(p => 
+                          p.planning_status === 'Commenced' || 
+                          p.planning_status === 'Completed').length;
+                        
+                        const planningPercentage = countyProjectCount > 0 
+                          ? (planningCount / countyProjectCount) * 100 
+                          : 0;
+                        
+                        const constructionPercentage = countyProjectCount > 0 
+                          ? (constructionCount / countyProjectCount) * 100 
+                          : 0;
+                        
+                        // Get unique categories in this county
+                        const uniqueCategories = [...new Set(countyProjects
+                          .filter(p => p.planning_category)
+                          .map(p => p.planning_category))];
+                        
+                        return (
+                          <div key={county} className="county-metric-card">
+                            <h3>{county}</h3>
+                            <div className="metric-row">
+                              <div className="metric">
+                                <span className="metric-label">Projects</span>
+                                <span className="metric-value">{countyProjectCount}</span>
+                              </div>
+                              <div className="metric">
+                                <span className="metric-label">Total Value</span>
+                                <span className="metric-value">{formatCurrency(countyTotalValue)}</span>
+                              </div>
+                            </div>
+                            <div className="metric-row">
+                              <div className="metric">
+                                <span className="metric-label">Avg. Value</span>
+                                <span className="metric-value">{formatCurrency(countyAvgValue)}</span>
+                              </div>
+                              <div className="metric">
+                                <span className="metric-label">Categories</span>
+                                <span className="metric-value">{uniqueCategories.length}</span>
+                              </div>
+                            </div>
+                            <div className="county-progress">
+                              <div className="progress-item">
+                                <span className="progress-label">Planning</span>
+                                <div className="progress-bar">
+                                  <div className="progress-fill" style={{ width: `${planningPercentage}%` }}></div>
+                                </div>
+                              </div>
+                              <div className="progress-item">
+                                <span className="progress-label">Construction</span>
+                                <div className="progress-bar">
+                                  <div className="progress-fill" style={{ width: `${constructionPercentage}%` }}></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="empty-state">
+                        <p>No county data available. Try different filters or add more projects.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p>Loading comparison data...</p>
               </div>
-            </div>
+            )}
           </div>
         )}
-
-        <div className="analytics-summary">
-          <div className="summary-card">
-            <h3>Total Projects</h3>
-            <p className="summary-value">{projects.length}</p>
-          </div>
-          <div className="summary-card">
-            <h3>Total Value</h3>
-            <p className="summary-value">
-              {formatCurrency(projects.reduce((total, project) => total + (project.planning_value || 0), 0))}
-            </p>
-          </div>
-          <div className="summary-card">
-            <h3>Active Filters</h3>
-            <p className="summary-value">{activeFilters.length}</p>
-            <small className="summary-detail">Showing {filteredProjectCount} filtered projects</small>
-          </div>
-        </div>
       </div>
     </ErrorBoundary>
   );
