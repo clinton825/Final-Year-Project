@@ -23,10 +23,29 @@ import {
   PointElement,
   LineElement
 } from 'chart.js';
-import { Pie, Bar, Chart } from 'react-chartjs-2';
+import { Pie, Bar, Line, Chart } from 'react-chartjs-2';
 import config from '../config';
 import './Analytics.css';
 import ErrorBoundary from '../components/ErrorBoundary';
+
+// Helper function to lighten colors
+const lightenColor = (hex, percent) => {
+  // Convert hex to RGB
+  let r = parseInt(hex.substring(1, 3), 16);
+  let g = parseInt(hex.substring(3, 5), 16);
+  let b = parseInt(hex.substring(5, 7), 16);
+  
+  // Lighten
+  r = Math.min(255, Math.floor(r + (255 - r) * (percent / 100)));
+  g = Math.min(255, Math.floor(g + (255 - g) * (percent / 100)));
+  b = Math.min(255, Math.floor(b + (255 - b) * (percent / 100)));
+  
+  // Convert back to hex
+  return "#" + 
+    ((1 << 24) + (r << 16) + (g << 8) + b)
+      .toString(16)
+      .slice(1);
+};
 
 // Safely register ChartJS components with error handling
 try {
@@ -87,8 +106,10 @@ const Analytics = () => {
   const [trackedProjects, setTrackedProjects] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
+  const [counties, setCounties] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
+  const [selectedCounty, setSelectedCounty] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState('10');
   const [timeRangeOptions] = useState([
     { value: '1', label: 'Last 1 Year' },
@@ -98,8 +119,6 @@ const Analytics = () => {
     { value: '15', label: 'Last 15 Years' },
     { value: '20', label: 'Last 20 Years' },
   ]);
-  const [selectedCounty, setSelectedCounty] = useState('');
-  const [counties, setCounties] = useState([]);
   const [chartData, setChartData] = useState(null);
   const [stagesData, setStagesData] = useState(null);
   const [countyChartData, setCountyChartData] = useState(null);
@@ -110,11 +129,30 @@ const Analytics = () => {
   const [pageReady, setPageReady] = useState(false); // Track if the page structure is ready
   const [activeFilters, setActiveFilters] = useState([]); // Track active filters for display
   const [filteredProjectCount, setFilteredProjectCount] = useState(0); // Track number of projects after filtering
+  const [activeTab, setActiveTab] = useState('charts'); // Track active tab: 'charts' or 'metrics'
+  const [topCounty, setTopCounty] = useState('');
+  const [topCountyValue, setTopCountyValue] = useState(0);
+  const [topProjectsCounty, setTopProjectsCounty] = useState('');
+  const [topProjectsCount, setTopProjectsCount] = useState(0);
 
   // Color palette for charts
   const colorPalette = [
-    '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', 
-    '#5a5c69', '#6610f2', '#6f42c1', '#e83e8c', '#fd7e14'
+    '#4285F4', // Google Blue
+    '#34A853', // Google Green
+    '#FBBC05', // Google Yellow
+    '#EA4335', // Google Red
+    '#8758FF', // Purple
+    '#00C6CF', // Teal
+    '#FF914D', // Orange
+    '#FF69B4', // Hot Pink
+    '#7F7F7F', // Grey
+    '#5C366A', // Deep Purple
+    '#2B908F', // Teal Blue
+    '#F45B5B', // Salmon
+    '#91E8E1', // Light Teal
+    '#F7A35C', // Light Orange
+    '#8085E9', // Light Purple
+    '#F15C80', // Pink
   ];
 
   // Detect and handle online/offline states
@@ -179,6 +217,7 @@ const Analytics = () => {
       prepareCountyData();
       prepareCountyProjectsData();
       prepareSubcategoryData();
+      calculateTopMetrics();
       
       // Add a small delay to ensure charts render properly
       const timer = setTimeout(() => {
@@ -677,57 +716,71 @@ const Analytics = () => {
 
   const prepareCountyProjectsData = () => {
     if (projects.length === 0) return;
-
-    // Use all counties from project data
-    const countyData = {};
-    
-    // Initialize counties with 0 values
-    counties.forEach(county => {
-      countyData[county] = 0;
-    });
     
     // Filter projects based on user selections
     let filteredProjects = [...projects];
     
+    // Apply category filter if selected
     if (selectedCategory) {
-      filteredProjects = filteredProjects.filter(p => p.planning_category === selectedCategory);
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_category === selectedCategory
+      );
     }
     
+    // Apply subcategory filter if selected
     if (selectedSubcategory) {
-      filteredProjects = filteredProjects.filter(p => p.planning_subcategory === selectedSubcategory);
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_subcategory === selectedSubcategory
+      );
     }
     
+    // Apply time range filter if selected
     if (selectedTimeRange) {
       const cutoffDate = new Date();
       cutoffDate.setFullYear(cutoffDate.getFullYear() - parseInt(selectedTimeRange));
-      filteredProjects = filteredProjects.filter(p => {
-        if (!p.planning_decision_date) return true;
-        const decisionDate = new Date(p.planning_decision_date);
-        return decisionDate >= cutoffDate;
+      
+      filteredProjects = filteredProjects.filter(project => {
+        if (!project.planning_date) return true;
+        const projectDate = new Date(project.planning_date);
+        return projectDate >= cutoffDate;
       });
     }
     
-    if (selectedCounty) {
-      filteredProjects = filteredProjects.filter(p => p.planning_county === selectedCounty);
-    }
-    
-    // Count projects by county
+    // Group projects by county and calculate total value
+    const countyData = {};
     filteredProjects.forEach(project => {
-      const county = project.planning_county;
-      if (county && counties.includes(county)) {
-        countyData[county] = (countyData[county] || 0) + 1;
+      const county = project.planning_county || 'Unspecified';
+      if (!countyData[county]) {
+        countyData[county] = 0;
       }
+      countyData[county] += (project.planning_value || 0);
     });
     
+    // Convert to chart.js format
+    const labels = Object.keys(countyData);
+    const values = Object.values(countyData);
+    
+    // Generate colors for each county
+    const backgroundColors = labels.map((_, i) => colorPalette[i % colorPalette.length]);
+    
+    // Ensure we have at least 2 data points for a pie chart
+    if (labels.length === 1) {
+      labels.push('Other');
+      values.push(0); // Add a zero-value segment
+      backgroundColors.push('#e0e0e0'); // Gray color for empty segment
+    }
+    
     const data = {
-      labels: Object.keys(countyData),
-      datasets: [{
-        label: 'Number of Projects',
-        data: Object.values(countyData),
-        backgroundColor: colorPalette.slice(0, Object.keys(countyData).length),
-        borderColor: colorPalette.slice(0, Object.keys(countyData).length),
-        borderWidth: 1
-      }]
+      labels: labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: backgroundColors,
+          borderColor: backgroundColors.map(color => lightenColor(color, 10)),
+          borderWidth: 1,
+          hoverOffset: 4
+        }
+      ]
     };
     
     setCountyProjectsData(data);
@@ -740,21 +793,32 @@ const Analytics = () => {
     let filteredProjects = [...projects];
     
     if (selectedCategory) {
-      filteredProjects = filteredProjects.filter(p => p.planning_category === selectedCategory);
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_category === selectedCategory
+      );
+    }
+    
+    if (selectedSubcategory) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_subcategory === selectedSubcategory
+      );
+    }
+    
+    if (selectedCounty) {
+      filteredProjects = filteredProjects.filter(project => 
+        project.planning_county === selectedCounty
+      );
     }
     
     if (selectedTimeRange) {
       const cutoffDate = new Date();
       cutoffDate.setFullYear(cutoffDate.getFullYear() - parseInt(selectedTimeRange));
-      filteredProjects = filteredProjects.filter(p => {
-        if (!p.planning_decision_date) return true;
-        const decisionDate = new Date(p.planning_decision_date);
-        return decisionDate >= cutoffDate;
+      
+      filteredProjects = filteredProjects.filter(project => {
+        if (!project.planning_date) return true;
+        const projectDate = new Date(project.planning_date);
+        return projectDate >= cutoffDate;
       });
-    }
-    
-    if (selectedCounty) {
-      filteredProjects = filteredProjects.filter(p => p.planning_county === selectedCounty);
     }
     
     // Group projects by subcategory and calculate total value
@@ -798,6 +862,50 @@ const Analytics = () => {
     };
     
     setSubcategoryChartData(data);
+  };
+
+  const calculateTopMetrics = () => {
+    if (projects.length === 0) return;
+    
+    // Group projects by county and calculate total value and count
+    const countyMetrics = {};
+    
+    projects.forEach(project => {
+      const county = project.planning_county || 'Unknown';
+      if (!countyMetrics[county]) {
+        countyMetrics[county] = {
+          totalValue: 0,
+          count: 0
+        };
+      }
+      countyMetrics[county].totalValue += (project.planning_value || 0);
+      countyMetrics[county].count += 1;
+    });
+    
+    // Find top county by value
+    let maxValue = 0;
+    let maxValueCounty = '';
+    
+    // Find top county by project count
+    let maxProjects = 0;
+    let maxProjectsCounty = '';
+    
+    Object.entries(countyMetrics).forEach(([county, metrics]) => {
+      if (metrics.totalValue > maxValue) {
+        maxValue = metrics.totalValue;
+        maxValueCounty = county;
+      }
+      
+      if (metrics.count > maxProjects) {
+        maxProjects = metrics.count;
+        maxProjectsCounty = county;
+      }
+    });
+    
+    setTopCounty(maxValueCounty);
+    setTopCountyValue(maxValue);
+    setTopProjectsCounty(maxProjectsCounty);
+    setTopProjectsCount(maxProjects);
   };
 
   const handleCategoryChange = (e) => {
@@ -881,6 +989,7 @@ const Analytics = () => {
   };
 
   useEffect(() => {
+    document.title = "Analytics | Infrastructure Tracking";
     // Initialize charts with loading state
     setChartData(generateEmptyChartData());
     setStagesData(generateEmptyStagesData());
@@ -923,395 +1032,436 @@ const Analytics = () => {
     setSelectedCounty('');
   };
 
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: {
+      padding: {
+        left: 15,
+        right: 15,
+        top: 15,
+        bottom: 15
+      }
+    },
+    plugins: {
+      legend: {
+        position: 'right',
+        align: 'center',
+        labels: {
+          boxWidth: 10, 
+          padding: 8,
+          font: {
+            size: 11
+          },
+          color: function(context) {
+            // Dynamically set color based on current theme (dark or light)
+            return getComputedStyle(document.documentElement).getPropertyValue('--text-primary');
+          },
+          generateLabels: (chart) => {
+            const datasets = chart.data.datasets;
+            return chart.data.labels.map((label, i) => {
+              // Truncate long labels but don't add percentages
+              return {
+                text: label.length > 15 ? label.substring(0, 12) + '...' : label,
+                fillStyle: datasets[0].backgroundColor[i],
+                strokeStyle: datasets[0].borderColor[i],
+                lineWidth: 1,
+                hidden: false,
+                index: i
+              };
+            });
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+            return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+          }
+        },
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderWidth: 1,
+        padding: 10,
+        bodyFont: {
+          size: 12
+        }
+      }
+    }
+  };
+
   return (
     <ErrorBoundary
       fallbackTitle="Analytics Issue"
       fallbackMessage="We're having trouble displaying the analytics. Please try again later."
       retryButton={true}
     >
-      <div className="analytics-container">
-        <h1>Project Analytics Dashboard</h1>
-        {error && (
-          <div className="error-message">
-            <p>{error}</p>
-            <button onClick={fetchAllProjects}>Retry</button>
-          </div>
-        )}
+      <div className="analytics-dashboard">
+        <h1>Analytics Dashboard</h1>
         
-        {offlineMode && (
-          <div className="offline-warning">
-            <p>You are currently offline. Some features may be limited.</p>
-          </div>
-        )}
-        
-        <div className="analytics-header">
-          <h1>Project Analytics</h1>
-          <p>Visualize your project data with interactive charts</p>
-        </div>
-
-        <div className="filters-section">
-          <div className="filter-controls-row">
-            <div className="filter-group">
-              <label htmlFor="categoryFilter">Category</label>
-              <select 
-                id="categoryFilter" 
-                value={selectedCategory}
-                onChange={handleCategoryChange}
-                className="filter-select"
-              >
-                <option value="">All Categories</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label htmlFor="subcategoryFilter">Subcategory</label>
-              <select 
-                id="subcategoryFilter" 
-                value={selectedSubcategory}
-                onChange={handleSubcategoryChange}
-                className="filter-select"
-                disabled={!selectedCategory}
-              >
-                <option value="">All Subcategories</option>
-                {subcategories.map(subcategory => (
-                  <option key={subcategory} value={subcategory}>{subcategory}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label htmlFor="countyFilter">County</label>
-              <select 
-                id="countyFilter" 
-                value={selectedCounty}
-                onChange={handleCountyChange}
-                className="filter-select"
-              >
-                <option value="">All Counties</option>
-                {counties.map(county => (
-                  <option key={county} value={county}>{county}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label htmlFor="timeRangeFilter">Time Range</label>
-              <select 
-                id="timeRangeFilter" 
-                value={selectedTimeRange}
-                onChange={handleTimeRangeChange}
-                className="filter-select"
-              >
-                {timeRangeOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          {activeFilters.length > 0 && (
-            <div className="active-filters">
-              <span>Active Filters: </span>
-              {activeFilters.map((filter, index) => (
-                <span key={index} className="filter-badge">
-                  {filter}
-                </span>
-              ))}
-              <button 
-                className="clear-filters-btn" 
-                onClick={clearAllFilters}
-                aria-label="Clear all filters"
-              >
-                Clear All
-              </button>
-            </div>
-          )}
-        </div>
-
         {loading ? (
-          <div className="loading-container">
-            <div className="loading-spinner"></div>
+          <div className="loading-state">
+            <div className="spinner"></div>
             <p>Loading analytics data...</p>
           </div>
-        ) : error ? (
-          <div className="error-message">{error}</div>
         ) : (
-          <div className="charts-container">
-            {chartReady ? (
-              <>
-                <h2 className="section-title">Project Analytics Dashboard</h2>
-                <p className="section-description">Interactive visualization of infrastructure project data.</p>
-
-                <div className="analytics-summary">
-                  <div className="summary-card">
-                    <h3>Total Projects</h3>
-                    <p className="summary-value">{projects.length}</p>
-                  </div>
-                  <div className="summary-card">
-                    <h3>Total Value</h3>
-                    <p className="summary-value">
-                      {formatCurrency(projects.reduce((total, project) => total + (project.planning_value || 0), 0))}
-                    </p>
-                  </div>
-                  <div className="summary-card">
-                    <h3>Active Filters</h3>
-                    <p className="summary-value">{activeFilters.length}</p>
-                    <small className="summary-detail">Showing {filteredProjectCount} filtered projects</small>
-                  </div>
-                </div>
-
-                {/* First row of charts - Category and Stage data */}
-                <div className="chart-row">
-                  <div className="chart-container">
-                    <h3>Category Value Distribution</h3>
-                    <ChartWrapper chartType="Pie" title="Category Value Distribution">
-                      <Pie data={chartData} options={{
-                        responsive: true,
-                        plugins: {
-                          legend: { position: 'right' },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                return `${context.label}: ${formatCurrency(context.raw)}`;
-                              }
-                            }
-                          }
-                        }
-                      }} />
-                    </ChartWrapper>
-                  </div>
-                  <div className="chart-container">
-                    <h3>Projects by Stage</h3>
-                    <ChartWrapper chartType="Bar" title="Projects by Status">
-                      <Bar 
-                        data={stagesData}
-                        options={{
-                          responsive: true,
-                          plugins: {
-                            legend: { position: 'top' }
-                          }
-                        }}
-                      />
-                    </ChartWrapper>
-                  </div>
-                </div>
-
-                {/* Second row of charts - Subcategory and County data */}
-                <div className="chart-row">
-                  <div className="chart-container">
-                    <h3>Subcategory Spending Distribution</h3>
-                    <ChartWrapper chartType="Pie" title="Subcategory Distribution">
-                      <Pie 
-                        data={subcategoryChartData}
-                        options={{
-                          responsive: true,
-                          plugins: {
-                            legend: { position: 'right' },
-                            tooltip: {
-                              callbacks: {
-                                label: (context) => {
-                                  const label = context.label || '';
-                                  const value = context.raw || 0;
-                                  const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                  const percentage = Math.round((value / total) * 100);
-                                  return `${label}: ${formatCurrency(value)} (${percentage}%)`;
-                                }
-                              }
-                            },
-                            title: {
-                              display: true,
-                              text: selectedCategory ? 
-                                `Spending Distribution for ${selectedCategory}` : 
-                                'Spending Distribution for All Categories'
-                            }
-                          }
-                        }}
-                      />
-                    </ChartWrapper>
-                  </div>
-                  <div className="chart-container">
-                    <h3>Projects Count by County</h3>
-                    <ChartWrapper chartType="Pie" title="County Projects Distribution">
-                      <Pie 
-                        data={countyProjectsData}
-                        options={{
-                          responsive: true,
-                          plugins: {
-                            legend: { position: 'right' }
-                          }
-                        }}
-                      />
-                    </ChartWrapper>
-                  </div>
-                </div>
-
-                {/* Third row of charts - Project Value by County */}
-                <div className="chart-row">
-                  <div className="chart-container">
-                    <h3>Project Value by County</h3>
-                    <ChartWrapper chartType="Bar" title="County Value Distribution">
-                      <Bar 
-                        data={countyChartData} 
-                        options={{
-                          responsive: true,
-                          plugins: {
-                            legend: { position: 'top' },
-                            tooltip: {
-                              callbacks: {
-                                label: (context) => {
-                                  return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
-                                }
-                              }
-                            }
-                          }
-                        }}
-                      />
-                    </ChartWrapper>
-                  </div>
-                  
-                  <div className="chart-container">
-                    <h3>Comparative Analysis</h3>
-                    <div className="comparative-metrics">
-                      <div className="metrics-grid">
-                        {selectedCategory && (
-                          <div className="metric-group">
-                            <h4>Category: {selectedCategory}</h4>
-                            <div className="metric-item">
-                              <span>{projects.filter(p => p.planning_category === selectedCategory).length} Projects</span>
-                              <span>{formatCurrency(
-                                projects
-                                  .filter(p => p.planning_category === selectedCategory)
-                                  .reduce((sum, p) => sum + (p.planning_value || 0), 0)
-                              )}</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {selectedCounty && (
-                          <div className="metric-group">
-                            <h4>County: {selectedCounty}</h4>
-                            <div className="metric-item">
-                              <span>{projects.filter(p => p.planning_county === selectedCounty).length} Projects</span>
-                              <span>{formatCurrency(
-                                projects
-                                  .filter(p => p.planning_county === selectedCounty)
-                                  .reduce((sum, p) => sum + (p.planning_value || 0), 0)
-                              )}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedTimeRange && (
-                          <div className="metric-group">
-                            <h4>Last {selectedTimeRange} Years</h4>
-                            <div className="metric-item">
-                              <span>Avg {(projects.length / (selectedTimeRange ? parseInt(selectedTimeRange) : 1)).toFixed(1)} Projects/Year</span>
-                              <span>Avg {formatCurrency(
-                                projects.reduce((sum, p) => sum + (p.planning_value || 0), 0) / 
-                                (selectedTimeRange ? parseInt(selectedTimeRange) : 1)
-                              )}/Year</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {!selectedCategory && !selectedCounty && !selectedTimeRange && (
-                          <div className="metric-group empty-selection">
-                            <p>Select filters to see comparative analysis</p>
-                          </div>
-                        )}
+          <>
+            {/* Summary Cards Section - Centered with shadow container */}
+            <div className="dashboard-container">
+              <div className="dashboard-header">
+                <div className="summary-section">
+                  <div className="analytics-summary">
+                    <div className="summary-card">
+                      <h3>Total Projects</h3>
+                      <p className="summary-value">{projects.length}</p>
+                      <div className="summary-icon">
+                        <i className="fas fa-folder"></i>
+                      </div>
+                    </div>
+                    <div className="summary-card">
+                      <h3>Total Value</h3>
+                      <p className="summary-value">
+                        {formatCurrency(projects.reduce((total, project) => total + (project.planning_value || 0), 0))}
+                      </p>
+                      <div className="summary-icon">
+                        <i className="fas fa-euro-sign"></i>
+                      </div>
+                    </div>
+                    <div className="summary-card">
+                      <h3>Active Filters</h3>
+                      <p className="summary-value">{activeFilters.length}</p>
+                      <small className="summary-detail">Showing {filteredProjectCount} filtered projects</small>
+                      <div className="summary-icon">
+                        <i className="fas fa-filter"></i>
                       </div>
                     </div>
                   </div>
                 </div>
+                
+                <div className="filters-section">
+                  <div className="filter-controls-row">
+                    <div className="filter-group">
+                      <label htmlFor="categoryFilter">
+                        <i className="fas fa-folder-open"></i> Category
+                      </label>
+                      <select 
+                        id="categoryFilter" 
+                        value={selectedCategory}
+                        onChange={handleCategoryChange}
+                        className="filter-select"
+                      >
+                        <option value="">All Categories</option>
+                        {categories.map(category => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="filter-group">
+                      <label htmlFor="subcategoryFilter">
+                        <i className="fas fa-tag"></i> Subcategory
+                      </label>
+                      <select 
+                        id="subcategoryFilter" 
+                        value={selectedSubcategory}
+                        onChange={handleSubcategoryChange}
+                        className="filter-select"
+                        disabled={!selectedCategory}
+                      >
+                        <option value="">All Subcategories</option>
+                        {subcategories.map(subcategory => (
+                          <option key={subcategory} value={subcategory}>{subcategory}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="filter-group">
+                      <label htmlFor="countyFilter">
+                        <i className="fas fa-map-marker-alt"></i> County
+                      </label>
+                      <select 
+                        id="countyFilter" 
+                        value={selectedCounty}
+                        onChange={handleCountyChange}
+                        className="filter-select"
+                      >
+                        <option value="">All Counties</option>
+                        {counties.map(county => (
+                          <option key={county} value={county}>{county}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="filter-group">
+                      <label htmlFor="timeRangeFilter">
+                        <i className="fas fa-calendar-alt"></i> Time Range
+                      </label>
+                      <select 
+                        id="timeRangeFilter" 
+                        value={selectedTimeRange}
+                        onChange={handleTimeRangeChange}
+                        className="filter-select"
+                      >
+                        {timeRangeOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {activeFilters.length > 0 && (
+                    <div className="active-filters">
+                      <span><i className="fas fa-filter"></i> Active Filters: </span>
+                      {activeFilters.map((filter, index) => (
+                        <span key={index} className="filter-badge">
+                          {filter}
+                        </span>
+                      ))}
+                      <button 
+                        className="clear-filters-btn" 
+                        onClick={clearAllFilters}
+                        aria-label="Clear all filters"
+                      >
+                        <i className="fas fa-times"></i> Clear All
+                      </button>
+                    </div>
+                  )}
+                </div>
+              
+                <div className="view-toggle">
+                  <button 
+                    className={`toggle-btn ${activeTab === 'charts' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('charts')}
+                  >
+                    <i className="fas fa-chart-pie"></i> Charts View
+                  </button>
+                  <button 
+                    className={`toggle-btn ${activeTab === 'metrics' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('metrics')}
+                  >
+                    <i className="fas fa-table"></i> County Metrics
+                  </button>
+                </div>
+              </div>
 
-                {/* County Metrics Cards section */}
-                <div className="county-metrics-section">
-                  <h3>County Metrics</h3>
-                  <div className="county-metrics-container">
-                    {counties.length > 0 ? (
-                      counties.map(county => {
-                        // Calculate county-specific metrics
-                        const countyProjects = projects.filter(p => p.planning_county === county);
-                        const countyProjectCount = countyProjects.length;
-                        const countyTotalValue = countyProjects.reduce((sum, p) => sum + (p.planning_value || 0), 0);
-                        const countyAvgValue = countyProjectCount > 0 ? countyTotalValue / countyProjectCount : 0;
-                        
-                        // Calculate project stages for county
-                        const planningCount = countyProjects.filter(p => 
-                          p.planning_status === 'Application' || 
-                          p.planning_status === 'Decision').length;
-                        const constructionCount = countyProjects.filter(p => 
-                          p.planning_status === 'Commenced' || 
-                          p.planning_status === 'Completed').length;
-                        
-                        const planningPercentage = countyProjectCount > 0 
-                          ? (planningCount / countyProjectCount) * 100 
-                          : 0;
-                        
-                        const constructionPercentage = countyProjectCount > 0 
-                          ? (constructionCount / countyProjectCount) * 100 
-                          : 0;
-                        
-                        // Get unique categories in this county
-                        const uniqueCategories = [...new Set(countyProjects
-                          .filter(p => p.planning_category)
-                          .map(p => p.planning_category))];
-                        
-                        return (
-                          <div key={county} className="county-metric-card">
-                            <h3>{county}</h3>
-                            <div className="metric-row">
-                              <div className="metric">
-                                <span className="metric-label">Projects</span>
-                                <span className="metric-value">{countyProjectCount}</span>
-                              </div>
-                              <div className="metric">
-                                <span className="metric-label">Total Value</span>
-                                <span className="metric-value">{formatCurrency(countyTotalValue)}</span>
-                              </div>
+              {activeTab === 'charts' ? (
+                <div className="charts-view">
+                  {/* Category & Value Analysis - First row */}
+                  <div className="chart-section">
+                    <h3 className="section-header">Category & Value Analysis</h3>
+                    <div className="chart-grid">
+                      <div className="chart-container pie-container">
+                        <h3>Category Value Distribution</h3>
+                        <ChartWrapper chartType="Pie" title="Category Distribution">
+                          <Pie 
+                            data={chartData} 
+                            options={pieOptions}
+                          />
+                        </ChartWrapper>
+                      </div>
+                      <div className="chart-container">
+                        <h3>Value by Project Stage</h3>
+                        <ChartWrapper chartType="Bar" title="Project Stages">
+                          <Bar 
+                            data={stagesData}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                legend: { 
+                                  position: 'top',
+                                  labels: { boxWidth: 10, padding: 5 }
+                                },
+                                tooltip: {
+                                  callbacks: {
+                                    label: (context) => {
+                                      return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                    }
+                                  }
+                                }
+                              }
+                            }}
+                          />
+                        </ChartWrapper>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subcategory & County Analysis - Second row */}
+                  <div className="chart-section">
+                    <h3 className="section-header">Subcategory & County Analysis</h3>
+                    <div className="chart-grid">
+                      <div className="chart-container pie-container">
+                        <h3>Subcategory Spending Distribution</h3>
+                        <ChartWrapper chartType="Pie" title="Subcategory Spending">
+                          <Pie 
+                            data={subcategoryChartData} 
+                            options={pieOptions}
+                          />
+                        </ChartWrapper>
+                      </div>
+                      <div className="chart-container">
+                        <h3>Project Value by County</h3>
+                        <ChartWrapper chartType="Bar" title="County Values">
+                          <Bar 
+                            data={countyChartData} 
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                legend: { 
+                                  position: 'top',
+                                  labels: { boxWidth: 10, padding: 5 }
+                                },
+                                tooltip: {
+                                  callbacks: {
+                                    label: (context) => {
+                                      return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                    }
+                                  }
+                                }
+                              }
+                            }}
+                          />
+                        </ChartWrapper>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Comparative Value Analysis - Third row */}
+                  <div className="chart-section">
+                    <h3 className="section-header">Comparative Value Analysis</h3>
+                    <div className="chart-grid">
+                      <div className="chart-container pie-container">
+                        <h3>County Value Comparison</h3>
+                        <ChartWrapper chartType="Pie" title="County Value Distribution">
+                          <Pie 
+                            data={countyProjectsData} 
+                            options={pieOptions}
+                          />
+                        </ChartWrapper>
+                      </div>
+                      <div className="chart-container comparative-analysis-container">
+                        <h3>Comparative Analysis</h3>
+                        <div className="comparative-metrics">
+                          <div className="metric-card">
+                            <div className="metric-icon">
+                              <i className="fas fa-trophy"></i>
                             </div>
-                            <div className="metric-row">
-                              <div className="metric">
-                                <span className="metric-label">Avg. Value</span>
-                                <span className="metric-value">{formatCurrency(countyAvgValue)}</span>
-                              </div>
-                              <div className="metric">
-                                <span className="metric-label">Categories</span>
-                                <span className="metric-value">{uniqueCategories.length}</span>
-                              </div>
-                            </div>
-                            <div className="county-progress">
-                              <div className="progress-item">
-                                <span className="progress-label">Planning</span>
-                                <div className="progress-bar">
-                                  <div className="progress-fill" style={{ width: `${planningPercentage}%` }}></div>
-                                </div>
-                              </div>
-                              <div className="progress-item">
-                                <span className="progress-label">Construction</span>
-                                <div className="progress-bar">
-                                  <div className="progress-fill" style={{ width: `${constructionPercentage}%` }}></div>
-                                </div>
-                              </div>
+                            <div className="metric-content">
+                              <h4>Most Valuable County</h4>
+                              <p className="metric-value">{topCounty || 'None'}</p>
+                              <p className="metric-detail">
+                                Value: {formatCurrency(topCountyValue)}
+                              </p>
                             </div>
                           </div>
-                        );
-                      })
-                    ) : (
-                      <div className="empty-state">
-                        <p>No county data available. Try different filters or add more projects.</p>
+                          <div className="metric-card">
+                            <div className="metric-icon">
+                              <i className="fas fa-chart-line"></i>
+                            </div>
+                            <div className="metric-content">
+                              <h4>Most Projects</h4>
+                              <p className="metric-value">{topProjectsCounty || 'None'}</p>
+                              <p className="metric-detail">
+                                Count: {topProjectsCount} projects
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="loading-container">
-                <div className="loading-spinner"></div>
-                <p>Loading comparison data...</p>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="metrics-view">
+                  <div className="county-metrics-section">
+                    <h3 className="section-header">County Metrics</h3>
+                    <div className="metrics-table-container">
+                      <table className="metrics-table">
+                        <thead>
+                          <tr>
+                            <th>County</th>
+                            <th>Projects</th>
+                            <th>Total Value</th>
+                            <th>Avg. Value</th>
+                            <th>Categories</th>
+                            <th>Planning %</th>
+                            <th>Construction %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {counties.length > 0 ? (
+                            counties.map(county => {
+                              // Calculate county-specific metrics
+                              const countyProjects = projects.filter(p => p.planning_county === county);
+                              const countyProjectCount = countyProjects.length;
+                              const countyTotalValue = countyProjects.reduce((sum, p) => sum + (p.planning_value || 0), 0);
+                              const countyAvgValue = countyProjectCount > 0 ? countyTotalValue / countyProjectCount : 0;
+                              
+                              // Calculate project stages for county
+                              const planningCount = countyProjects.filter(p => 
+                                p.planning_status === 'Application' || 
+                                p.planning_status === 'Decision').length;
+                              const constructionCount = countyProjects.filter(p => 
+                                p.planning_status === 'Commenced' || 
+                                p.planning_status === 'Completed').length;
+                              
+                              const planningPercentage = countyProjectCount > 0 
+                                ? (planningCount / countyProjectCount) * 100 
+                                : 0;
+                              
+                              const constructionPercentage = countyProjectCount > 0 
+                                ? (constructionCount / countyProjectCount) * 100 
+                                : 0;
+                              
+                              // Get unique categories in this county
+                              const uniqueCategories = [...new Set(countyProjects
+                                .filter(p => p.planning_category)
+                                .map(p => p.planning_category))];
+                              
+                              return (
+                                <tr key={county} className={selectedCounty === county ? 'selected-row' : ''}>
+                                  <td className="county-name">{county}</td>
+                                  <td>{countyProjectCount}</td>
+                                  <td>{formatCurrency(countyTotalValue)}</td>
+                                  <td>{formatCurrency(countyAvgValue)}</td>
+                                  <td>{uniqueCategories.length}</td>
+                                  <td>
+                                    <div className="progress-bar-cell">
+                                      <span>{planningPercentage.toFixed(0)}%</span>
+                                      <div className="progress-bar">
+                                        <div className="progress-fill" style={{ width: `${planningPercentage}%` }}></div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className="progress-bar-cell">
+                                      <span>{constructionPercentage.toFixed(0)}%</span>
+                                      <div className="progress-bar">
+                                        <div className="progress-fill" style={{ width: `${constructionPercentage}%` }}></div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan="7" className="empty-data">No county data available. Try different filters or add more projects.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </ErrorBoundary>

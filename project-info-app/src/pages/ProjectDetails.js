@@ -232,10 +232,38 @@ const ProjectDetails = () => {
             console.log('✅ Successfully fetched API data');
             apiData = data.project;
           } else {
-            console.warn('API response missing project data structure');
+            console.warn('API response missing project data structure:', data);
+            
+            // Add detailed logging for API errors
+            if (data && data.status === 'ERROR') {
+              console.warn('API returned ERROR status. This likely means the project ID is not found in the BuildingInfo database');
+            }
           }
         } else {
           console.warn(`API returned status: ${response.status}`);
+          
+          // Try direct BuildingInfo API as fallback (if this was already attempted in the backend)
+          if (firestoreData && !apiData) {
+            try {
+              console.log('Attempting direct BuildingInfo API call as fallback');
+              const directApiUrl = `https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${config.BUILDINGINFO_API_KEY}&ukey=${config.BUILDINGINFO_UKEY}&planning_id=${idToUse}`;
+              
+              console.log(`Attempting fallback API: ${directApiUrl.substring(0, 60)}...`);
+              
+              const directResponse = await fetch(directApiUrl);
+              if (directResponse.ok) {
+                const directData = await directResponse.json();
+                if (directData && directData.status === 'SUCCESS' && directData.data) {
+                  console.log('✅ Successfully fetched data from direct BuildingInfo API');
+                  apiData = directData.data;
+                } else {
+                  console.warn('Direct BuildingInfo API returned invalid data or error status', directData);
+                }
+              }
+            } catch (directApiError) {
+              console.error('Error in direct BuildingInfo API fallback:', directApiError);
+            }
+          }
         }
       } catch (apiError) {
         console.error('API fetch error:', apiError);
@@ -259,89 +287,39 @@ const ProjectDetails = () => {
         
         finalData = { 
           ...firestoreData,  // Base is Firestore data
-          ...apiData,        // Override with fresh API data
-          ...trackingMetadata // Ensure tracking metadata is preserved
+          ...apiData,        // API data overrides duplicates
+          ...trackingMetadata // Restore tracking metadata that might have been overwritten
         };
         
-        console.log('Merged data from both API and Firestore');
+        console.log('Merged data from both Firestore and API');
       } else if (apiData) {
-        // Only API data available
+        // Only have API data
         finalData = apiData;
         console.log('Using API data only');
       } else if (firestoreData) {
-        // Only Firestore data available
+        // Only have Firestore data (API failed)
         finalData = firestoreData;
-        console.log('Using Firestore data only');
+        console.log('Using Firestore data only (API unavailable)');
+        
+        // Show a notification that we're using cached data
+        setSuccess('API is currently unavailable. Showing saved project data.');
       } else {
-        // No data available from either source
-        console.error('No data available from either source');
-        finalData = {
-          planning_id: idToUse,
-          planning_title: 'Unnamed Project',
-          planning_description: 'Failed to load project details. Please try again later.',
-          planning_category: 'Not Available',
-          planning_stage: 'Not Available',
-          planning_value: 'Not Available'
-        };
+        // No data from either source
+        throw new Error('Could not fetch project data from any source');
       }
       
-      // STEP 4: Normalize fields to ensure we have consistent data
-      const normalizedData = {
-        // Ensure the planning_id is set to our target ID
-        planning_id: idToUse,
-        
-        // Normalize title, using the first available
-        planning_title: 
-          finalData.planning_title || 
-          finalData.planning_name || 
-          finalData.title || 
-          finalData.name || 
-          'Unnamed Project',
-        
-        // Normalize description
-        planning_description: 
-          finalData.planning_description || 
-          finalData.description || 
-          'No description available',
-        
-        // Normalize category
-        planning_category: 
-          finalData.planning_category || 
-          finalData.category || 
-          finalData.type || 
-          'Uncategorized',
-        
-        // Normalize stage
-        planning_stage: 
-          finalData.planning_stage || 
-          finalData.status || 
-          finalData.stage || 
-          'Status not available',
-        
-        // Normalize value
-        planning_value: 
-          finalData.planning_value || 
-          finalData.projectValue || 
-          finalData.value || 
-          'Value not available',
-        
-        // Normalize location
-        planning_location: 
-          finalData.planning_location || 
-          finalData.location || 
-          finalData.planning_county || 
-          'Location not available',
-        
-        // Include all original data
-        ...finalData
-      };
+      // Normalize the planning_id field to ensure consistency
+      finalData.planning_id = finalData.planning_id || idToUse;
       
-      console.log('Final normalized project data:', normalizedData);
-      setProject(normalizedData);
+      // Add a flag to indicate data source for UI elements
+      finalData.dataSource = apiData ? (firestoreData ? 'both' : 'api') : 'firestore';
+      
+      console.log('Final normalized project data:', finalData);
+      setProject(finalData);
       
       // Set stakeholders
-      if (normalizedData.stakeholders) {
-        setStakeholders(normalizedData.stakeholders);
+      if (finalData.stakeholders) {
+        setStakeholders(finalData.stakeholders);
       } else {
         // Mock stakeholders data for demo/testing
         setStakeholders([
@@ -358,7 +336,7 @@ const ProjectDetails = () => {
             userId: currentUser.uid,
             type: 'view',
             projectId: idToUse,
-            projectTitle: normalizedData.planning_title || 'Unknown Project',
+            projectTitle: finalData.planning_title || finalData.planning_name || 'Unnamed Project',
             timestamp: serverTimestamp()
           });
         } catch (activityError) {
@@ -454,6 +432,17 @@ const ProjectDetails = () => {
           userId: currentUser.uid,
           projectId: planningIdToUse,
           dateTracked: serverTimestamp(),
+          
+          // Add essential fields at the root level for better retrieval
+          planning_id: planningIdToUse,
+          planning_title: project.planning_title || project.planning_name || project.title || project.name || 'Unnamed Project',
+          planning_description: project.planning_description || project.description || '',
+          planning_value: project.planning_value || project.projectValue || project.value || 0,
+          planning_county: project.planning_county || project.county || project.location || '',
+          planning_category: project.planning_category || project.category || project.type || 'Uncategorized',
+          planning_date: project.planning_date || project.date || serverTimestamp(),
+          
+          // Store complete project data as well
           projectData: projectToStore,
         });
 
@@ -730,7 +719,19 @@ const ProjectDetails = () => {
       <div className="project-header">
         <div className="project-title-section">
           <h1>{project.planning_name || project.planning_title || project.planning_development_address_1 || 'Unnamed Project'}</h1>
-          <div className="project-id-display">Project ID: {project.planning_id || planning_id || 'N/A'}</div>
+          <div className="project-meta">
+            <div className="project-id-display">Project ID: {project.planning_id || planning_id || 'N/A'}</div>
+            {isTracked && (
+              <div className="tracking-badge">
+                <i className="fas fa-bookmark"></i> Tracked
+              </div>
+            )}
+            {project.dataSource === 'firestore' && (
+              <div className="data-source-badge cached">
+                <i className="fas fa-database"></i> Cached Data
+              </div>
+            )}
+          </div>
         </div>
         <button 
           className={`track-button ${isTracked ? 'tracked' : ''}`}

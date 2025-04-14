@@ -22,10 +22,22 @@
   color: #333;
 }
 
+.project-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 15px;
+  margin-top: 5px;
+}
+
 .project-id-display {
-  font-size: 1rem;
-  color: #666;
-  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #666);
+  padding: 4px 8px;
+  background-color: var(--bg-secondary, #f5f5f5);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .back-button {
@@ -69,11 +81,35 @@
 }
 
 .track-button.tracked {
-  background: #ff4444;
+  background-color: var(--accent-color, #4e73df);
+  color: white;
 }
 
 .track-button.tracked:hover {
-  background: #cc3333;
+  background-color: #d32f2f;
+  border-color: #d32f2f;
+}
+
+.tracking-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background-color: var(--accent-color, #4e73df);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.tracking-badge i {
+  font-size: 0.8rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Removed the ::before content since we're using Font Awesome icons */
@@ -322,4 +358,24 @@
 @keyframes fadeOut {
   from { opacity: 1; transform: translateY(0); }
   to { opacity: 0; transform: translateY(-20px); }
+}
+
+.data-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.data-source-badge.cached {
+  background-color: #f59e0b;
+  color: white;
+}
+
+.data-source-badge i {
+  font-size: 0.8rem;
 }

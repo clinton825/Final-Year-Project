@@ -324,16 +324,60 @@ const Dashboard = () => {
             // Debug logging
             console.log('Processing project:', projectId, projectData.planning_title || projectData.planning_name || 'Unnamed');
             
+            // Extract project data either from the root level or from nested projectData object
+            const nestedData = projectData.projectData || {};
+            
             // Ensure we have complete project information
             const processedProject = {
-              // Ensure all required fields exist
+              // Ensure all required fields exist with clear fallbacks
               planning_id: projectId,
-              planning_name: projectData.planning_name || projectData.planning_title || projectData.title || 'Unnamed Project',
-              planning_description: projectData.planning_description || projectData.description || 'No description available',
-              planning_value: parseFloat(projectData.planning_value || projectData.projectValue || projectData.value || 0),
-              planning_stage: projectData.planning_stage || projectData.status || 'Unknown',
-              planning_category: projectData.planning_category || projectData.category || projectData.type || 'Uncategorized',
-              planning_location: projectData.planning_location || projectData.location || projectData.planning_county || 'Unknown',
+              planning_title: 
+                projectData.planning_title || 
+                projectData.planning_name || 
+                projectData.title || 
+                nestedData.planning_title || 
+                nestedData.planning_name || 
+                nestedData.title || 
+                'Unnamed Project',
+              planning_description: 
+                projectData.planning_description || 
+                projectData.description || 
+                nestedData.planning_description || 
+                nestedData.description || 
+                'No description available',
+              planning_value: parseFloat(
+                projectData.planning_value || 
+                projectData.projectValue || 
+                projectData.value || 
+                nestedData.planning_value || 
+                nestedData.projectValue || 
+                nestedData.value || 
+                0
+              ),
+              planning_stage: 
+                projectData.planning_stage || 
+                projectData.status || 
+                nestedData.planning_stage || 
+                nestedData.status || 
+                'Unknown',
+              planning_category: 
+                projectData.planning_category || 
+                projectData.category || 
+                projectData.type || 
+                nestedData.planning_category || 
+                nestedData.category || 
+                nestedData.type || 
+                'Uncategorized',
+              planning_county: 
+                projectData.planning_county || 
+                projectData.county || 
+                projectData.planning_location || 
+                projectData.location || 
+                nestedData.planning_county || 
+                nestedData.county || 
+                nestedData.planning_location || 
+                nestedData.location || 
+                'Unknown',
               
               // Include all original data 
               ...projectData,
