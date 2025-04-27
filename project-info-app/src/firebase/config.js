@@ -97,8 +97,10 @@ try {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
         // Use a defined cache size in production to avoid memory issues
-        cacheSizeBytes: 41943040 // 40MB
-      })
+        cacheSizeBytes: 100 * 1024 * 1024 // Increased to 100MB for better offline support
+      }),
+      experimentalForceLongPolling: true, // Add long polling for better connection stability
+      experimentalAutoDetectLongPolling: true // Auto-detect best connection method
     });
   } else {
     // In development, use unlimited cache for better debugging
@@ -114,12 +116,6 @@ try {
   // Enable offline persistence in the background
   const enableOfflinePersistence = async () => {
     try {
-      // Skip persistence on deployment to improve initial loading time
-      if (isProduction) {
-        console.log('Skipping Firestore offline persistence in production for better initial performance');
-        return;
-      }
-      
       console.log('Enabling Firestore offline persistence...');
       await enableIndexedDbPersistence(db);
       console.log('Firestore offline persistence enabled successfully');

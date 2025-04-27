@@ -40,8 +40,15 @@ const ProjectDetails = () => {
   useEffect(() => {
     console.log('ProjectDetails mounted with planning_id:', planning_id);
     
-    if (planning_id) {
-      fetchProjectDetails(planning_id);
+    // Extract numeric ID if it's a compound ID
+    let idToUse = planning_id;
+    if (typeof planning_id === 'string' && planning_id.includes('_')) {
+      idToUse = planning_id.split('_')[1]; // Get the part after the underscore
+      console.log('Extracted numeric ID from compound ID:', idToUse);
+    }
+    
+    if (idToUse) {
+      fetchProjectDetails(idToUse);
     }
   }, [planning_id]);
   
@@ -362,21 +369,39 @@ const ProjectDetails = () => {
   };
   
   const checkIfProjectIsTracked = async (projectId) => {
-    if (!currentUser || !projectId) {
-      console.log('Cannot check tracking status: missing user or planning ID');
+    if (!currentUser) {
       setIsTracked(false);
       return;
     }
-    
+
     try {
       console.log('Checking if project is tracked:', projectId);
       
-      // Use compound ID format: userId_projectId
-      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${projectId}`);
-      const docSnapshot = await getDoc(trackedProjectRef);
+      // First try with compound ID
+      const compoundId = `${currentUser.uid}_${projectId}`;
+      const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
+      console.log('Checking document with ID:', compoundId);
       
-      if (docSnapshot.exists()) {
-        console.log('Project is tracked');
+      const trackedProjectDoc = await getDoc(trackedProjectRef);
+      
+      if (trackedProjectDoc.exists()) {
+        console.log('Project is tracked (found by compound ID)');
+        setIsTracked(true);
+        return;
+      }
+      
+      // If not found by compound ID, try query
+      console.log('Project not found by compound ID, trying query...');
+      const trackedProjectsQuery = query(
+        collection(db, 'trackedProjects'),
+        where('userId', '==', currentUser.uid),
+        where('projectId', '==', projectId)
+      );
+      
+      const querySnapshot = await getDocs(trackedProjectsQuery);
+      
+      if (!querySnapshot.empty) {
+        console.log('Project is tracked (found by query)');
         setIsTracked(true);
       } else {
         console.log('Project is not tracked');
@@ -384,6 +409,7 @@ const ProjectDetails = () => {
       }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
+      // Don't change tracking state on error
     }
   };
 
@@ -396,6 +422,11 @@ const ProjectDetails = () => {
     setIsUpdatingTrackStatus(true);
 
     try {
+      // Check if device is offline
+      if (!navigator.onLine) {
+        throw new Error('You appear to be offline. Please check your internet connection and try again.');
+      }
+
       const projectToStore = { ...project };
       
       // Make sure we have a valid planning ID - use the one from state or URL params
@@ -403,111 +434,102 @@ const ProjectDetails = () => {
       
       if (!planningIdToUse) {
         console.error('No valid planning ID found');
+        setError('Could not identify project ID. Please try again.');
         setIsUpdatingTrackStatus(false);
         return;
       }
 
+      console.log('Toggling tracking for project:', planningIdToUse);
+      
+      // Create a unique ID for the document that includes both user ID and project ID
+      const documentId = `${currentUser.uid}_${planningIdToUse}`;
+      console.log('Using document ID:', documentId);
+      
       // Reference to the tracked project document
-      const trackedProjectRef = doc(db, 'trackedProjects', `${currentUser.uid}_${planningIdToUse}`);
-      const trackedProjectDoc = await getDoc(trackedProjectRef);
-
+      const trackedProjectRef = doc(db, 'trackedProjects', documentId);
+      
       // Check if user is tracking or untracking the project
       if (isTracked) {
         // User is untracking the project
-        await deleteDoc(trackedProjectRef);
+        console.log('Untracking project...');
         
-        // Create activity entry for untracking
-        await addDoc(collection(db, 'userActivity'), {
-          userId: currentUser.uid,
-          type: 'untrack',
-          projectId: planningIdToUse,
-          projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
-          timestamp: serverTimestamp()
-        });
+        // Optimistic UI update - update state before the operation completes
+        setIsTracked(false);
+        
+        try {
+          await deleteDoc(trackedProjectRef);
+          
+          // Create activity entry for untracking
+          await addDoc(collection(db, 'userActivity'), {
+            userId: currentUser.uid,
+            type: 'untrack',
+            projectId: planningIdToUse,
+            projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+            timestamp: serverTimestamp()
+          });
 
-        console.log('Project untracked successfully');
+          console.log('Project untracked successfully');
+          setSuccess('Project removed from tracked projects.');
+        } catch (error) {
+          console.error('Error untracking project:', error);
+          // Revert optimistic update on failure
+          setIsTracked(true);
+          throw error;
+        }
       } else {
         // User is tracking the project - store complete project data
-        await setDoc(trackedProjectRef, {
-          userId: currentUser.uid,
-          projectId: planningIdToUse,
-          dateTracked: serverTimestamp(),
-          
-          // Add essential fields at the root level for better retrieval
-          planning_id: planningIdToUse,
-          planning_title: project.planning_title || project.planning_name || project.title || project.name || 'Unnamed Project',
-          planning_description: project.planning_description || project.description || '',
-          planning_value: project.planning_value || project.projectValue || project.value || 0,
-          planning_county: project.planning_county || project.county || project.location || '',
-          planning_category: project.planning_category || project.category || project.type || 'Uncategorized',
-          planning_date: project.planning_date || project.date || serverTimestamp(),
-          
-          // Store complete project data as well
-          projectData: projectToStore,
-        });
-
-        // Create activity entry for tracking
-        await addDoc(collection(db, 'userActivity'), {
-          userId: currentUser.uid,
-          type: 'track',
-          projectId: planningIdToUse,
-          projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
-          timestamp: serverTimestamp()
-        });
-
-        console.log('Project tracked successfully');
+        console.log('Tracking project...');
         
-        // Check if user has enabled email notifications for project tracking
-        const userPrefsRef = doc(db, 'userPreferences', currentUser.uid);
-        const userPrefsDoc = await getDoc(userPrefsRef);
+        // Optimistic UI update - update state before the operation completes
+        setIsTracked(true);
         
-        if (userPrefsDoc.exists()) {
-          const userPrefs = userPrefsDoc.data();
-          
-          // Check if email notifications are enabled for project tracking
-          if (
-            userPrefs.notifications?.emailEnabled && 
-            userPrefs.notifications?.emailProjectTracking &&
-            userPrefs.notifications?.emailAddress
-          ) {
-            try {
-              // Simulate sending email (no actual email sent - demo only)
-              console.log('Demo: Would send project tracking email to', userPrefs.notifications.emailAddress);
-              
-              // Log the activity for demo purposes
-              await addDoc(collection(db, 'userActivity'), {
-                userId: currentUser.uid,
-                type: 'email_project_tracking',
-                timestamp: serverTimestamp(),
-                details: {
-                  email: userPrefs.notifications.emailAddress,
-                  projectId: planningIdToUse,
-                  projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
-                  note: 'Demo mode - no actual email sent'
-                }
-              });
-              
-              console.log('Project tracking email would be sent in production');
-              
-              // Add success message to display to user
-              setSuccess('Project added to tracked projects. A confirmation email would be sent in production.');
-            } catch (emailError) {
-              console.error('Error in email tracking demo:', emailError);
-              // Continue with tracking even if demo notification fails
-              setSuccess('Project added to tracked projects.');
-            }
-          } else {
-            setSuccess('Project added to tracked projects.');
-          }
-        } else {
+        try {
+          await setDoc(trackedProjectRef, {
+            userId: currentUser.uid,
+            projectId: planningIdToUse,
+            dateTracked: serverTimestamp(),
+            
+            // Add essential fields at the root level for better retrieval
+            title: project.planning_title || project.planning_name || project.title || project.name || 'Unnamed Project',
+            description: project.planning_description || project.description || '',
+            value: project.planning_value || project.projectValue || project.value || 0,
+            location: project.planning_county || project.county || project.location || '',
+            category: project.planning_category || project.category || project.type || 'Uncategorized',
+            date: project.planning_date || project.date || serverTimestamp(),
+            
+            // Store complete project data as well
+            projectData: projectToStore,
+          });
+
+          // Create activity entry for tracking
+          await addDoc(collection(db, 'userActivity'), {
+            userId: currentUser.uid,
+            type: 'track',
+            projectId: planningIdToUse,
+            projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+            timestamp: serverTimestamp()
+          });
+
+          console.log('Project tracked successfully');
           setSuccess('Project added to tracked projects.');
+        } catch (error) {
+          console.error('Error tracking project:', error);
+          // Revert optimistic update on failure
+          setIsTracked(false);
+          throw error;
         }
       }
-
-      // Update the local state
-      setIsTracked(!isTracked);
     } catch (error) {
       console.error('Error updating project tracking status:', error);
+      
+      // Provide more specific error messages based on error type
+      if (error.code === 'permission-denied') {
+        setError('You do not have permission to perform this action. Please check your account status.');
+      } else if (error.code === 'unavailable' || error.message.includes('offline')) {
+        setError('Network error: Please check your internet connection and try again.');
+      } else {
+        setError(`Failed to update tracking status: ${error.message || 'Please try again.'}`);
+      }
     } finally {
       setIsUpdatingTrackStatus(false);
     }
