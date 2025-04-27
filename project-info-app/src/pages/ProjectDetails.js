@@ -125,113 +125,67 @@ const ProjectDetails = () => {
       let firestoreData = null;
       let isProjectTracked = false;
       
-      // STEP 1: First check if we have this project in Firestore (for tracked projects)
-      if (currentUser) {
-        try {
-          console.log('Checking Firestore for tracked project data...');
+      // STEP 1: Try to find the project in Firestore first
+      try {
+        // First check the trackedProjects collection (for logged-in users)
+        if (currentUser) {
+          // Try to get project from trackedProjects collection
+          const docId = `${currentUser.uid}_${idToUse}`;
+          const trackedProjectRef = doc(db, 'trackedProjects', docId);
+          const trackedProjectDoc = await getDoc(trackedProjectRef);
           
-          // Check for project with the compound ID format
-          const compoundId = `${currentUser.uid}_${idToUse}`;
-          console.log('Looking up compound ID:', compoundId);
-          const trackedDoc = await getDoc(doc(db, 'trackedProjects', compoundId));
-          
-          if (trackedDoc.exists()) {
-            console.log('✅ Found project in trackedProjects using compound ID');
-            firestoreData = trackedDoc.data();
-            firestoreData.docId = trackedDoc.id; // Store document ID
-            isProjectTracked = true;
-          } else {
-            // If not found by compound ID, try various query approaches
-            console.log('Project not found by compound ID, trying queries...');
+          if (trackedProjectDoc.exists()) {
+            console.log('✅ Found project in trackedProjects collection');
+            const data = trackedProjectDoc.data();
             
-            // Try query by userId and projectId fields
-            const trackedProjectsRef = collection(db, 'trackedProjects');
-            
-            // Query approach 1: exact projectId match
-            const q1 = query(
-              trackedProjectsRef, 
-              where('userId', '==', currentUser.uid),
-              where('projectId', '==', idToUse)
-            );
-            
-            let querySnapshot = await getDocs(q1);
-            
-            if (!querySnapshot.empty) {
-              console.log('✅ Found project via projectId field query');
-              firestoreData = querySnapshot.docs[0].data();
-              firestoreData.docId = querySnapshot.docs[0].id;
+            // If we have complete project data stored, use it
+            if (data.projectData) {
+              firestoreData = data.projectData;
               isProjectTracked = true;
+              console.log('Using complete project data from trackedProjects');
             } else {
-              // Try query approach 2: planning_id field
-              const q2 = query(
-                trackedProjectsRef, 
-                where('userId', '==', currentUser.uid),
-                where('planning_id', '==', idToUse)
-              );
+              console.log('Project found in trackedProjects but missing complete data');
+            }
+          } else {
+            console.log('No matching project found in trackedProjects by ID:', docId);
+            
+            // Second try: projects collection
+            try {
+              const projectRef = doc(db, 'projects', idToUse);
+              const projectDoc = await getDoc(projectRef);
               
-              querySnapshot = await getDocs(q2);
-              
-              if (!querySnapshot.empty) {
-                console.log('✅ Found project via planning_id field query');
-                firestoreData = querySnapshot.docs[0].data();
-                firestoreData.docId = querySnapshot.docs[0].id;
-                isProjectTracked = true;
+              if (projectDoc.exists()) {
+                console.log('✅ Found project in projects collection');
+                firestoreData = projectDoc.data();
               } else {
-                // Last attempt: get all user's projects and check all possible ID fields
-                console.log('Trying last resort: scan all user projects...');
-                const userProjectsQuery = query(
-                  trackedProjectsRef,
-                  where('userId', '==', currentUser.uid)
-                );
-                
-                const allUserProjects = await getDocs(userProjectsQuery);
-                
-                if (!allUserProjects.empty) {
-                  for (const projectDoc of allUserProjects.docs) {
-                    const data = projectDoc.data();
-                    
-                    // Check all possible ID fields
-                    const possibleIds = [
-                      data.projectId,
-                      data.planning_id,
-                      data.id,
-                      data._id,
-                      // Check if the document ID contains our target ID
-                      projectDoc.id.includes(idToUse) ? idToUse : null
-                    ];
-                    
-                    if (possibleIds.includes(idToUse)) {
-                      console.log('✅ Found project by scanning all user projects');
-                      firestoreData = data;
-                      firestoreData.docId = projectDoc.id;
-                      isProjectTracked = true;
-                      break;
-                    }
-                  }
-                }
+                console.log('No matching project found in Firestore');
               }
+            } catch (projectsError) {
+              console.error('Error querying projects collection:', projectsError);
             }
           }
+        } else {
+          // If user is not logged in, try to get from projects collection directly
+          const projectRef = doc(db, 'projects', idToUse);
+          const projectDoc = await getDoc(projectRef);
           
-          if (firestoreData) {
-            console.log('Firestore data found:', 
-              firestoreData.planning_title || 
-              firestoreData.planning_name || 
-              firestoreData.title || 
-              'Unnamed'
-            );
+          if (projectDoc.exists()) {
+            console.log('✅ Found project in projects collection (anonymous user)');
+            firestoreData = projectDoc.data();
           } else {
-            console.log('No matching project found in Firestore');
+            console.log('No matching project found in Firestore (anonymous user)');
           }
-        } catch (firestoreError) {
-          console.error('Error fetching from Firestore:', firestoreError);
         }
+      } catch (firestoreError) {
+        console.error('Error fetching from Firestore:', firestoreError);
+        // We'll continue and try the API
       }
       
-      // STEP 2: Try to fetch from the API (even if we already have Firestore data)
+      // STEP 2: Try to fetch from the configured API (even if we already have Firestore data)
       try {
-        console.log(`Fetching from API: ${API_BASE_URL}/api/project/${idToUse}`);
-        const response = await fetchWithRetry(`${API_BASE_URL}/api/project/${idToUse}`);
+        // Use the API URL from config, which now handles environment differences
+        console.log(`Fetching from configured API: ${config.API_URL}/api/project/${idToUse}`);
+        const response = await fetchWithRetry(`${config.API_URL}/api/project/${idToUse}`);
         
         if (response.ok) {
           const data = await response.json();
@@ -249,31 +203,34 @@ const ProjectDetails = () => {
         } else {
           console.warn(`API returned status: ${response.status}`);
           
-          // Try direct BuildingInfo API as fallback (if this was already attempted in the backend)
-          if (firestoreData && !apiData) {
+          // If we're in production and the API didn't work, try a direct API call as fallback
+          if ((config.PRODUCTION || !firestoreData) && config.DIRECT_API_ENABLED) {
             try {
-              console.log('Attempting direct BuildingInfo API call as fallback');
-              const directApiUrl = `https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${config.BUILDINGINFO_API_KEY}&ukey=${config.BUILDINGINFO_UKEY}&planning_id=${idToUse}`;
+              console.log('Attempting direct BuildingInfo API call as fallback (production fallback)');
+              const directApiUrl = `${config.DIRECT_API_URL}/projects/t-projects?api_key=${config.BUILDINGINFO_API_KEY}&ukey=${config.BUILDINGINFO_UKEY}&planning_id=${idToUse}`;
               
-              console.log(`Attempting fallback API: ${directApiUrl.substring(0, 60)}...`);
+              console.log(`Attempting fallback direct API`);
               
               const directResponse = await fetch(directApiUrl);
               if (directResponse.ok) {
                 const directData = await directResponse.json();
-                if (directData && directData.status === 'SUCCESS' && directData.data) {
-                  console.log('✅ Successfully fetched data from direct BuildingInfo API');
-                  apiData = directData.data;
+                if (directData && directData.projects && directData.projects.length > 0) {
+                  console.log('✅ Successfully fetched direct BuildingInfo API data');
+                  // Map API response to our expected structure
+                  apiData = directData.projects[0];
                 } else {
-                  console.warn('Direct BuildingInfo API returned invalid data or error status', directData);
+                  console.warn('Direct API response missing projects data structure:', directData);
                 }
+              } else {
+                console.warn(`Direct API returned status: ${directResponse.status}`);
               }
             } catch (directApiError) {
-              console.error('Error in direct BuildingInfo API fallback:', directApiError);
+              console.error('Error fetching from direct BuildingInfo API:', directApiError);
             }
           }
         }
       } catch (apiError) {
-        console.error('API fetch error:', apiError);
+        console.error('Error fetching from API:', apiError);
       }
       
       // Update the tracked state
