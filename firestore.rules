@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only authenticated users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Only allow read access to all projects for authenticated users.
+    // Only allow write access to admins (by UID or custom claim).
+    match /projects/{projectId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Each user can only read/write their own tracked projects
+    match /trackedProjects/{docId} {
+      // Allow users to read any tracked project doc where userId matches their UID OR where the docId starts with their UID
+      allow read: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid) || 
+        docId.split('_')[0] == request.auth.uid
+      );
+      // Allow users to write to documents they own
+      allow write: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid) || 
+        docId.split('_')[0] == request.auth.uid
+      );
+      // On create, allow if the user is setting their own userId
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Each user can only read/write their own project notes
+    match /projectNotes/{docId} {
+      allow read: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid) || 
+        docId.split('_')[0] == request.auth.uid
+      );
+      allow write: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid) || 
+        docId.split('_')[0] == request.auth.uid
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Allow users to access their own project notifications
+    match /projectNotifications/{notificationId} {
+      allow read: if request.auth != null && (
+        resource != null && resource.data.userId == request.auth.uid
+      );
+      allow write, create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Allow users to access notification preferences
+    match /userPreferences/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Only allow read access to activity logs for authenticated users
+    match /activity/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Only allow read/write to userActivity for the owner
+    match /userActivity/{docId} {
+      allow read, write: if request.auth != null && (
+        resource != null && resource.data.userId == request.auth.uid
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Helper function for admin check (add your admin UIDs here)
+    function isAdmin() {
+      return request.auth != null && (
+        // Example: add your admin UIDs below - use actual UIDs, not domain names
+        request.auth.uid == "YOUR_ADMIN_UID_HERE"
+      );
+    }
+  }
+}
