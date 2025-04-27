@@ -1255,37 +1255,41 @@ const Analytics = () => {
                     <div className="chart-grid">
                       <div className="chart-container pie-container">
                         <h3>Category Value Distribution</h3>
-                        <ChartWrapper chartType="Pie" title="Category Distribution">
-                          <Pie 
-                            data={chartData} 
-                            options={pieOptions}
-                          />
-                        </ChartWrapper>
+                        <div className="chart-content">
+                          <ChartWrapper chartType="Pie" title="Category Distribution">
+                            <Pie 
+                              data={chartData} 
+                              options={pieOptions}
+                            />
+                          </ChartWrapper>
+                        </div>
                       </div>
                       <div className="chart-container">
                         <h3>Value by Project Stage</h3>
-                        <ChartWrapper chartType="Bar" title="Project Stages">
-                          <Bar 
-                            data={stagesData}
-                            options={{
-                              responsive: true,
-                              maintainAspectRatio: false,
-                              plugins: {
-                                legend: { 
-                                  position: 'top',
-                                  labels: { boxWidth: 10, padding: 5 }
-                                },
-                                tooltip: {
-                                  callbacks: {
-                                    label: (context) => {
-                                      return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                        <div className="chart-content">
+                          <ChartWrapper chartType="Bar" title="Project Stages">
+                            <Bar 
+                              data={stagesData}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                  legend: { 
+                                    position: 'top',
+                                    labels: { boxWidth: 10, padding: 5 }
+                                  },
+                                  tooltip: {
+                                    callbacks: {
+                                      label: (context) => {
+                                        return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                      }
                                     }
                                   }
                                 }
-                              }
-                            }}
-                          />
-                        </ChartWrapper>
+                              }}
+                            />
+                          </ChartWrapper>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1296,37 +1300,41 @@ const Analytics = () => {
                     <div className="chart-grid">
                       <div className="chart-container pie-container">
                         <h3>Subcategory Spending Distribution</h3>
-                        <ChartWrapper chartType="Pie" title="Subcategory Spending">
-                          <Pie 
-                            data={subcategoryChartData} 
-                            options={pieOptions}
-                          />
-                        </ChartWrapper>
+                        <div className="chart-content">
+                          <ChartWrapper chartType="Pie" title="Subcategory Spending">
+                            <Pie 
+                              data={subcategoryChartData} 
+                              options={pieOptions}
+                            />
+                          </ChartWrapper>
+                        </div>
                       </div>
                       <div className="chart-container">
                         <h3>Project Value by County</h3>
-                        <ChartWrapper chartType="Bar" title="County Values">
-                          <Bar 
-                            data={countyChartData} 
-                            options={{
-                              responsive: true,
-                              maintainAspectRatio: false,
-                              plugins: {
-                                legend: { 
-                                  position: 'top',
-                                  labels: { boxWidth: 10, padding: 5 }
-                                },
-                                tooltip: {
-                                  callbacks: {
-                                    label: (context) => {
-                                      return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                        <div className="chart-content">
+                          <ChartWrapper chartType="Bar" title="County Values">
+                            <Bar 
+                              data={countyChartData} 
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                  legend: { 
+                                    position: 'top',
+                                    labels: { boxWidth: 10, padding: 5 }
+                                  },
+                                  tooltip: {
+                                    callbacks: {
+                                      label: (context) => {
+                                        return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                      }
                                     }
                                   }
                                 }
-                              }
-                            }}
-                          />
-                        </ChartWrapper>
+                              }}
+                            />
+                          </ChartWrapper>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1337,15 +1345,17 @@ const Analytics = () => {
                     <div className="chart-grid">
                       <div className="chart-container pie-container">
                         <h3>County Value Comparison</h3>
-                        <ChartWrapper chartType="Pie" title="County Value Distribution">
-                          <Pie 
-                            data={countyProjectsData} 
-                            options={pieOptions}
-                          />
-                        </ChartWrapper>
+                        <div className="chart-content">
+                          <ChartWrapper chartType="Pie" title="County Value Distribution">
+                            <Pie 
+                              data={countyProjectsData} 
+                              options={pieOptions}
+                            />
+                          </ChartWrapper>
+                        </div>
                       </div>
-                      <div className="chart-container comparative-analysis-container">
-                        <h3>Comparative Analysis</h3>
+                      <div className="chart-container">
+                        <h3>Comparative Metrics</h3>
                         <div className="comparative-metrics">
                           <div className="metric-card">
                             <div className="metric-icon">

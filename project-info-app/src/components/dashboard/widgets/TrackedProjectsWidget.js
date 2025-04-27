@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaMapMarkerAlt, FaTags, FaEuroSign, FaExternalLinkAlt, FaUnlink, FaProjectDiagram, FaCalendarAlt } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaTags, FaEuroSign, FaExternalLinkAlt, FaUnlink, FaProjectDiagram, FaCalendarAlt, FaStickyNote } from 'react-icons/fa';
 import { collection, query, where, getDocs, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { useAuth } from '../../../contexts/AuthContext';
 import './TrackedProjectsWidget.css';
+import NotesList from '../../notes/NotesList';
 
 const TrackedProjectsWidget = ({ data }) => {
   const { 
@@ -30,16 +31,29 @@ const TrackedProjectsWidget = ({ data }) => {
   }, [data, parentUntrackProject]);
   
   // Implement a local untrack function as a fallback
-  const handleUntrack = useCallback(async (projectId) => {
+  const handleUntrack = useCallback(async (projectId, project) => {
     try {
       // Set loading state for this project
       setUntrackingProjects(prev => ({ ...prev, [projectId]: true }));
       
+      console.log('Starting untrack process for project ID:', projectId);
+      
       // Try to use the parent function first
       if (typeof parentUntrackProject === 'function') {
         try {
-          await parentUntrackProject(projectId);
-          return;
+          // Pass the document ID if available in the project data
+          const docId = project._firebaseDocId || project.docId;
+          console.log('Using document ID for untracking:', docId || projectId);
+          
+          const result = await parentUntrackProject(projectId);
+          
+          if (result) {
+            console.log('Successfully untracked project');
+            // Don't reset loading state here as the component will be removed from the DOM
+            return;
+          } else {
+            console.log('Untrack operation returned false, falling back to local implementation');
+          }
         } catch (error) {
           console.error('Error using parent untrackProject function:', error);
           // Fall through to local implementation
@@ -49,75 +63,81 @@ const TrackedProjectsWidget = ({ data }) => {
       // Fallback to local implementation if parent function fails or doesn't exist
       if (!currentUser) {
         console.error('Cannot untrack project: No user logged in');
-        return;
-      }
-      
-      // Search for the project by its document ID first
-      let foundDoc = null;
-      try {
-        const docRef = doc(db, 'trackedProjects', projectId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          foundDoc = { id: docSnap.id, ref: docSnap.ref };
-          console.log('Found project by direct document ID');
-        }
-      } catch (error) {
-        console.log('Not a valid document ID, trying other methods');
-      }
-      
-      // If not found by direct ID, try querying by various ID fields
-      if (!foundDoc) {
-        // Try all possible ID fields without filtering by userId
-        const trackedRef = collection(db, 'trackedProjects');
-        const querySnapshot = await getDocs(query(trackedRef));
-        
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          // Check all possible ID fields
-          const idFields = ['docId', 'projectId', 'id', 'planning_id', '_id'];
-          for (const field of idFields) {
-            if (data[field] === projectId) {
-              foundDoc = { id: doc.id, ref: doc.ref };
-              console.log(`Found project by ${field} field`);
-              break;
-            }
-          }
-        });
-      }
-      
-      if (!foundDoc) {
-        console.log('No tracked project found with ID:', projectId);
         setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
         return;
       }
       
-      // Delete the found document
-      console.log('Deleting tracked project document:', foundDoc.id);
-      await deleteDoc(foundDoc.ref);
+      // Try direct document deletion with compound ID
+      const compoundId = `${currentUser.uid}_${projectId}`;
+      console.log('Trying direct deletion with compound ID:', compoundId);
       
-      // Update local state instead of refreshing the page
-      // Remove this project from the tracked projects list
-      const updatedProjects = trackedProjects.filter(project => {
-        const projectIdentifier = 
-          project.docId || 
-          project.projectId || 
-          project.id || 
-          project.planning_id || 
-          project._id;
-        return projectIdentifier !== projectId;
-      });
-      
-      // If parent component passes a new untrackProject function with proper implementation,
-      // the Dashboard component should update its state and propagate the change down
-      console.log('Project untracked successfully, locally removed from UI');
+      try {
+        const compoundDocRef = doc(db, 'trackedProjects', compoundId);
+        await deleteDoc(compoundDocRef);
+        console.log('Successfully deleted tracked project with compound ID');
+        
+        // Remove this project from the DOM
+        const projectElement = document.getElementById(`project-card-${projectId}`);
+        if (projectElement) {
+          projectElement.style.opacity = '0';
+          setTimeout(() => {
+            projectElement.style.display = 'none';
+          }, 300);
+        }
+        
+        return;
+      } catch (error) {
+        console.error('Error deleting document with compound ID:', error);
+        
+        // Try query-based approach as last resort
+        try {
+          console.log('Trying query-based approach...');
+          const trackedRef = collection(db, 'trackedProjects');
+          const q = query(
+            trackedRef,
+            where('userId', '==', currentUser.uid),
+            where('projectId', '==', projectId)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          
+          if (querySnapshot.empty) {
+            console.log('No matching documents found');
+            setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
+            return;
+          }
+          
+          // Delete all matching documents
+          const deletePromises = [];
+          querySnapshot.forEach(doc => {
+            console.log('Deleting document:', doc.id);
+            deletePromises.push(deleteDoc(doc.ref));
+          });
+          
+          await Promise.all(deletePromises);
+          console.log('Successfully deleted tracked project using query approach');
+          
+          // Remove this project from the DOM
+          const projectElement = document.getElementById(`project-card-${projectId}`);
+          if (projectElement) {
+            projectElement.style.opacity = '0';
+            setTimeout(() => {
+              projectElement.style.display = 'none';
+            }, 300);
+          }
+          
+          return;
+        } catch (queryError) {
+          console.error('Error in query-based deletion approach:', queryError);
+          setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
+        }
+      }
     } catch (error) {
       console.error('Error untracking project:', error);
-      // Clear loading state on error
       setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
     }
-  }, [currentUser, parentUntrackProject, trackedProjects]);
-
+  }, [currentUser, parentUntrackProject]);
+  
   // Format currency
   const formatCurrency = (value) => {
     if (!value) return '€0';
@@ -241,7 +261,7 @@ const TrackedProjectsWidget = ({ data }) => {
             const decisionDate = project.planning_decision_date || project.decision_date || null;
             
             return (
-              <div key={projectId || Math.random().toString()} className={`project-card ${categoryClass}`}>
+              <div key={projectId || Math.random().toString()} id={`project-card-${projectId}`} className={`project-card ${categoryClass}`}>
                 <h3 className="project-title">{projectTitle}</h3>
                 
                 <div className="project-info">
@@ -281,6 +301,19 @@ const TrackedProjectsWidget = ({ data }) => {
                   </button>
                   
                   <button 
+                    className="action-button notes"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (typeof onToggleNotes === 'function') {
+                        onToggleNotes(projectId);
+                      }
+                    }}
+                    aria-label="Toggle project notes"
+                  >
+                    <FaStickyNote /> Notes
+                  </button>
+                  
+                  <button 
                     className={`action-button untrack ${untrackingProjects[projectId] ? 'loading' : ''}`}
                     onClick={() => {
                       // Prioritize docId which is most reliable for tracking in our system
@@ -288,7 +321,7 @@ const TrackedProjectsWidget = ({ data }) => {
                       console.log('Untracking project with ID:', trackingId);
                       
                       // Use our robust handleUntrack function
-                      handleUntrack(trackingId);
+                      handleUntrack(trackingId, project);
                     }}
                     disabled={untrackingProjects[projectId]}
                     aria-label="Untrack this project"
@@ -304,6 +337,32 @@ const TrackedProjectsWidget = ({ data }) => {
                     )}
                   </button>
                 </div>
+                
+                {/* Notes Section */}
+                {showNotes && showNotes[projectId] && (
+                  <div className="project-notes-container">
+                    <NotesList 
+                      projectId={projectId}
+                      notes={projectNotes[projectId] || []}
+                      onAddNote={(projectId, text) => {
+                        if (typeof onAddNote === 'function') {
+                          onAddNote(projectId, projectTitle, text);
+                        }
+                      }}
+                      onUpdateNote={(noteId, text) => {
+                        if (typeof onUpdateNote === 'function') {
+                          onUpdateNote(noteId, projectId, text);
+                        }
+                      }}
+                      onDeleteNote={(noteId) => {
+                        if (typeof onDeleteNote === 'function') {
+                          return onDeleteNote(noteId, projectId);
+                        }
+                        return Promise.resolve(false);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
