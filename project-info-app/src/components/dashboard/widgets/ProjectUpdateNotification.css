@@ -1,0 +1,148 @@
+.project-update-notification {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #4e73df;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-update-notification:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.project-update-notification.unread {
+  background-color: #f8f9fc;
+  border-left-color: #4e73df;
+}
+
+.project-update-notification.read {
+  opacity: 0.8;
+  border-left-color: #d1d3e2;
+}
+
+.notification-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notification-icon {
+  font-size: 1.2rem;
+  color: #4e73df;
+  flex-shrink: 0;
+}
+
+.notification-icon.status-change {
+  color: #f6c23e;
+}
+
+.notification-icon.value-change {
+  color: #36b9cc;
+}
+
+.notification-icon.document-update {
+  color: #1cc88a;
+}
+
+.notification-title {
+  flex-grow: 1;
+}
+
+.notification-title h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.notification-time {
+  font-size: 0.75rem;
+  color: #858796;
+  display: block;
+  margin-top: 3px;
+}
+
+.mark-read-button {
+  background: none;
+  border: none;
+  color: #4e73df;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 5px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.mark-read-button:hover {
+  background-color: rgba(78, 115, 223, 0.1);
+}
+
+.notification-details {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e3e6f0;
+}
+
+.notification-details p {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  color: #5a5c69;
+  line-height: 1.5;
+}
+
+.view-project-button {
+  background-color: #4e73df;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.view-project-button:hover {
+  background-color: #2e59d9;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .project-update-notification {
+    background-color: #1e1e2d;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  }
+  
+  .project-update-notification.unread {
+    background-color: #252536;
+  }
+  
+  .notification-title h4 {
+    color: #e0e0e0;
+  }
+  
+  .notification-time {
+    color: #a0a0a0;
+  }
+  
+  .notification-details p {
+    color: #c5c5c5;
+  }
+  
+  .mark-read-button:hover {
+    background-color: rgba(78, 115, 223, 0.2);
+  }
+  
+  .notification-details {
+    border-top: 1px solid #333345;
+  }
+}
