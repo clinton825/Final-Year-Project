@@ -65,8 +65,20 @@ const Projects = () => {
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
+        // Extract the numeric planning_id, handling both direct and compound IDs
         if (data.planning_id) {
-          trackedIds.add(data.planning_id);
+          // If planning_id is a string and contains an underscore, extract the numeric part
+          if (typeof data.planning_id === 'string' && data.planning_id.includes('_')) {
+            const numericId = data.planning_id.split('_')[1];
+            trackedIds.add(numericId);
+          } else {
+            trackedIds.add(data.planning_id);
+          }
+        }
+        // Also check document ID for compound format
+        if (doc.id.includes('_')) {
+          const numericId = doc.id.split('_')[1];
+          trackedIds.add(numericId);
         }
       });
       
@@ -231,13 +243,21 @@ const Projects = () => {
       navigate('/login', { state: { from: '/' } });
       return;
     }
+    
     // Make sure we have a valid planning ID
     if (!planningId) {
       console.error('No planning ID provided for project navigation');
       return;
     }
-    console.log('Navigating to project with planning_id:', planningId);
-    navigate(`/project/${encodeURIComponent(planningId)}`);
+    
+    // Extract just the numeric part if it's a compound ID
+    let numericId = planningId;
+    if (typeof planningId === 'string' && planningId.includes('_')) {
+      numericId = planningId.split('_')[1]; // Get the part after the underscore
+    }
+    
+    console.log('Navigating to project with planning_id:', numericId);
+    navigate(`/project/${encodeURIComponent(numericId)}`);
   };
 
   const handleCategoryChange = (category) => {

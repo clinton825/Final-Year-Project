@@ -10,6 +10,13 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Filter projects by **Category, Subcategory, County, Town, and Value Range**
 - Smart filtering to hide **already tracked projects** (toggle-enabled)
 
+### **Project Updates & Notifications**
+- View **Recently Updated Projects** in a newsfeed-style layout
+- Filter updates by time period (**Today, Yesterday, Last 7 Days, Last 30 Days**)
+- Clearly labeled **Major/Minor Updates** with visual distinction
+- **Track projects directly** from the updates feed
+- Automatic **currency conversion** from GBP to EUR
+
 ### **Project Cards & Details**
 - Expandable descriptions (**Read More/Show Less** functionality)
 - Track projects with a **one-click button**
@@ -32,6 +39,14 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - Enhanced authentication with **error handling & retry mechanisms**
 
 ## Recent Updates *(April 2025)*
+### **Project Updates Feature**
+- Implemented **Project Updates Page** to display recently updated projects
+- Created backend proxy for BuildingInfo API integration with proper **error handling**
+- Added **euro currency conversion** for project values
+- Applied **user-friendly date formatting** for update timestamps
+- Implemented time-period filtering for **relevant project discovery**
+- Visual distinction between **major and minor updates**
+
 ### **Dashboard Layout & Stability Improvements**
 - Fixed layout conflicts between dashboard and project comparison pages
 - Resolved issues with tracked projects and recent activities display
@@ -49,7 +64,7 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 ### **Analytics Dashboard**
 - **Visualizations for project data trends** (subcategory spending, development stage analysis)
 - **County-specific analytics** with interactive filtering
-- **Time-range filtering** (1-10 years) for insights
+- **Time-range filtering** (1-20 years) for insights
 - **Dark mode support & responsive design**
 
 ### **UI & UX Improvements**
@@ -83,7 +98,12 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 ### **Backend (Render.com)**
 1. Connect GitHub repo to **Render**
 2. Set up **Node.js environment**
-3. Deploy with `npm install && npm start`
+3. Configure environment variables:
+   - `BUILDING_INFO_API_KEY`: BuildingInfo API key
+   - `BUILDING_INFO_USER_KEY`: BuildingInfo user key
+   - `FIREBASE_CLIENT_EMAIL`: Firebase service account email
+   - `FIREBASE_PRIVATE_KEY`: Firebase service account private key
+4. Deploy with `npm install && npm start`
 
 ## **API Endpoints**
 | Method | Endpoint | Description |
@@ -94,8 +114,10 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 | GET | `/api/projects/county/{county}` | Get projects by county |
 | GET | `/api/subcategories/{category}` | Fetch subcategories by category |
 | GET | `/api/counties` | Fetch available counties |
+| GET | `/api/project-updates?period={period}` | Fetch recently updated projects (period: '3' for today, '-1.1' for yesterday, '-7.1' for last 7 days, '-30.1' for last 30 days) |
+| GET | `/api/user/{userId}/tracked-projects` | Get tracked projects for a specific user |
 
-### **Sample API Response**
+### **Sample API Response for Project Updates**
 ```json
 {
   "status": "success",
@@ -105,8 +127,11 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
       "planning_title": "Project Name",
       "planning_category": "Category",
       "planning_value": "1000000",
-      "planning_location": "Region",
-      "planning_description": "Project details here..."
+      "planning_value_eur": "€1,170,000",
+      "planning_region": "Leinster",
+      "planning_county": "Carlow",
+      "is_major_update": true,
+      "api_date": "2025-04-26T09:30:00Z"
     }
   ]
 }
@@ -118,9 +143,37 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 3. **Click on a Project** to view details
 4. **Track Projects** for personal monitoring
 5. **Access Dashboard** for insights and tracked projects
-6. **Add Notes** to tracked projects
-7. **Customize Layouts** (toggle widgets, grid/list views)
-8. **View Analytics** for project trends
+6. **Check Project Updates** to discover recently updated projects
+7. **Add Notes** to tracked projects
+8. **Customize Layouts** (toggle widgets, grid/list views)
+9. **View Analytics** for project trends
+
+## **Environment Configuration**
+The application requires the following environment variables to be set:
+
+### Frontend (.env file)
+```
+REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+REACT_APP_FIREBASE_PROJECT_ID=your_firebase_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
+REACT_APP_FIREBASE_APP_ID=your_firebase_app_id
+REACT_APP_API_URL=your_backend_api_url
+REACT_APP_BUILDINGINFO_API_KEY=your_buildinginfo_api_key
+REACT_APP_BUILDINGINFO_UKEY=your_buildinginfo_user_key
+```
+
+### Backend (.env file)
+```
+PORT=8080
+REACT_APP_FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+FIREBASE_PRIVATE_KEY=your_firebase_private_key
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+BUILDING_INFO_API_KEY=your_buildinginfo_api_key
+BUILDING_INFO_USER_KEY=your_buildinginfo_user_key
+```
 
 ## **Contributing**
 Contributions are welcome! Submit a **Pull Request** or open an **Issue** on GitHub.

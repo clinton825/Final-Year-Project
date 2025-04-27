@@ -403,11 +403,160 @@ const getAvailableCounties = async () => {
   }
 };
 
+/**
+ * Get recently updated projects based on a period parameter
+ * @param {string} period - The period to check for updates.
+ *                          '3' for today, '-1.1' for yesterday, 
+ *                          '-7.1' for last 7 days, '-30.1' for last 30 days
+ * @returns {Array} Array of updated projects with is_major_update flag
+ */
+const getProjectUpdates = async (period = '3') => {
+  try {
+    console.log(`Fetching project updates for period: ${period}`);
+    
+    // Ensure environment variables are set
+    if (!process.env.BUILDING_INFO_API_KEY || !process.env.BUILDING_INFO_USER_KEY) {
+      console.error('Missing API credentials: BUILDING_INFO_API_KEY or BUILDING_INFO_USER_KEY not set in environment variables');
+      throw new Error('API credentials not configured. Please set BUILDING_INFO_API_KEY and BUILDING_INFO_USER_KEY environment variables.');
+    }
+    
+    // Get both major updates and minor updates in parallel
+    const [majorUpdatesResponse, allUpdatesResponse] = await Promise.all([
+      // Major updates (_updated parameter)
+      fetchWithRetry(`https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${process.env.BUILDING_INFO_API_KEY}&ukey=${process.env.BUILDING_INFO_USER_KEY}&more=limit%200,50&_updated=${period}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Project-Info-App/1.0'
+        },
+        timeout: 15000
+      }),
+      
+      // All updates (_apion parameter)
+      fetchWithRetry(`https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${process.env.BUILDING_INFO_API_KEY}&ukey=${process.env.BUILDING_INFO_USER_KEY}&more=limit%200,50&_apion=${period}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Project-Info-App/1.0'
+        },
+        timeout: 15000
+      })
+    ]);
+    
+    // Log response status for debugging
+    console.log(`Major updates API status: ${majorUpdatesResponse.status}`);
+    console.log(`All updates API status: ${allUpdatesResponse.status}`);
+    
+    if (!majorUpdatesResponse.ok) {
+      console.error(`Major updates API responded with status: ${majorUpdatesResponse.status}`);
+    }
+    
+    if (!allUpdatesResponse.ok) {
+      console.error(`All updates API responded with status: ${allUpdatesResponse.status}`);
+    }
+    
+    // Process responses
+    const [majorUpdatesData, allUpdatesData] = await Promise.all([
+      majorUpdatesResponse.ok ? majorUpdatesResponse.json() : { projects: [] },
+      allUpdatesResponse.ok ? allUpdatesResponse.json() : { projects: [] }
+    ]);
+    
+    // Log raw responses for debugging
+    console.log('Major updates data structure:', Object.keys(majorUpdatesData));
+    console.log('All updates data structure:', Object.keys(allUpdatesData));
+    
+    // Extract projects array from responses
+    let majorUpdates = [];
+    let allUpdates = [];
+    
+    // Handle different response formats
+    if (majorUpdatesData && majorUpdatesData.data && majorUpdatesData.data.rows) {
+      // API response format: { status: 'OK', data: { count: N, rows: [...] } }
+      majorUpdates = majorUpdatesData.data.rows;
+      console.log(`Found ${majorUpdates.length} major updates in data.rows format`);
+    } else if (majorUpdatesData && majorUpdatesData.projects) {
+      majorUpdates = majorUpdatesData.projects;
+      console.log(`Found ${majorUpdates.length} major updates in projects format`);
+    } else if (Array.isArray(majorUpdatesData)) {
+      majorUpdates = majorUpdatesData;
+      console.log(`Found ${majorUpdates.length} major updates in array format`);
+    }
+    
+    if (allUpdatesData && allUpdatesData.data && allUpdatesData.data.rows) {
+      // API response format: { status: 'OK', data: { count: N, rows: [...] } }
+      allUpdates = allUpdatesData.data.rows;
+      console.log(`Found ${allUpdates.length} all updates in data.rows format`);
+    } else if (allUpdatesData && allUpdatesData.projects) {
+      allUpdates = allUpdatesData.projects;
+      console.log(`Found ${allUpdates.length} all updates in projects format`);
+    } else if (Array.isArray(allUpdatesData)) {
+      allUpdates = allUpdatesData;
+      console.log(`Found ${allUpdates.length} all updates in array format`);
+    }
+    
+    console.log(`Found ${majorUpdates.length} major updates and ${allUpdates.length} total updates`);
+    
+    // Combine updates and mark major ones
+    const projectMap = new Map();
+    
+    // Add major updates first (they take precedence)
+    majorUpdates.forEach(project => {
+      // Use existing API dates if available, or get from planning_updated or planning_public_updated
+      const updateDate = project.api_date || 
+                        project._updated || 
+                        project.planning_updated || 
+                        project.planning_public_updated || 
+                        new Date().toISOString();
+                        
+      projectMap.set(project.planning_id, {
+        ...project,
+        is_major_update: true,
+        api_date: updateDate
+      });
+    });
+    
+    // Add all other updates
+    allUpdates.forEach(project => {
+      if (!projectMap.has(project.planning_id)) {
+        // Use existing API dates if available, or get from planning_updated or planning_public_updated
+        const updateDate = project.api_date || 
+                          project._updated || 
+                          project.planning_updated || 
+                          project.planning_public_updated || 
+                          new Date().toISOString();
+                          
+        projectMap.set(project.planning_id, {
+          ...project,
+          is_major_update: false,
+          api_date: updateDate
+        });
+      }
+    });
+    
+    // Convert map to array
+    const combinedUpdates = Array.from(projectMap.values());
+    
+    // Convert currency values from pounds to euros
+    const updatesWithEuros = combinedUpdates.map(project => {
+      if (project.planning_value) {
+        project.planning_value_eur = convertToEuros(`£${project.planning_value}`);
+      }
+      return project;
+    });
+    
+    return updatesWithEuros;
+  } catch (error) {
+    console.error('Error fetching project updates:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getProjectInfoByPlanningID,
   getAllProjects,
   getProjectsByCategory,
-  getProjectsByFilters,
   getProjectCategories,
-  getAvailableCounties
+  getProjectsByFilters,
+  getAvailableCounties,
+  getProjectUpdates
 };

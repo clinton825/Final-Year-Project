@@ -4,9 +4,9 @@ const API_URL = process.env.REACT_APP_API_URL ||
     'http://localhost:8080' : 
     'https://infrastructure-tracker-api.onrender.com');
 
-// BuildingInfo API keys
-const BUILDINGINFO_API_KEY = process.env.REACT_APP_BUILDINGINFO_API_KEY || "2f5ae96c-b558-4c7b-a185-c0e7b1e726af";
-const BUILDINGINFO_UKEY = process.env.REACT_APP_BUILDINGINFO_UKEY || "1682595945.1682595945.1682595945";
+// BuildingInfo API keys - must be provided via environment variables
+const BUILDINGINFO_API_KEY = process.env.REACT_APP_BUILDINGINFO_API_KEY;
+const BUILDINGINFO_UKEY = process.env.REACT_APP_BUILDINGINFO_UKEY;
 
 // Direct API endpoints for fallback
 const DIRECT_API_ENABLED = true; // Toggle to enable/disable direct API fallback

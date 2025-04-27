@@ -956,14 +956,16 @@ const ProjectComparison = () => {
                       position: 'absolute',
                       fontSize: '0.75rem',
                       whiteSpace: 'nowrap',
-                      color: '#666',
+                      color: '#234b8e',
                       top: '-25px',
                       left: '50%',
                       transform: 'translateX(-50%)',
                       backgroundColor: '#fff',
                       padding: '2px 5px',
                       borderRadius: '3px',
-                      border: '1px solid #e0e0e0',
+                      border: '1px solid #4e73df',
+                      zIndex: 2,
+                      fontWeight: 500
                     }}>
                       {project.applicationDate ? format(project.applicationDate, 'dd MMM yyyy') : ''}
                     </div>
@@ -982,14 +984,16 @@ const ProjectComparison = () => {
                         position: 'absolute',
                         fontSize: '0.75rem',
                         whiteSpace: 'nowrap',
-                        color: '#666',
-                        top: '-25px',
+                        color: '#1e7f5e',
+                        top: '25px',  
                         left: '50%',
                         transform: 'translateX(-50%)',
                         backgroundColor: '#fff',
                         padding: '2px 5px',
                         borderRadius: '3px',
-                        border: '1px solid #e0e0e0',
+                        border: '1px solid #1cc88a',
+                        zIndex: 2,
+                        fontWeight: 500
                       }}>
                         {format(project.decisionDate, 'dd MMM yyyy')}
                       </div>

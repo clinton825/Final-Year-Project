@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "testing": "infrastructure-project--app"
+  },
+  "targets": {},
+  "etags": {}
+}

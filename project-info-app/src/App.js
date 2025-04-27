@@ -8,6 +8,7 @@ import Login from './components/auth/Login';
 import SignUp from './components/auth/SignUp';
 import ProjectDetails from './pages/ProjectDetails';
 import ProjectComparison from './pages/ProjectComparison';
+import ProjectUpdates from './pages/ProjectUpdates';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Analytics from './pages/Analytics';
@@ -73,6 +74,7 @@ const AppContent = () => {
           <Route path="/projects" element={<ProtectedRoute element={<Projects />} />} />
           <Route path="/compare" element={<ProtectedRoute element={<ProjectComparison />} />} />
           <Route path="/project/:planning_id" element={<ProtectedRoute element={<ProjectDetails />} />} />
+          <Route path="/updates" element={<ProtectedRoute element={<ProjectUpdates />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
           <Route path="/analytics" element={<ProtectedRoute element={<Analytics />} />} />
         </Routes>

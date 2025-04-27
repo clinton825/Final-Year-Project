@@ -62,6 +62,9 @@ const Navbar = () => {
               <Link to="/projects" className={`nav-link ${isActive('/projects')}`}>
                 <i className="fas fa-project-diagram"></i> Projects
               </Link>
+              <Link to="/updates" className={`nav-link ${isActive('/updates')}`}>
+                <i className="fas fa-bell"></i> Updates
+              </Link>
               <Link to="/analytics" className={`nav-link ${isActive('/analytics')}`}>
                 <i className="fas fa-chart-pie"></i> Analytics
               </Link>

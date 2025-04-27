@@ -21,7 +21,8 @@ const {
   getProjectsByCategory, 
   getProjectCategories,
   getProjectsByFilters,
-  getAvailableCounties
+  getAvailableCounties,
+  getProjectUpdates
 } = require('./api/building_api');
 
 const {
@@ -382,6 +383,46 @@ app.get("/api/projects/:planningId", async (req, res) => {
   }
 });
 
+// Get project updates (new, recently updated projects)
+app.get("/api/project-updates", async (req, res) => {
+  try {
+    // Get period parameter (defaults to today)
+    const period = req.query.period || '3';
+    const validPeriods = ['3', '-1.1', '-7.1', '-30.1'];
+    
+    if (!validPeriods.includes(period)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid period parameter. Must be one of: 3 (today), -1.1 (yesterday), -7.1 (last 7 days), -30.1 (last 30 days)"
+      });
+    }
+    
+    console.log(`Fetching project updates for period: ${period}`);
+    const updates = await getProjectUpdates(period);
+    
+    if (!updates || !Array.isArray(updates)) {
+      console.error('Invalid response from updates API');
+      return res.status(500).json({
+        status: "error",
+        message: "Failed to fetch project updates"
+      });
+    }
+    
+    console.log(`Successfully retrieved ${updates.length} project updates`);
+    res.json({
+      status: "success",
+      projects: updates
+    });
+  } catch (error) {
+    console.error("Error in /api/project-updates:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: error.message || "Failed to fetch project updates",
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 // Test endpoint to check API connection
 app.get("/api/test", async (req, res) => {
   try {
@@ -654,6 +695,32 @@ app.get("/api/users/:userId/tracked-projects", async (req, res) => {
     res.json({
       status: "success",
       projects: trackedProjects.filter(p => p !== null)
+    });
+  } catch (error) {
+    console.error("Error getting tracked projects:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get tracked projects"
+    });
+  }
+});
+
+app.get("/api/user/:userId/tracked-projects", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const projectIds = await getTrackedProjects(userId);
+    
+    // Fetch full project details for each tracked project
+    const trackedProjects = await Promise.all(
+      projectIds.map(async (id) => {
+        const project = await getProjectInfoByPlanningID(id);
+        return project;
+      })
+    );
+
+    res.json({
+      status: "success",
+      projects: trackedProjects
     });
   } catch (error) {
     console.error("Error getting tracked projects:", error);
