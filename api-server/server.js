@@ -4,6 +4,7 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const userRoutes = require('./routes/users');
 const path = require('path');
+const { swaggerUi, swaggerSpec } = require('./swagger');
 
 // Initialize Firebase Admin
 admin.initializeApp({
@@ -46,14 +47,142 @@ app.use(cors({
 
 app.use(express.json());
 
+// Swagger documentation route
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  swaggerOptions: {
+    persistAuthorization: true,
+    docExpansion: 'none',
+    filter: true,
+    tryItOutEnabled: true
+  }
+}));
+
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+/**
+ * @swagger
+ * tags:
+ *   - name: Projects
+ *     description: Infrastructure project management
+ *   - name: Categories
+ *     description: Project categories and subcategories
+ *   - name: Project Tracking
+ *     description: Track and manage projects for users
+ *   - name: Notifications
+ *     description: User notification management
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     TrackedProject:
+ *       type: object
+ *       properties:
+ *         userId:
+ *           type: string
+ *           description: Firebase user ID
+ *         projectId:
+ *           type: string
+ *           description: Project planning ID
+ *         addedAt:
+ *           type: string
+ *           format: date-time
+ *           description: When the project was tracked
+ *         notes:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               timestamp:
+ *                 type: string
+ *                 format: date-time
+ *     Notification:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         userId:
+ *           type: string
+ *         projectId:
+ *           type: string
+ *         type:
+ *           type: string
+ *           enum: [update, status_change, value_change]
+ *         message:
+ *           type: string
+ *         read:
+ *           type: boolean
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: Welcome message
+ *     description: Returns a welcome message for the API
+ *     responses:
+ *       200:
+ *         description: Successful response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Welcome to the Project Info API
+ */
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Project Info API' });
 });
 
+/**
+ * @swagger
+ * /api/projects:
+ *   get:
+ *     summary: Get all infrastructure projects
+ *     description: Retrieves a list of all infrastructure projects from the Building Info API
+ *     tags: [Projects]
+ *     responses:
+ *       200:
+ *         description: A list of projects
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 projects:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Project'
+ *       404:
+ *         description: No projects found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // Get all projects
 app.get("/api/projects", async (req, res) => {
   try {
@@ -101,6 +230,60 @@ app.get("/api/projects", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/project/{planning_id}:
+ *   get:
+ *     summary: Get project details by planning ID
+ *     description: Retrieves detailed information about a specific project using its planning ID
+ *     tags: [Projects]
+ *     parameters:
+ *       - in: path
+ *         name: planning_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The planning ID of the project
+ *     responses:
+ *       200:
+ *         description: Project details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 project:
+ *                   type: object
+ *                   properties:
+ *                     planning_id:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     location:
+ *                       type: string
+ *                     county:
+ *                       type: string
+ *                     value:
+ *                       type: number
+ *                     category:
+ *                       type: string
+ *                     stage:
+ *                       type: string
+ *                     last_updated:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Planning ID is required
+ *       404:
+ *         description: Project not found
+ *       500:
+ *         description: Server error
+ */
 // Get project by planning ID
 app.get("/api/project/:planning_id", async (req, res) => {
   try {
@@ -172,6 +355,40 @@ app.get("/api/projects/paginated", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/categories:
+ *   get:
+ *     summary: Get available project categories
+ *     description: Retrieves a list of all available project categories and their subcategories
+ *     tags: [Categories]
+ *     responses:
+ *       200:
+ *         description: List of categories and subcategories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 categories:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     example: Residential
+ *                 subcategories:
+ *                   type: object
+ *                   additionalProperties:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   example:
+ *                     Residential: ["House", "Apartment", "Extension"]
+ *       500:
+ *         description: Server error
+ */
 // Get available categories
 app.get("/api/categories", async (req, res) => {
   try {
@@ -383,46 +600,6 @@ app.get("/api/projects/:planningId", async (req, res) => {
   }
 });
 
-// Get project updates (new, recently updated projects)
-app.get("/api/project-updates", async (req, res) => {
-  try {
-    // Get period parameter (defaults to today)
-    const period = req.query.period || '3';
-    const validPeriods = ['3', '-1.1', '-7.1', '-30.1'];
-    
-    if (!validPeriods.includes(period)) {
-      return res.status(400).json({
-        status: "error",
-        message: "Invalid period parameter. Must be one of: 3 (today), -1.1 (yesterday), -7.1 (last 7 days), -30.1 (last 30 days)"
-      });
-    }
-    
-    console.log(`Fetching project updates for period: ${period}`);
-    const updates = await getProjectUpdates(period);
-    
-    if (!updates || !Array.isArray(updates)) {
-      console.error('Invalid response from updates API');
-      return res.status(500).json({
-        status: "error",
-        message: "Failed to fetch project updates"
-      });
-    }
-    
-    console.log(`Successfully retrieved ${updates.length} project updates`);
-    res.json({
-      status: "success",
-      projects: updates
-    });
-  } catch (error) {
-    console.error("Error in /api/project-updates:", error);
-    res.status(500).json({ 
-      status: "error", 
-      message: error.message || "Failed to fetch project updates",
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
 // Test endpoint to check API connection
 app.get("/api/test", async (req, res) => {
   try {
@@ -628,7 +805,47 @@ app.get("/api/projects/county/:county", async (req, res) => {
   }
 });
 
-// User tracking endpoints
+/**
+ * @swagger
+ * /api/projects/track:
+ *   post:
+ *     summary: Track a project
+ *     description: Allows a user to track a specific infrastructure project. Stores the complete project data in Firestore.
+ *     tags: [Project Tracking]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - projectId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: Firebase user ID
+ *               projectId:
+ *                 type: string
+ *                 description: Project planning ID
+ *     responses:
+ *       200:
+ *         description: Project tracked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   $ref: '#/components/schemas/TrackedProject'
+ *       400:
+ *         description: User ID and Project ID are required
+ *       500:
+ *         description: Failed to track project
+ */
 app.post("/api/projects/track", async (req, res) => {
   try {
     const { userId, projectId } = req.body;
@@ -654,6 +871,37 @@ app.post("/api/projects/track", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/projects/untrack:
+ *   post:
+ *     summary: Untrack a project
+ *     description: Allows a user to untrack a specific infrastructure project
+ *     tags: [Project Tracking]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - projectId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: Firebase user ID
+ *               projectId:
+ *                 type: string
+ *                 description: Project planning ID
+ *     responses:
+ *       200:
+ *         description: Project untracked successfully
+ *       400:
+ *         description: User ID and Project ID are required
+ *       500:
+ *         description: Failed to untrack project
+ */
 app.post("/api/projects/untrack", async (req, res) => {
   try {
     const { userId, projectId } = req.body;
@@ -679,6 +927,26 @@ app.post("/api/projects/untrack", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/users/{userId}/tracked-projects:
+ *   get:
+ *     summary: Get tracked projects for a user
+ *     description: Retrieves a list of projects tracked by a specific user
+ *     tags: [Project Tracking]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Firebase user ID
+ *     responses:
+ *       200:
+ *         description: List of tracked projects
+ *       500:
+ *         description: Failed to get tracked projects
+ */
 app.get("/api/users/:userId/tracked-projects", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -705,32 +973,26 @@ app.get("/api/users/:userId/tracked-projects", async (req, res) => {
   }
 });
 
-app.get("/api/user/:userId/tracked-projects", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const projectIds = await getTrackedProjects(userId);
-    
-    // Fetch full project details for each tracked project
-    const trackedProjects = await Promise.all(
-      projectIds.map(async (id) => {
-        const project = await getProjectInfoByPlanningID(id);
-        return project;
-      })
-    );
-
-    res.json({
-      status: "success",
-      projects: trackedProjects
-    });
-  } catch (error) {
-    console.error("Error getting tracked projects:", error);
-    res.status(500).json({
-      status: "error",
-      message: error.message || "Failed to get tracked projects"
-    });
-  }
-});
-
+/**
+ * @swagger
+ * /api/users/{userId}/notifications:
+ *   get:
+ *     summary: Get notifications for a user
+ *     description: Retrieves a list of notifications for a specific user
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Firebase user ID
+ *     responses:
+ *       200:
+ *         description: List of notifications
+ *       500:
+ *         description: Failed to get notifications
+ */
 app.get("/api/users/:userId/notifications", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -749,6 +1011,26 @@ app.get("/api/users/:userId/notifications", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/users/{userId}/notifications/clear:
+ *   post:
+ *     summary: Clear notifications for a user
+ *     description: Clears all notifications for a specific user
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Firebase user ID
+ *     responses:
+ *       200:
+ *         description: Notifications cleared successfully
+ *       500:
+ *         description: Failed to clear notifications
+ */
 app.post("/api/users/:userId/notifications/clear", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -771,6 +1053,95 @@ app.use('/api', userRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+});
+/**
+ * @swagger
+ * /api/project-updates:
+ *   get:
+ *     summary: Get recently updated projects
+ *     description: Fetches projects that have been updated recently based on the specified time period
+ *     tags: [Projects]
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: ['3', '-1.1', '-7.1', '-30.1']
+ *           default: '3'
+ *         description: Time period for updates - 3 (today), -1.1 (yesterday), -7.1 (last 7 days), -30.1 (last 30 days)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved project updates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 projects:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       planning_id:
+ *                         type: string
+ *                       planning_title:
+ *                         type: string
+ *                       planning_value:
+ *                         type: string
+ *                       planning_value_eur:
+ *                         type: string
+ *                       planning_county:
+ *                         type: string
+ *                       is_major_update:
+ *                         type: boolean
+ *                       api_date:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: Invalid period parameter
+ *       500:
+ *         description: Server error
+ */
+app.get("/api/project-updates", async (req, res) => {
+  try {
+    // Get period parameter (defaults to today)
+    const period = req.query.period || '3';
+    const validPeriods = ['3', '-1.1', '-7.1', '-30.1'];
+    
+    if (!validPeriods.includes(period)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid period parameter. Must be one of: 3 (today), -1.1 (yesterday), -7.1 (last 7 days), -30.1 (last 30 days)"
+      });
+    }
+    
+    console.log(`Fetching project updates for period: ${period}`);
+    const updates = await getProjectUpdates(period);
+    
+    if (!updates || !Array.isArray(updates)) {
+      console.error('Invalid response from updates API');
+      return res.status(500).json({
+        status: "error",
+        message: "Failed to fetch project updates"
+      });
+    }
+    
+    console.log(`Successfully retrieved ${updates.length} project updates`);
+    res.json({
+      status: "success",
+      projects: updates
+    });
+  } catch (error) {
+    console.error("Error in /api/project-updates:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: error.message || "Failed to fetch project updates",
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
 });
 
 // Test function
