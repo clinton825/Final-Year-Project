@@ -33,33 +33,66 @@ const ProjectDetails = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [debugInfo, setDebugInfo] = useState({});
+  const [debugInfo, setDebugInfo] = useState({
+    apiDataAvailable: false,
+    firestoreDataAvailable: false,
+    isTracked: false,
+    combinedSource: 'none',
+    timestamp: null
+  });
   const [stakeholders, setStakeholders] = useState([]);
   const [isUpdatingTrackStatus, setIsUpdatingTrackStatus] = useState(false);
 
   useEffect(() => {
-    console.log('ProjectDetails mounted with planning_id:', planning_id);
-    
-    // Extract numeric ID if it's a compound ID
-    let idToUse = planning_id;
-    if (typeof planning_id === 'string' && planning_id.includes('_')) {
-      idToUse = planning_id.split('_')[1]; // Get the part after the underscore
-      console.log('Extracted numeric ID from compound ID:', idToUse);
+    // When component mounts or planning_id changes, fetch project details
+    if (planning_id) {
+      console.log('Planning ID changed, fetching details:', planning_id);
+      setLoading(true);
+      setError(null);
+      
+      // Clean the ID if needed
+      const cleanId = extractProjectId(planning_id);
+      if (cleanId) {
+        fetchProjectDetails(cleanId);
+      } else {
+        setError('Invalid project ID');
+        setLoading(false);
+      }
     }
     
-    if (idToUse) {
-      fetchProjectDetails(idToUse);
-    }
-  }, [planning_id]);
-  
+    // Cleanup function
+    return () => {
+      // Reset state on unmount
+      setProject(null);
+      setStakeholders([]);
+      setIsTracked(false);
+      setError(null);
+      setSuccess(null);
+    };
+  }, [planning_id]); // Only re-run if planning_id changes
+
   useEffect(() => {
-    if (project?.planning_id) {
-      const projectId = project.planning_id;
-      console.log('Project data loaded with planning_id:', projectId);
-      checkIfProjectIsTracked(projectId);
+    // Check tracking status whenever the user or planning_id changes
+    if (currentUser && planning_id) {
+      console.log('User or planning ID changed, checking tracking status');
+      checkIfProjectIsTracked(planning_id);
+    } else {
+      // Reset tracking state if user is not logged in
+      setIsTracked(false);
     }
-  }, [project, currentUser]);
-  
+  }, [currentUser, planning_id]);
+
+  // Effect for success message timeout
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   // Clear success message after 5 seconds
   useEffect(() => {
     if (success) {
@@ -109,6 +142,71 @@ const ProjectDetails = () => {
     }
   };
 
+  // Function to normalize and combine data from API and Firestore
+  const combineSources = (apiData, firestoreData) => {
+    console.log('Combining data sources...');
+    
+    // Start with Firestore data if available, otherwise empty object
+    let combined = firestoreData ? { ...firestoreData } : {};
+    
+    // Add API data if available
+    if (apiData) {
+      // Assign API data properties, being careful not to overwrite existing Firestore data
+      Object.keys(apiData).forEach(key => {
+        // Don't overwrite existing data unless API value is more substantive
+        if (!combined[key] || (combined[key] === 'Unknown' && apiData[key])) {
+          combined[key] = apiData[key];
+        }
+      });
+      
+      // Ensure we have standard field names for critical fields
+      combined.planning_id = combined.planning_id || apiData.planning_id || apiData.id;
+      combined.planning_title = combined.planning_title || apiData.planning_title || apiData.planning_name || apiData.title;
+      combined.planning_description = combined.planning_description || apiData.planning_description || apiData.description;
+      combined.planning_value = combined.planning_value || apiData.planning_value || apiData.value || apiData.projectValue;
+      combined.planning_county = combined.planning_county || apiData.planning_county || apiData.county || apiData.location;
+      combined.planning_category = combined.planning_category || apiData.planning_category || apiData.category || apiData.type;
+    }
+    
+    // Ensure all critical fields have default values
+    combined.planning_id = combined.planning_id || planning_id;
+    combined.planning_title = combined.planning_title || 'Unnamed Project';
+    combined.planning_description = combined.planning_description || 'No description available';
+    combined.planning_value = combined.planning_value || 0;
+    combined.planning_county = combined.planning_county || 'Unknown';
+    combined.planning_category = combined.planning_category || 'Uncategorized';
+    
+    // Add data source tracking for debugging
+    combined.dataSource = firestoreData ? (apiData ? 'both' : 'firestore') : 'api';
+    
+    // Add timestamp
+    combined.timestamp = new Date().toISOString();
+    
+    return combined;
+  };
+
+  // Function to extract ID from potentially compound IDs
+  const extractProjectId = (id) => {
+    if (!id) return null;
+    
+    // Clean up any whitespace first
+    let cleanId = id.trim();
+    
+    // If it's a compound ID (e.g., "userId_projectId"), extract the projectId part
+    if (cleanId.includes('_')) {
+      cleanId = cleanId.split('_')[1];
+      console.log('Extracted project ID from compound ID:', cleanId);
+    }
+    
+    return cleanId;
+  };
+
+  // Centralized function to get the tracking document ID
+  const getTrackingDocId = (userId, projectId) => {
+    if (!userId || !projectId) return null;
+    return `${userId}_${projectId}`;
+  };
+
   const fetchProjectDetails = async (idToUse) => {
     try {
       setLoading(true);
@@ -127,105 +225,130 @@ const ProjectDetails = () => {
       
       // STEP 1: Try to find the project in Firestore first
       try {
+        console.log('Checking Firestore for project data...');
+        
         // First check the trackedProjects collection (for logged-in users)
         if (currentUser) {
           // Try to get project from trackedProjects collection
-          const docId = `${currentUser.uid}_${idToUse}`;
+          const docId = getTrackingDocId(currentUser.uid, idToUse);
           const trackedProjectRef = doc(db, 'trackedProjects', docId);
           const trackedProjectDoc = await getDoc(trackedProjectRef);
           
           if (trackedProjectDoc.exists()) {
-            console.log('✅ Found project in trackedProjects collection');
+            console.log('Found project in user tracked projects');
+            
+            // Extract data
             const data = trackedProjectDoc.data();
             
-            // If we have complete project data stored, use it
+            // Handle different data structures
             if (data.projectData) {
-              firestoreData = data.projectData;
-              isProjectTracked = true;
-              console.log('Using complete project data from trackedProjects');
+              // If stored in projectData field
+              firestoreData = { ...data.projectData };
             } else {
-              console.log('Project found in trackedProjects but missing complete data');
+              // If stored at root level
+              firestoreData = { ...data };
             }
-          } else {
-            console.log('No matching project found in trackedProjects by ID:', docId);
             
-            // Second try: projects collection
-            try {
-              const projectRef = doc(db, 'projects', idToUse);
-              const projectDoc = await getDoc(projectRef);
+            // Add the ID to the project data
+            firestoreData.planning_id = idToUse;
+            
+            // Set tracked flag
+            isProjectTracked = true;
+          } else {
+            // Try an alternative query approach
+            const trackedProjectsQuery = query(
+              collection(db, 'trackedProjects'),
+              where('userId', '==', currentUser.uid),
+              where('projectId', '==', idToUse)
+            );
+            
+            const querySnapshot = await getDocs(trackedProjectsQuery);
+            if (!querySnapshot.empty) {
+              console.log('Found project via query');
+              const data = querySnapshot.docs[0].data();
               
-              if (projectDoc.exists()) {
-                console.log('✅ Found project in projects collection');
-                firestoreData = projectDoc.data();
+              if (data.projectData) {
+                firestoreData = { ...data.projectData };
               } else {
-                console.log('No matching project found in Firestore');
+                firestoreData = { ...data };
               }
-            } catch (projectsError) {
-              console.error('Error querying projects collection:', projectsError);
+              
+              firestoreData.planning_id = idToUse;
+              isProjectTracked = true;
             }
           }
-        } else {
-          // If user is not logged in, try to get from projects collection directly
+        }
+        
+        // Next check the projects collection (for all users)
+        if (!firestoreData) {
+          console.log('Checking projects collection...');
           const projectRef = doc(db, 'projects', idToUse);
           const projectDoc = await getDoc(projectRef);
           
           if (projectDoc.exists()) {
-            console.log('✅ Found project in projects collection (anonymous user)');
+            console.log('Found project in projects collection');
             firestoreData = projectDoc.data();
-          } else {
-            console.log('No matching project found in Firestore (anonymous user)');
+            firestoreData.planning_id = idToUse;
           }
+        }
+        
+        if (firestoreData) {
+          console.log('Firestore data found:', firestoreData);
+        } else {
+          console.log('No Firestore data found for project');
         }
       } catch (firestoreError) {
         console.error('Error fetching from Firestore:', firestoreError);
-        // We'll continue and try the API
       }
       
-      // STEP 2: Try to fetch from the configured API (even if we already have Firestore data)
+      // STEP 2: Try to fetch from the API (even if we already have Firestore data)
       try {
-        // Use the API URL from config, which now handles environment differences
-        console.log(`Fetching from configured API: ${config.API_URL}/api/project/${idToUse}`);
-        const response = await fetchWithRetry(`${config.API_URL}/api/project/${idToUse}`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.project) {
-            console.log('✅ Successfully fetched API data');
-            apiData = data.project;
-          } else {
-            console.warn('API response missing project data structure:', data);
-            
-            // Add detailed logging for API errors
-            if (data && data.status === 'ERROR') {
-              console.warn('API returned ERROR status. This likely means the project ID is not found in the BuildingInfo database');
+        // Check if we should try the API
+        if ((config.PRODUCTION || !firestoreData) && config.API_ENABLED) {
+          console.log('Fetching from standard API...');
+          const apiUrl = `${config.API_URL}/projects/${idToUse}`;
+          const response = await fetch(apiUrl);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.data) {
+              apiData = data.data;
+              console.log('API data found:', apiData);
             }
           }
-        } else {
-          console.warn(`API returned status: ${response.status}`);
+        }
+        
+        // Try direct API as backup
+        if ((config.PRODUCTION || !firestoreData) && config.DIRECT_API_ENABLED && !apiData) {
+          console.log('Fetching from direct API...');
           
-          // If we're in production and the API didn't work, try a direct API call as fallback
-          if ((config.PRODUCTION || !firestoreData) && config.DIRECT_API_ENABLED) {
-            try {
-              console.log('Attempting direct BuildingInfo API call as fallback (production fallback)');
-              const directApiUrl = `${config.DIRECT_API_URL}/projects/t-projects?api_key=${config.BUILDINGINFO_API_KEY}&ukey=${config.BUILDINGINFO_UKEY}&planning_id=${idToUse}`;
-              
-              console.log(`Attempting fallback direct API`);
-              
-              const directResponse = await fetch(directApiUrl);
-              if (directResponse.ok) {
-                const directData = await directResponse.json();
-                if (directData && directData.projects && directData.projects.length > 0) {
-                  console.log('✅ Successfully fetched direct BuildingInfo API data');
-                  // Map API response to our expected structure
-                  apiData = directData.projects[0];
-                } else {
-                  console.warn('Direct API response missing projects data structure:', directData);
-                }
-              } else {
-                console.warn(`Direct API returned status: ${directResponse.status}`);
-              }
-            } catch (directApiError) {
-              console.error('Error fetching from direct BuildingInfo API:', directApiError);
+          // Get API keys from config
+          const apiKey = config.BUILDINGINFO_API_KEY;
+          const uKey = config.BUILDINGINFO_UKEY;
+          
+          // Ensure we have the API keys
+          if (!apiKey || !uKey) {
+            console.error('Missing API keys for direct API');
+            throw new Error('API configuration is incomplete');
+          }
+          
+          const directApiUrl = `${config.DIRECT_API_URL}/projects/t-projects?api_key=${apiKey}&ukey=${uKey}&planning_id=${idToUse}`;
+          const directResponse = await fetch(directApiUrl);
+          
+          if (directResponse.ok) {
+            const directData = await directResponse.json();
+            
+            // Handle different API response formats
+            if (directData && directData.data && directData.data.length > 0) {
+              apiData = directData.data[0];
+              console.log('Direct API data found (data array):', apiData);
+            } else if (directData && directData.projects && directData.projects.length > 0) {
+              apiData = directData.projects[0];
+              console.log('Direct API data found (projects array):', apiData);
+            } else if (directData && Object.keys(directData).length > 0) {
+              // If the API returns the project directly
+              apiData = directData;
+              console.log('Direct API data found (direct object):', apiData);
             }
           }
         }
@@ -233,100 +356,70 @@ const ProjectDetails = () => {
         console.error('Error fetching from API:', apiError);
       }
       
-      // Update the tracked state
-      setIsTracked(isProjectTracked);
-      
-      // STEP 3: Merge and normalize the data
-      let finalData;
-      
-      if (apiData && firestoreData) {
-        // We have both sources - merge with API data taking precedence for most fields
-        // But preserve tracking metadata from Firestore
-        const trackingMetadata = {
-          docId: firestoreData.docId,
-          trackedAt: firestoreData.trackedAt,
-          userId: firestoreData.userId,
-          notes: firestoreData.notes
+      // STEP 3: Generate mock data if nothing found and we're in development
+      if (!apiData && !firestoreData && !config.PRODUCTION) {
+        console.log('Generating mock data for development');
+        firestoreData = {
+          planning_id: idToUse,
+          planning_title: 'Demo Project',
+          planning_description: 'This is a demo project for development purposes',
+          planning_value: 1500000,
+          planning_county: 'Dublin',
+          planning_category: 'Residential',
+          planning_status: 'Planning',
+          date: new Date().toISOString()
         };
-        
-        finalData = { 
-          ...firestoreData,  // Base is Firestore data
-          ...apiData,        // API data overrides duplicates
-          ...trackingMetadata // Restore tracking metadata that might have been overwritten
-        };
-        
-        console.log('Merged data from both Firestore and API');
-      } else if (apiData) {
-        // Only have API data
-        finalData = apiData;
-        console.log('Using API data only');
-      } else if (firestoreData) {
-        // Only have Firestore data (API failed)
-        finalData = firestoreData;
-        console.log('Using Firestore data only (API unavailable)');
-        
-        // Show a notification that we're using cached data
-        setSuccess('API is currently unavailable. Showing saved project data.');
-      } else {
-        // No data from either source
-        throw new Error('Could not fetch project data from any source');
       }
       
-      // Normalize the planning_id field to ensure consistency
-      finalData.planning_id = finalData.planning_id || idToUse;
-      
-      // Add a flag to indicate data source for UI elements
-      finalData.dataSource = apiData ? (firestoreData ? 'both' : 'api') : 'firestore';
-      
-      console.log('Final normalized project data:', finalData);
-      setProject(finalData);
-      
-      // Set stakeholders
-      if (finalData.stakeholders) {
-        setStakeholders(finalData.stakeholders);
-      } else {
-        // Mock stakeholders data for demo/testing
-        setStakeholders([
-          { name: 'Developer', organization: 'XYZ Development Ltd', role: 'Primary Developer' },
-          { name: 'Local Council', organization: 'City Planning Department', role: 'Approval Authority' },
-          { name: 'Community Representative', organization: 'Local Community Board', role: 'Community Liaison' }
-        ]);
-      }
-      
-      // Log the view activity
-      if (currentUser) {
-        try {
-          await addDoc(collection(db, 'userActivity'), {
-            userId: currentUser.uid,
-            type: 'view',
-            projectId: idToUse,
-            projectTitle: finalData.planning_title || finalData.planning_name || 'Unnamed Project',
-            timestamp: serverTimestamp()
-          });
-        } catch (activityError) {
-          console.error('Error logging activity:', activityError);
+      // STEP 4: Set the project in state with proper error handling
+      if (apiData || firestoreData) {
+        // Combine data from both sources if available
+        const combinedData = combineSources(apiData, firestoreData);
+        console.log('Final normalized project data:', combinedData);
+        
+        // Update state with combined data
+        setProject(combinedData);
+        
+        // Extract stakeholders if available
+        if (combinedData.stakeholders || combinedData.companies) {
+          const stakeholdersData = combinedData.stakeholders || combinedData.companies || [];
+          setStakeholders(stakeholdersData);
+        } else if (!config.PRODUCTION) {
+          // Add mock stakeholders in development mode
+          setStakeholders([
+            { name: 'Developer', organization: 'XYZ Development', role: 'Lead Developer' },
+            { name: 'Architect', organization: 'ABC Architects', role: 'Design Lead' }
+          ]);
         }
+        
+        // If this is a tracked project, update state
+        if (isProjectTracked) {
+          setIsTracked(true);
+        }
+        
+        // Set debug info
+        setDebugInfo({
+          apiDataAvailable: !!apiData,
+          firestoreDataAvailable: !!firestoreData,
+          isTracked: isProjectTracked,
+          combinedSource: combinedData.dataSource,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        throw new Error('No project data found from any source');
       }
     } catch (error) {
-      console.error('Error in fetchProjectDetails:', error);
-      setError(`Error loading project: ${error.message}`);
-      
-      // Set minimal fallback data
-      setProject({
-        planning_id: idToUse,
-        planning_title: 'Error Loading Project',
-        planning_description: 'Failed to load project details. Please try again later.',
-        planning_category: 'Not Available',
-        planning_stage: 'Not Available',
-        planning_value: 'Not Available'
-      });
+      console.error('Error fetching project details:', error);
+      setError(`Failed to load project details: ${error.message}`);
+      setProject(null);
     } finally {
       setLoading(false);
     }
   };
-  
+
   const checkIfProjectIsTracked = async (projectId) => {
-    if (!currentUser) {
+    if (!currentUser || !projectId) {
+      console.log('No user or project ID, setting tracked to false');
       setIsTracked(false);
       return;
     }
@@ -335,7 +428,7 @@ const ProjectDetails = () => {
       console.log('Checking if project is tracked:', projectId);
       
       // First try with compound ID
-      const compoundId = `${currentUser.uid}_${projectId}`;
+      const compoundId = getTrackingDocId(currentUser.uid, projectId);
       const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
       console.log('Checking document with ID:', compoundId);
       
@@ -361,8 +454,23 @@ const ProjectDetails = () => {
         console.log('Project is tracked (found by query)');
         setIsTracked(true);
       } else {
-        console.log('Project is not tracked');
-        setIsTracked(false);
+        // One more attempt - try finding by planning_id field
+        console.log('Trying one more attempt with planning_id field...');
+        const planningIdQuery = query(
+          collection(db, 'trackedProjects'),
+          where('userId', '==', currentUser.uid),
+          where('planning_id', '==', projectId)
+        );
+        
+        const planningIdSnapshot = await getDocs(planningIdQuery);
+        
+        if (!planningIdSnapshot.empty) {
+          console.log('Project is tracked (found by planning_id field)');
+          setIsTracked(true);
+        } else {
+          console.log('Project is not tracked after all attempts');
+          setIsTracked(false);
+        }
       }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
@@ -372,123 +480,125 @@ const ProjectDetails = () => {
 
   const handleTrackToggle = async () => {
     if (!currentUser) {
+      console.log('No user logged in, redirecting to login');
       navigate('/login'); 
       return;
     }
 
-    setIsUpdatingTrackStatus(true);
+    if (!project || !project.planning_id) {
+      console.error('Cannot track project: No valid project data available');
+      setError('Cannot track this project. Missing project information.');
+      return;
+    }
 
+    // Show loading state
+    setLoading(true);
+    
     try {
-      // Check if device is offline
-      if (!navigator.onLine) {
-        throw new Error('You appear to be offline. Please check your internet connection and try again.');
-      }
-
-      const projectToStore = { ...project };
+      // Safely get the planning ID from the project data
+      const planningIdToUse = project.planning_id || planning_id;
+      console.log('Using planning ID for tracking:', planningIdToUse);
       
-      // Make sure we have a valid planning ID - use the one from state or URL params
-      const planningIdToUse = project?.planning_id || planning_id;
-      
-      if (!planningIdToUse) {
-        console.error('No valid planning ID found');
-        setError('Could not identify project ID. Please try again.');
-        setIsUpdatingTrackStatus(false);
-        return;
-      }
-
-      console.log('Toggling tracking for project:', planningIdToUse);
-      
-      // Create a unique ID for the document that includes both user ID and project ID
-      const documentId = `${currentUser.uid}_${planningIdToUse}`;
-      console.log('Using document ID:', documentId);
+      // Create a compound ID for the document
+      const compoundId = getTrackingDocId(currentUser.uid, planningIdToUse);
+      console.log('Document compound ID:', compoundId);
       
       // Reference to the tracked project document
-      const trackedProjectRef = doc(db, 'trackedProjects', documentId);
+      const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
       
-      // Check if user is tracking or untracking the project
+      // Create simplified project data to store
+      const projectToStore = {
+        planning_id: planningIdToUse,
+        planning_title: project.planning_title || project.planning_name || project.title || 'Unnamed Project',
+        planning_category: project.planning_category || project.category || 'Uncategorized',
+        planning_county: project.planning_county || project.county || project.location || 'Unknown',
+        planning_value: project.planning_value || project.value || 0,
+        planning_status: project.planning_status || project.planning_stage || project.status || 'Unknown',
+        planning_description: project.planning_description || project.description || 'No description available',
+        tracked_date: new Date().toISOString()
+      };
+      
+      // Check if we're tracking or untracking
       if (isTracked) {
-        // User is untracking the project
-        console.log('Untracking project...');
+        console.log('Untracking project:', planningIdToUse);
         
-        // Optimistic UI update - update state before the operation completes
-        setIsTracked(false);
-        
-        try {
+        // Check if document exists before attempting to delete
+        const docSnap = await getDoc(trackedProjectRef);
+        if (docSnap.exists()) {
           await deleteDoc(trackedProjectRef);
+          console.log('Successfully untracked project');
           
-          // Create activity entry for untracking
+          // Log untrack activity
           await addDoc(collection(db, 'userActivity'), {
             userId: currentUser.uid,
             type: 'untrack',
             projectId: planningIdToUse,
-            projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+            projectTitle: projectToStore.planning_title,
             timestamp: serverTimestamp()
           });
-
-          console.log('Project untracked successfully');
-          setSuccess('Project removed from tracked projects.');
-        } catch (error) {
-          console.error('Error untracking project:', error);
-          // Revert optimistic update on failure
-          setIsTracked(true);
-          throw error;
+          
+          setSuccess('Project removed from tracked projects');
+          setIsTracked(false); // Update state immediately
+        } else {
+          console.log('Document did not exist, trying alternative query');
+          
+          // Try alternative query to find and delete the document
+          const q = query(
+            collection(db, 'trackedProjects'),
+            where('userId', '==', currentUser.uid),
+            where('projectId', '==', planningIdToUse)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            // Delete all matching documents (should be only one)
+            const deletePromises = [];
+            querySnapshot.forEach((doc) => {
+              deletePromises.push(deleteDoc(doc.ref));
+            });
+            
+            await Promise.all(deletePromises);
+            console.log('Successfully untracked project via query');
+            setSuccess('Project removed from tracked projects');
+            setIsTracked(false); // Update state immediately
+          } else {
+            console.log('No tracked project found to untrack');
+            setError('Project was not in your tracked list');
+          }
         }
       } else {
-        // User is tracking the project - store complete project data
-        console.log('Tracking project...');
+        console.log('Tracking project:', planningIdToUse);
         
-        // Optimistic UI update - update state before the operation completes
-        setIsTracked(true);
+        // Set tracking document with compound ID
+        await setDoc(trackedProjectRef, {
+          userId: currentUser.uid,
+          projectId: planningIdToUse,
+          planning_id: planningIdToUse, // Store as separate field for queries
+          trackedAt: serverTimestamp(),
+          lastViewed: serverTimestamp(),
+          projectData: projectToStore,
+        });
         
-        try {
-          await setDoc(trackedProjectRef, {
-            userId: currentUser.uid,
-            projectId: planningIdToUse,
-            dateTracked: serverTimestamp(),
-            
-            // Add essential fields at the root level for better retrieval
-            title: project.planning_title || project.planning_name || project.title || project.name || 'Unnamed Project',
-            description: project.planning_description || project.description || '',
-            value: project.planning_value || project.projectValue || project.value || 0,
-            location: project.planning_county || project.county || project.location || '',
-            category: project.planning_category || project.category || project.type || 'Uncategorized',
-            date: project.planning_date || project.date || serverTimestamp(),
-            
-            // Store complete project data as well
-            projectData: projectToStore,
-          });
-
-          // Create activity entry for tracking
-          await addDoc(collection(db, 'userActivity'), {
-            userId: currentUser.uid,
-            type: 'track',
-            projectId: planningIdToUse,
-            projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
-            timestamp: serverTimestamp()
-          });
-
-          console.log('Project tracked successfully');
-          setSuccess('Project added to tracked projects.');
-        } catch (error) {
-          console.error('Error tracking project:', error);
-          // Revert optimistic update on failure
-          setIsTracked(false);
-          throw error;
-        }
+        console.log('Successfully tracked project');
+        
+        // Log track activity
+        await addDoc(collection(db, 'userActivity'), {
+          userId: currentUser.uid,
+          type: 'track',
+          projectId: planningIdToUse,
+          projectTitle: projectToStore.planning_title,
+          timestamp: serverTimestamp()
+        });
+        
+        setSuccess('Project added to your tracked projects');
+        setIsTracked(true); // Update state immediately
       }
-    } catch (error) {
-      console.error('Error updating project tracking status:', error);
       
-      // Provide more specific error messages based on error type
-      if (error.code === 'permission-denied') {
-        setError('You do not have permission to perform this action. Please check your account status.');
-      } else if (error.code === 'unavailable' || error.message.includes('offline')) {
-        setError('Network error: Please check your internet connection and try again.');
-      } else {
-        setError(`Failed to update tracking status: ${error.message || 'Please try again.'}`);
-      }
+    } catch (error) {
+      console.error('Error toggling project tracking:', error);
+      setError(`Failed to ${isTracked ? 'untrack' : 'track'} project: ${error.message}`);
     } finally {
-      setIsUpdatingTrackStatus(false);
+      setLoading(false);
     }
   };
 
@@ -496,104 +606,142 @@ const ProjectDetails = () => {
     navigate('/projects');
   };
 
-  const renderOverviewTab = () => (
-    <>
-      <div className="details-grid">
-        <div className="detail-item">
-          <h3>Planning ID</h3>
-          <p>{project.planning_id || planning_id || 'N/A'}</p>
+  const renderOverviewTab = () => {
+    if (!project) return <div>Loading project details...</div>;
+    
+    // Extract project details with fallbacks
+    const {
+      planning_title = 'Unnamed Project',
+      planning_description = 'No description available',
+      planning_value = 0,
+      planning_county = 'Unknown',
+      planning_category = 'Uncategorized',
+      planning_status = project.planning_stage || project.status || 'Unknown',
+      planning_date = project.date || project.planning_date || 'Unknown',
+      planning_development_address_1 = project.address || project.location || '',
+      planning_development_address_2 = '',
+      planning_development_town = project.town || '',
+      planning_development_county = project.county || planning_county || '',
+      planning_id: projectId = planning_id,
+    } = project;
+    
+    // Format currency
+    const formatCurrency = (value) => {
+      if (!value || isNaN(parseFloat(value))) return 'Not Available';
+      
+      // Try to convert to number if it's a string
+      let numValue = typeof value === 'string' 
+        ? parseFloat(value.replace(/[^0-9.-]+/g, '')) 
+        : value;
+      
+      if (isNaN(numValue)) return 'Not Available';
+      
+      return new Intl.NumberFormat('en-IE', {
+        style: 'currency',
+        currency: 'EUR',
+        maximumFractionDigits: 0
+      }).format(numValue);
+    };
+    
+    // Format date
+    const formatDate = (dateStr) => {
+      if (!dateStr || dateStr === 'Unknown') return 'Not Available';
+      
+      try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return 'Not Available';
+        
+        return new Intl.DateTimeFormat('en-IE', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }).format(date);
+      } catch (e) {
+        return 'Not Available';
+      }
+    };
+    
+    // Construct full address
+    const fullAddress = [
+      planning_development_address_1,
+      planning_development_address_2,
+      planning_development_town,
+      planning_development_county
+    ].filter(Boolean).join(', ');
+    
+    return (
+      <div className="project-overview">
+        <div className="overview-section description-section">
+          <h3>Project Description</h3>
+          <p>{planning_description}</p>
         </div>
-        <div className="detail-item">
-          <h3>Name</h3>
-          <p>{project.planning_name}</p>
+        
+        <div className="overview-grid">
+          <div className="overview-section details-section">
+            <h3>Project Details</h3>
+            <div className="details-grid">
+              <div className="detail-item">
+                <span className="detail-label">Project ID:</span>
+                <span className="detail-value">{projectId || 'Not Available'}</span>
+              </div>
+              
+              <div className="detail-item">
+                <span className="detail-label">Category:</span>
+                <span className="detail-value">{planning_category}</span>
+              </div>
+              
+              <div className="detail-item">
+                <span className="detail-label">Status:</span>
+                <span className="detail-value status">{planning_status}</span>
+              </div>
+              
+              <div className="detail-item">
+                <span className="detail-label">Value:</span>
+                <span className="detail-value">{formatCurrency(planning_value)}</span>
+              </div>
+              
+              <div className="detail-item">
+                <span className="detail-label">Application Date:</span>
+                <span className="detail-value">{formatDate(planning_date)}</span>
+              </div>
+              
+              <div className="detail-item">
+                <span className="detail-label">County:</span>
+                <span className="detail-value">{planning_county}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="overview-section location-section">
+            <h3>Location</h3>
+            <div className="location-details">
+              <div className="location-icon">
+                <i className="fas fa-map-marker-alt"></i>
+              </div>
+              <div className="location-address">
+                {fullAddress || 'Location details not available'}
+              </div>
+            </div>
+            
+            {/* Placeholder for map - would be implemented with Google Maps or similar */}
+            <div className="location-map-placeholder">
+              <i className="fas fa-map"></i>
+              <p>Map view would be displayed here</p>
+            </div>
+          </div>
         </div>
-        <div className="detail-item">
-          <h3>Category</h3>
-          <p>{project.planning_category} - {project.planning_subcategory}</p>
-        </div>
-        <div className="detail-item">
-          <h3>Type</h3>
-          <p>{project.planning_type}</p>
-        </div>
-        <div className="detail-item">
-          <h3>Stage</h3>
-          <p>{project.planning_stage}</p>
-        </div>
-        <div className="detail-item">
-          <h3>Value</h3>
-          <p>€{Number(project.planning_value).toLocaleString()}</p>
-        </div>
-        <div className="detail-item">
-          <h3>Location</h3>
-          <p>{[
-            project.planning_development_address_1,
-            project.planning_development_address_2,
-            project.planning_development_address_3,
-            project.planning_development_address_4,
-          ].filter(Boolean).join(', ')}</p>
-        </div>
-        <div className="detail-item">
-          <h3>Region</h3>
-          <p>{project.planning_county}, {project.planning_region}</p>
-        </div>
-        <div className="detail-item">
-          <h3>Site Area</h3>
-          <p>{project.planning_siteha} hectares</p>
-        </div>
-        <div className="detail-item">
-          <h3>Building Size</h3>
-          <p>{project.planning_sizesqmt} sq.mt</p>
-        </div>
+        
+        {debugInfo.apiDataAvailable && (
+          <div className="data-source-info">
+            <p>Data Source: {debugInfo.combinedSource}</p>
+            <p>API Data Available: {debugInfo.apiDataAvailable ? 'Yes' : 'No'}</p>
+            <p>Firestore Data Available: {debugInfo.firestoreDataAvailable ? 'Yes' : 'No'}</p>
+            <p>Is Tracked: {debugInfo.isTracked ? 'Yes' : 'No'}</p>
+          </div>
+        )}
       </div>
-
-      <div className="dates-section">
-        <h3>Important Dates</h3>
-        <div className="dates-grid">
-          <div className="date-item">
-            <span>Application Date:</span>
-            <p>{new Date(project.planning_application_date).toLocaleDateString()}</p>
-          </div>
-          <div className="date-item">
-            <span>Decision Date:</span>
-            <p>{project.planning_decision_date ? new Date(project.planning_decision_date).toLocaleDateString() : 'Not available'}</p>
-          </div>
-          <div className="date-item">
-            <span>Start Date:</span>
-            <p>{project.planning_start_date ? new Date(project.planning_start_date).toLocaleDateString() : 'Not available'}</p>
-          </div>
-          <div className="date-item">
-            <span>Estimated Completion:</span>
-            <p>{project.planning_est_completion_date ? new Date(project.planning_est_completion_date).toLocaleDateString() : 'Not available'}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="description-section">
-        <h3>Project Description</h3>
-        <p>{project.planning_description}</p>
-      </div>
-
-      {project.planning_tags && (
-        <div className="tags-section">
-          <h3>Project Tags</h3>
-          <div className="tags-container">
-            {project.planning_tags.split(',').map((tag, index) => (
-              <span key={index} className="tag">{tag.trim()}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {project.planning_url && (
-        <div className="url-section">
-          <h3>Project URL</h3>
-          <a href={project.planning_url} target="_blank" rel="noopener noreferrer">
-            View External Resource
-          </a>
-        </div>
-      )}
-    </>
-  );
+    );
+  };
 
   const renderStakeholdersTab = () => (
     <div className="stakeholders-section">
@@ -654,10 +802,49 @@ const ProjectDetails = () => {
     </div>
   );
 
+  const TrackingButton = () => {
+    if (!currentUser) {
+      return (
+        <button className="track-button" onClick={() => navigate('/login')}>
+          <i className="fas fa-user-lock"></i>
+          Login to Track Project
+        </button>
+      );
+    }
+    
+    return (
+      <button 
+        className={`track-button ${isTracked ? 'tracked' : ''}`}
+        onClick={handleTrackToggle}
+        disabled={loading}
+      >
+        {loading ? (
+          <>
+            <i className="fas fa-spinner fa-spin"></i>
+            Loading...
+          </>
+        ) : isTracked ? (
+          <>
+            <i className="fas fa-times-circle"></i>
+            Untrack Project
+          </>
+        ) : (
+          <>
+            <i className="fas fa-plus-circle"></i>
+            Track Project
+          </>
+        )}
+      </button>
+    );
+  };
+
   if (loading) {
     return (
       <div className="project-details">
-        <div className="loading">Loading project details...</div>
+        <div className="loading">
+          <i className="fas fa-spinner fa-spin"></i>
+          <p>Loading project details...</p>
+        </div>
       </div>
     );
   }
@@ -666,8 +853,14 @@ const ProjectDetails = () => {
     return (
       <div className="project-details">
         <div className="error-container">
-          <div className="error">{error}</div>
-          <button onClick={handleBack} className="back-button">Back to Projects</button>
+          <div className="error">
+            <i className="fas fa-exclamation-triangle"></i>
+            <p>{error}</p>
+          </div>
+          <button className="back-button" onClick={handleBack}>
+            <i className="fas fa-arrow-left"></i>
+            Return to Projects
+          </button>
         </div>
       </div>
     );
@@ -678,7 +871,10 @@ const ProjectDetails = () => {
       <div className="project-details">
         <div className="error-container">
           <div className="error">Project not found</div>
-          <button onClick={handleBack} className="back-button">Back to Projects</button>
+          <button className="back-button" onClick={handleBack}>
+            <i className="fas fa-arrow-left"></i>
+            Back to Projects
+          </button>
         </div>
       </div>
     );
@@ -692,33 +888,37 @@ const ProjectDetails = () => {
         </div>
       )}
       <button className="back-button" onClick={handleBack}>
-        <i className="fas fa-arrow-left"></i> Back to Projects
+        <i className="fas fa-arrow-left"></i>
+        Back to Projects
       </button>
 
       <div className="project-header">
         <div className="project-title-section">
-          <h1>{project.planning_name || project.planning_title || project.planning_development_address_1 || 'Unnamed Project'}</h1>
+          <h1>{project.planning_title || project.planning_name || project.title || 'Unnamed Project'}</h1>
           <div className="project-meta">
-            <div className="project-id-display">Project ID: {project.planning_id || planning_id || 'N/A'}</div>
+            <span className="project-id-display">
+              <i className="fas fa-hashtag"></i>
+              {project.planning_id || planning_id}
+            </span>
+            
             {isTracked && (
-              <div className="tracking-badge">
-                <i className="fas fa-bookmark"></i> Tracked
-              </div>
+              <span className="tracking-badge">
+                <i className="fas fa-bookmark"></i>
+                Tracked
+              </span>
             )}
-            {project.dataSource === 'firestore' && (
-              <div className="data-source-badge cached">
-                <i className="fas fa-database"></i> Cached Data
-              </div>
+            
+            {project.dataSource && (
+              <span className={`data-source-badge ${project.dataSource !== 'api' ? 'cached' : ''}`}>
+                <i className={project.dataSource === 'api' ? 'fas fa-cloud-download-alt' : 'fas fa-database'}></i>
+                {project.dataSource === 'api' ? 'Live Data' : 
+                 project.dataSource === 'both' ? 'Combined Data' : 'Cached Data'}
+              </span>
             )}
           </div>
         </div>
-        <button 
-          className={`track-button ${isTracked ? 'tracked' : ''}`}
-          onClick={handleTrackToggle}
-        >
-          <i className={`fas ${isTracked ? 'fa-bell-slash' : 'fa-bell'}`}></i>
-          {isTracked ? 'Untrack Project' : 'Track Project'}
-        </button>
+        
+        <TrackingButton />
       </div>
 
       <div className="tabs">

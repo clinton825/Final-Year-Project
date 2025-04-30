@@ -171,23 +171,34 @@ const TrackedProjectsWidget = ({ data }) => {
 
   // Format date
   const formatDate = (dateStr) => {
-    if (!dateStr) return '';
+    if (!dateStr) return 'N/A';
     
     try {
       const date = new Date(dateStr);
-      return new Intl.DateTimeFormat('en-IE', {
+      if (isNaN(date.getTime())) return 'Invalid date';
+      
+      return date.toLocaleDateString('en-IE', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
-      }).format(date);
+      });
     } catch (error) {
-      return dateStr;
+      console.error('Error formatting date:', error);
+      return 'Date error';
     }
   };
 
   const viewProjectDetails = (projectId) => {
     if (!projectId) return;
-    navigate(`/project/${projectId}`);
+    
+    // Clean the ID before navigation - remove any userId prefix if it exists
+    let cleanId = projectId;
+    if (typeof projectId === 'string' && projectId.includes('_')) {
+      cleanId = projectId.split('_')[1];
+      console.log('Extracted clean ID for navigation:', cleanId);
+    }
+    
+    navigate(`/project/${cleanId}`);
   };
 
   return (
@@ -228,7 +239,8 @@ const TrackedProjectsWidget = ({ data }) => {
               project.planning_name || 
               project.name || 
               (project.planning_description ? project.planning_description.substring(0, 30) + '...' : null) || 
-              'Unnamed Project';
+              (project.description ? project.description.substring(0, 30) + '...' : null) ||
+              (projectId ? `Project ${projectId.substring(0, 8)}` : 'New Project');
             
             // Extract location information
             const location = 
