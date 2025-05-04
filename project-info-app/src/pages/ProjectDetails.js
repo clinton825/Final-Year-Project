@@ -17,10 +17,7 @@ import { db } from '../firebase/config';
 import config from '../config';
 import './ProjectDetails.css';
 
-// For debugging
 const API_BASE_URL = config.API_URL || 'http://localhost:8080';
-
-// Backend API URL 
 const API_URL = process.env.REACT_APP_BACKEND_API_URL || 'http://localhost:5001/api';
 
 const ProjectDetails = () => {
@@ -40,10 +37,9 @@ const ProjectDetails = () => {
   useEffect(() => {
     console.log('ProjectDetails mounted with planning_id:', planning_id);
     
-    // Extract numeric ID if it's a compound ID
     let idToUse = planning_id;
     if (typeof planning_id === 'string' && planning_id.includes('_')) {
-      idToUse = planning_id.split('_')[1]; // Get the part after the underscore
+      idToUse = planning_id.split('_')[1]; 
       console.log('Extracted numeric ID from compound ID:', idToUse);
     }
     
@@ -57,7 +53,6 @@ const ProjectDetails = () => {
       const projectId = project.planning_id;
       console.log('Project data loaded with planning_id:', projectId);
       
-      // Add a small delay to ensure auth is fully initialized in production
       const timer = setTimeout(() => {
         checkIfProjectIsTracked(projectId);
       }, 500);
@@ -66,7 +61,6 @@ const ProjectDetails = () => {
     }
   }, [project, currentUser]);
   
-  // Clear success message after 5 seconds
   useEffect(() => {
     if (success) {
       const timer = setTimeout(() => {
@@ -76,7 +70,6 @@ const ProjectDetails = () => {
     }
   }, [success]);
 
-  // Add a retry mechanism for API fetches
   const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
     let retries = 0;
     
@@ -87,29 +80,22 @@ const ProjectDetails = () => {
           return response;
         }
         
-        // If response was not ok, and this is not the last retry,
-        // log and continue to the next retry
         if (retries < maxRetries - 1) {
           console.warn(`Fetch attempt ${retries + 1} failed with status ${response.status}. Retrying...`);
           retries++;
-          // Wait before retrying with exponential backoff
           await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
           continue;
         }
         
-        // If this was the last retry, return the failed response
         return response;
       } catch (error) {
-        // If there's a network error and this is not the last retry
         if (retries < maxRetries - 1) {
           console.warn(`Fetch attempt ${retries + 1} failed with error: ${error.message}. Retrying...`);
           retries++;
-          // Wait before retrying with exponential backoff
           await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
           continue;
         }
         
-        // If this was the last retry, throw the error
         throw error;
       }
     }
@@ -126,16 +112,12 @@ const ProjectDetails = () => {
         throw new Error('No project ID available');
       }
       
-      // Initialize data variables
       let apiData = null;
       let firestoreData = null;
       let isProjectTracked = false;
       
-      // STEP 1: Try to find the project in Firestore first
       try {
-        // First check the trackedProjects collection (for logged-in users)
         if (currentUser) {
-          // Try to get project from trackedProjects collection
           const docId = `${currentUser.uid}_${idToUse}`;
           const trackedProjectRef = doc(db, 'trackedProjects', docId);
           
@@ -146,7 +128,6 @@ const ProjectDetails = () => {
               console.log('✅ Found project in trackedProjects collection');
               const data = trackedProjectDoc.data();
               
-              // If we have complete project data stored, use it
               if (data.projectData) {
                 firestoreData = data.projectData;
                 isProjectTracked = true;
@@ -157,7 +138,6 @@ const ProjectDetails = () => {
             } else {
               console.log('No matching project found in trackedProjects by ID:', docId);
               
-              // Second try: projects collection
               try {
                 const projectRef = doc(db, 'projects', idToUse);
                 const projectDoc = await getDoc(projectRef);
@@ -170,16 +150,12 @@ const ProjectDetails = () => {
                 }
               } catch (projectsError) {
                 console.error('Error querying projects collection:', projectsError);
-                // Continue to API fetch regardless
               }
             }
           } catch (firestoreDocError) {
-            // Don't let Firestore errors block the whole process
             console.error('Error accessing Firestore document:', firestoreDocError);
-            // Continue to API fetch
           }
         } else {
-          // If user is not logged in, try to get from projects collection directly
           try {
             const projectRef = doc(db, 'projects', idToUse);
             const projectDoc = await getDoc(projectRef);
@@ -192,17 +168,13 @@ const ProjectDetails = () => {
             }
           } catch (anonError) {
             console.error('Error accessing Firestore for anonymous user:', anonError);
-            // Continue to API fetch
           }
         }
       } catch (firestoreError) {
         console.error('Error fetching from Firestore:', firestoreError);
-        // We'll continue and try the API - don't let Firestore errors block everything
       }
       
-      // STEP 2: Try to fetch from the configured API (even if we already have Firestore data)
       try {
-        // Use the API URL from config, which now handles environment differences
         console.log(`Fetching from configured API: ${config.API_URL}/api/project/${idToUse}`);
         const response = await fetchWithRetry(`${config.API_URL}/api/project/${idToUse}`);
         
@@ -213,63 +185,19 @@ const ProjectDetails = () => {
             apiData = data.project;
           } else {
             console.warn('API response missing project data structure:', data);
-            
-            // Add detailed logging for API errors
-            if (data && data.status === 'ERROR') {
-              console.warn('API returned ERROR status. This likely means the project ID is not found in the BuildingInfo database');
-            }
           }
         } else {
           console.warn(`API returned status: ${response.status}`);
-          
-          // If we're in production and the API didn't work, try a direct API call as fallback
-          if ((config.PRODUCTION || !firestoreData) && config.DIRECT_API_ENABLED) {
-            try {
-              console.log('Attempting direct BuildingInfo API call as fallback (production fallback)');
-              const directApiUrl = `${config.DIRECT_API_URL}/projects/t-projects?api_key=${config.BUILDINGINFO_API_KEY}&ukey=${config.BUILDINGINFO_UKEY}&planning_id=${idToUse}`;
-              
-              console.log(`Attempting fallback direct API`);
-              
-              const directResponse = await fetch(directApiUrl);
-              if (directResponse.ok) {
-                const directData = await directResponse.json();
-                if (directData && directData.projects && directData.projects.length > 0) {
-                  console.log('✅ Successfully fetched direct BuildingInfo API data');
-                  // Map API response to our expected structure
-                  apiData = directData.projects[0];
-                } else {
-                  console.warn('Direct API response missing projects data structure:', directData);
-                }
-              } else {
-                console.warn(`Direct API returned status: ${directResponse.status}`);
-              }
-            } catch (directApiError) {
-              console.error('Error fetching from direct BuildingInfo API:', directApiError);
-            }
-          }
         }
       } catch (apiError) {
         console.error('Error fetching from API:', apiError);
       }
       
-      // Make sure we set loading to false even if there are errors below
-      // This ensures the loading state resolves even if Firebase is offline
-      setTimeout(() => {
-        if (loading) {
-          console.log('Forcing loading state to resolve after timeout');
-          setLoading(false);
-        }
-      }, 5000);
-      
-      // Update the tracked state
       setIsTracked(isProjectTracked);
       
-      // STEP 3: Merge and normalize the data
       let finalData;
       
       if (apiData && firestoreData) {
-        // We have both sources - merge with API data taking precedence for most fields
-        // But preserve tracking metadata from Firestore
         const trackingMetadata = {
           docId: firestoreData.docId,
           trackedAt: firestoreData.trackedAt,
@@ -278,53 +206,45 @@ const ProjectDetails = () => {
         };
         
         finalData = { 
-          ...firestoreData,  // Base is Firestore data
-          ...apiData,        // API data overrides duplicates
-          ...trackingMetadata // Restore tracking metadata that might have been overwritten
+          ...firestoreData,  
+          ...apiData,        
+          ...trackingMetadata 
         };
         
         console.log('Merged data from both Firestore and API');
       } else if (apiData) {
-        // Only have API data
         finalData = apiData;
         console.log('Using API data only');
       } else if (firestoreData) {
-        // Only have Firestore data (API failed)
         finalData = firestoreData;
         console.log('Using Firestore data only (API unavailable)');
         
-        // Show a notification that we're using cached data
         setSuccess('API is currently unavailable. Showing saved project data.');
       } else {
-        // No data from either source
         throw new Error('Could not fetch project data from any source');
       }
       
-      // Normalize the planning_id field to ensure consistency
       finalData.planning_id = finalData.planning_id || idToUse;
       
-      // Add a flag to indicate data source for UI elements
       finalData.dataSource = apiData ? (firestoreData ? 'both' : 'api') : 'firestore';
       
       console.log('Final normalized project data:', finalData);
       setProject(finalData);
       
-      // Set stakeholders
       if (finalData.stakeholders) {
         setStakeholders(finalData.stakeholders);
+      } else if (finalData.companies && finalData.companies.length > 0) {
+        setStakeholders(finalData.companies.map(company => ({
+          name: company.company_name || 'Unknown',
+          organization: company.planning_company_type_name?.company_type_name || 'Company',
+          role: company.company_role || 'Stakeholder'
+        })));
       } else {
-        // Mock stakeholders data for demo/testing
-        setStakeholders([
-          { name: 'Developer', organization: 'XYZ Development Ltd', role: 'Primary Developer' },
-          { name: 'Local Council', organization: 'City Planning Department', role: 'Approval Authority' },
-          { name: 'Community Representative', organization: 'Local Community Board', role: 'Community Liaison' }
-        ]);
+        setStakeholders([]);
       }
       
-      // Always make sure loading is set to false when we have data
       setLoading(false);
       
-      // Log the view activity
       if (currentUser) {
         try {
           await addDoc(collection(db, 'userActivity'), {
@@ -334,11 +254,9 @@ const ProjectDetails = () => {
             projectTitle: finalData.planning_title || finalData.planning_name || 'Unnamed Project',
             timestamp: serverTimestamp()
           }).catch(err => {
-            // Don't let activity logging failures block the UI
             console.warn('Failed to log view activity but continuing:', err);
           });
         } catch (activityError) {
-          // Don't let activity logging failures block rendering
           console.warn('Error logging activity but continuing:', activityError);
         }
       }
@@ -346,12 +264,10 @@ const ProjectDetails = () => {
       console.error('Error fetching project details:', error);
       setError(`Failed to load project: ${error.message}`);
     } finally {
-      // Ensure loading is always set to false, even if there are errors
       setLoading(false);
     }
   };
   
-  // Add helper functions for localStorage fallback
   const storeTrackedProjectLocally = (projectId, isTracked) => {
     try {
       if (!currentUser) return;
@@ -402,26 +318,13 @@ const ProjectDetails = () => {
 
     try {
       console.log('Checking if project is tracked:', projectId);
-      console.log('Current user UID:', currentUser.uid);
-      console.log('Environment:', window.location.hostname === 'localhost' ? 'Development' : 'Production');
       
-      // Verify authentication state is fully initialized
-      if (!currentUser.uid) {
-        console.error('User UID is not available, cannot check tracked status');
-        setIsTracked(false);
-        return;
-      }
-      
-      // First check localStorage for immediate response (especially useful in production)
       const locallyTracked = getLocalTrackedStatus(projectId);
       console.log('LocalStorage tracking status:', locallyTracked ? 'Tracked' : 'Not tracked');
       
-      // Set initial state from localStorage while we check Firestore
       setIsTracked(locallyTracked);
       
-      // Try query approach first - more reliable across environments
       try {
-        console.log('Checking with query approach first...');
         const trackedProjectsQuery = query(
           collection(db, 'trackedProjects'),
           where('userId', '==', currentUser.uid),
@@ -433,12 +336,10 @@ const ProjectDetails = () => {
         if (!querySnapshot.empty) {
           console.log('Project is tracked (found by query)');
           setIsTracked(true);
-          // Update localStorage to match Firestore
           storeTrackedProjectLocally(projectId, true);
           return;
         }
         
-        // If not found by query, try with compound ID as fallback
         console.log('Project not found by query, trying compound ID...');
         const compoundId = `${currentUser.uid}_${projectId}`;
         const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
@@ -449,24 +350,19 @@ const ProjectDetails = () => {
         if (trackedProjectDoc.exists()) {
           console.log('Project is tracked (found by compound ID)');
           setIsTracked(true);
-          // Update localStorage to match Firestore
           storeTrackedProjectLocally(projectId, true);
         } else {
           console.log('Project is not tracked (not found by either method)');
           setIsTracked(false);
-          // Update localStorage to match Firestore
           storeTrackedProjectLocally(projectId, false);
         }
       } catch (queryError) {
         console.error('Error querying tracked projects:', queryError);
-        console.log('Query error details:', queryError.code, queryError.message);
         
-        // If Firestore is unavailable, rely on localStorage data
         if (queryError.code === 'unavailable' || queryError.message?.includes('offline')) {
           console.log('Firebase unavailable, using localStorage tracking status:', locallyTracked);
           setIsTracked(locallyTracked);
         } else {
-          // For other errors, try direct document access
           try {
             console.log('Query failed, trying direct document access...');
             const compoundId = `${currentUser.uid}_${projectId}`;
@@ -485,9 +381,7 @@ const ProjectDetails = () => {
             }
           } catch (docError) {
             console.error('Direct document access also failed:', docError);
-            console.log('Document error details:', docError.code, docError.message);
             
-            // Use localStorage as final fallback for all errors
             console.log('Using localStorage as final fallback, status:', locallyTracked);
             setIsTracked(locallyTracked);
           }
@@ -495,9 +389,7 @@ const ProjectDetails = () => {
       }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
-      console.log('Error details:', error.code, error.message);
       
-      // Use localStorage as fallback for any error
       const locallyTracked = getLocalTrackedStatus(projectId);
       console.log('Using localStorage as error fallback, status:', locallyTracked);
       setIsTracked(locallyTracked);
@@ -513,19 +405,12 @@ const ProjectDetails = () => {
     setIsUpdatingTrackStatus(true);
 
     try {
-      // Check if device is offline
       if (!navigator.onLine) {
         throw new Error('You appear to be offline. Please check your internet connection and try again.');
       }
 
-      // Debug information for troubleshooting in Vercel environment
-      console.log('Current user ID:', currentUser.uid);
-      console.log('Auth state:', currentUser ? 'Logged in' : 'Not logged in');
-      console.log('Environment:', window.location.hostname === 'localhost' ? 'Development' : 'Production');
-
       const projectToStore = { ...project };
       
-      // Make sure we have a valid planning ID - use the one from state or URL params
       const planningIdToUse = project?.planning_id || planning_id;
       
       if (!planningIdToUse) {
@@ -537,26 +422,19 @@ const ProjectDetails = () => {
 
       console.log('Toggling tracking for project:', planningIdToUse);
       
-      // Create a unique ID for the document that includes both user ID and project ID
       const documentId = `${currentUser.uid}_${planningIdToUse}`;
       console.log('Using document ID:', documentId);
       
-      // Reference to the tracked project document
       const trackedProjectRef = doc(db, 'trackedProjects', documentId);
       
-      // Check if user is tracking or untracking the project
       if (isTracked) {
-        // User is untracking the project
         console.log('Untracking project...');
         
-        // Optimistic UI update - update state before the operation completes
         setIsTracked(false);
         
-        // Update localStorage immediately for offline support
         storeTrackedProjectLocally(planningIdToUse, false);
         
         try {
-          // First try to find the document by query to handle different ID formats
           const trackedProjectsQuery = query(
             collection(db, 'trackedProjects'),
             where('userId', '==', currentUser.uid),
@@ -566,7 +444,6 @@ const ProjectDetails = () => {
           const querySnapshot = await getDocs(trackedProjectsQuery);
           
           if (!querySnapshot.empty) {
-            // Delete all matching documents (should be just one)
             const deletePromises = [];
             querySnapshot.forEach(doc => {
               console.log('Deleting document with ID:', doc.id);
@@ -575,13 +452,11 @@ const ProjectDetails = () => {
             
             await Promise.all(deletePromises);
           } else {
-            // Fallback to direct document delete if query finds nothing
             console.log('No documents found by query, trying direct delete...');
             await deleteDoc(trackedProjectRef);
           }
           
           try {
-            // Create activity entry for untracking
             await addDoc(collection(db, 'userActivity'), {
               userId: currentUser.uid,
               type: 'untrack',
@@ -590,7 +465,6 @@ const ProjectDetails = () => {
               timestamp: serverTimestamp()
             });
           } catch (activityError) {
-            // Don't fail the whole operation if activity logging fails
             console.warn('Could not log activity, but untracking succeeded:', activityError);
           }
 
@@ -598,40 +472,29 @@ const ProjectDetails = () => {
           setSuccess('Project removed from tracked projects.');
         } catch (error) {
           console.error('Error untracking project:', error);
-          // Detailed error logging for Vercel troubleshooting
-          console.error('Error code:', error.code);
-          console.error('Error message:', error.message);
           
           if (error.code === 'unavailable' || error.message?.includes('offline')) {
-            // If Firestore is unavailable but we updated localStorage, consider it a success
             console.log('Firestore unavailable, but localStorage updated successfully');
             setSuccess('Project removed from tracked projects (offline mode).');
           } else {
-            // Only revert optimistic update for non-connectivity errors
             setIsTracked(true);
-            // Revert localStorage too
             storeTrackedProjectLocally(planningIdToUse, true);
             throw error;
           }
         }
       } else {
-        // User is tracking the project - store complete project data
         console.log('Tracking project...');
         
-        // Optimistic UI update - update state before the operation completes
         setIsTracked(true);
         
-        // Update localStorage immediately for offline support
         storeTrackedProjectLocally(planningIdToUse, true);
         
         try {
-          // Normalize the project data to avoid undefined fields
           const normalizedProject = {
             userId: currentUser.uid,
             projectId: planningIdToUse,
             dateTracked: serverTimestamp(),
             
-            // Add essential fields at the root level for better retrieval
             title: project.planning_title || project.planning_name || project.title || project.name || 'Unnamed Project',
             description: project.planning_description || project.description || '',
             value: project.planning_value || project.projectValue || project.value || 0,
@@ -640,7 +503,6 @@ const ProjectDetails = () => {
             date: project.planning_date || project.date || serverTimestamp(),
           };
           
-          // First ensure the project data is clean - remove any undefined or problematic values
           const cleanProjectData = {};
           Object.keys(projectToStore).forEach(key => {
             if (projectToStore[key] !== undefined && projectToStore[key] !== null) {
@@ -648,14 +510,11 @@ const ProjectDetails = () => {
             }
           });
           
-          // Add the cleaned project data
           normalizedProject.projectData = cleanProjectData;
           
-          // Store in Firestore
           await setDoc(trackedProjectRef, normalizedProject);
 
           try {
-            // Create activity entry for tracking
             await addDoc(collection(db, 'userActivity'), {
               userId: currentUser.uid,
               type: 'track',
@@ -664,7 +523,6 @@ const ProjectDetails = () => {
               timestamp: serverTimestamp()
             });
           } catch (activityError) {
-            // Don't fail the whole operation if activity logging fails
             console.warn('Could not log activity, but tracking succeeded:', activityError);
           }
 
@@ -672,18 +530,12 @@ const ProjectDetails = () => {
           setSuccess('Project added to tracked projects.');
         } catch (error) {
           console.error('Error tracking project:', error);
-          // Detailed error logging for Vercel troubleshooting
-          console.error('Error code:', error.code);
-          console.error('Error message:', error.message);
           
           if (error.code === 'unavailable' || error.message?.includes('offline')) {
-            // If Firestore is unavailable but we updated localStorage, consider it a success
             console.log('Firestore unavailable, but localStorage updated successfully');
             setSuccess('Project added to tracked projects (offline mode).');
           } else {
-            // Only revert optimistic update for non-connectivity errors
             setIsTracked(false);
-            // Revert localStorage too
             storeTrackedProjectLocally(planningIdToUse, false);
             throw error;
           }
@@ -691,9 +543,7 @@ const ProjectDetails = () => {
       }
     } catch (error) {
       console.error('Error updating project tracking status:', error);
-      console.error('Error stack:', error.stack);
       
-      // Provide more specific error messages based on error type
       if (error.code === 'permission-denied') {
         setError('You do not have permission to perform this action. Please check your account status.');
       } else if (error.code === 'unavailable' || error.message?.includes('offline')) {
@@ -813,7 +663,6 @@ const ProjectDetails = () => {
 
   const renderStakeholdersTab = () => (
     <div className="stakeholders-section">
-      {/* First check if we have companies data from the API */}
       {project.companies && project.companies.length > 0 ? (
         project.companies.map((company, index) => (
           <div key={index} className="stakeholder-group">
@@ -846,7 +695,6 @@ const ProjectDetails = () => {
           </div>
         ))
       ) : stakeholders && stakeholders.length > 0 ? (
-        /* If no companies data but we have stakeholders from our fallback/mock data */
         <div className="stakeholders-list">
           {stakeholders.map((stakeholder, index) => (
             <div key={index} className="stakeholder-card">
@@ -865,6 +713,9 @@ const ProjectDetails = () => {
         <div className="empty-stakeholders">
           <i className="fas fa-users-slash"></i>
           <p>No stakeholder information available for this project.</p>
+          {currentUser && (
+            <p className="empty-state-tip">When stakeholder information becomes available, it will appear here.</p>
+          )}
         </div>
       )}
     </div>

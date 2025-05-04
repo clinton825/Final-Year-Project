@@ -433,10 +433,6 @@ const timelineStyles = {
   }
 };
 
-// Add these console logs to help debug
-console.log('ProjectComparison component loaded');
-console.log('CSS file should be imported');
-
 const ProjectComparison = () => {
   const [selectedProjects, setSelectedProjects] = useState([]);
   const [availableProjects, setAvailableProjects] = useState([]);
@@ -463,11 +459,8 @@ const ProjectComparison = () => {
     projectTypes: [],
     stakeholderTypes: [],
     stages: [],
-    counties: ['Waterford', 'Carlow'],
-    towns: {
-      'Waterford': ['Waterford City', 'Dungarvan', 'Tramore', 'Lismore', 'Ardmore', 'Portlaw', 'Tallow', 'Cappoquin', 'Kilmacthomas'],
-      'Carlow': ['Carlow Town', 'Tullow', 'Bagenalstown', 'Borris', 'Hacketstown', 'Tinnahinch']
-    },
+    counties: [],
+    towns: {},
     valueRanges: [
       { label: 'All', value: 'all' },
       { label: 'Under €1M', value: 'under1m' },
@@ -479,6 +472,7 @@ const ProjectComparison = () => {
 
   useEffect(() => {
     fetchProjects();
+    fetchCountyData();
   }, []);
 
   useEffect(() => {
@@ -503,22 +497,11 @@ const ProjectComparison = () => {
       });
       
       // Convert Set to Array for each county
-      const townsByCounty = { ...filterOptions.towns }; // Start with hardcoded towns
+      const townsByCounty = {};
       Object.keys(townsFromData).forEach(county => {
-        if (!townsByCounty[county]) {
-          townsByCounty[county] = [...townsFromData[county]].sort();
-        } else {
-          // Merge with existing towns, avoiding duplicates
-          const existingTowns = new Set(townsByCounty[county]);
-          townsFromData[county].forEach(town => existingTowns.add(town));
-          townsByCounty[county] = [...existingTowns].sort();
-        }
+        townsByCounty[county] = [...townsFromData[county]].sort();
       });
       
-      // Debug logging
-      console.log('Available counties:', counties);
-      console.log('Towns by county:', townsByCounty);
-
       setFilterOptions(prev => ({
         ...prev,
         projectTypes: types,
@@ -599,6 +582,39 @@ const ProjectComparison = () => {
     } catch (error) {
       setError(error.message);
       setLoading(false);
+    }
+  };
+
+  const fetchCountyData = async () => {
+    try {
+      const response = await fetch(`${config.API_URL}/api/counties`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.counties) {
+          const countiesData = data.counties;
+          
+          // Extract unique counties and towns
+          const uniqueCounties = [...new Set(countiesData.map(item => item.county))].sort();
+          
+          // Create towns by county mapping
+          const townsMap = {};
+          uniqueCounties.forEach(county => {
+            const countyTowns = countiesData
+              .filter(item => item.county === county)
+              .map(item => item.town)
+              .filter(Boolean);
+            
+            townsMap[county] = [...new Set(countyTowns)].sort();
+          });
+          
+          setFilterOptions({
+            counties: uniqueCounties,
+            towns: townsMap
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching county data:", error);
     }
   };
 

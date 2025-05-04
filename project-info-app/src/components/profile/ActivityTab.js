@@ -9,73 +9,55 @@ const ActivityTab = () => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Fetch real activity data from Firestore
+  const [empty, setEmpty] = useState(false);
+
   useEffect(() => {
     const fetchActivities = async () => {
-      if (!currentUser) return;
-      
       setLoading(true);
+      setError(null);
+
       try {
-        // First try to get from the user-specific activities collection
-        const activitiesRef = collection(db, 'userActivity');
+        if (!currentUser) {
+          throw new Error('No authenticated user');
+        }
+
         const activitiesQuery = query(
-          activitiesRef,
+          collection(db, 'userActivity'),
           where('userId', '==', currentUser.uid),
           orderBy('timestamp', 'desc'),
           limit(20)
         );
-        
+
         const querySnapshot = await getDocs(activitiesQuery);
-        const activityData = [];
-        
-        if (!querySnapshot.empty) {
-          querySnapshot.forEach(doc => {
-            activityData.push({
-              id: doc.id,
-              ...doc.data()
-            });
-          });
-          setActivities(activityData);
+
+        if (querySnapshot.empty) {
+          setActivities([]);
+          setEmpty(true);
         } else {
-          // If no activities found, create initial login activity
-          await addDoc(collection(db, 'userActivity'), {
-            userId: currentUser.uid,
-            type: 'login',
-            description: 'Logged in successfully',
-            timestamp: new Date(),
-            ipAddress: '192.168.1.1', // This would normally be captured from the request
-            device: navigator.userAgent
-          });
-          
-          // Then use mock data for demo purposes
-          const mockActivities = [
-            { 
-              id: 1, 
-              type: 'login', 
-              description: 'Logged in successfully', 
-              timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), 
-              ipAddress: '192.168.1.1',
-              device: navigator.userAgent || 'Unknown device'
-            }
-          ];
-          
-          setActivities(mockActivities);
+          const activityData = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate() || new Date()
+          }));
+
+          setActivities(activityData);
+          setEmpty(activityData.length === 0);
         }
-      } catch (err) {
-        console.error('Error fetching activities:', err);
-        setError('Error fetching activity data');
+      } catch (error) {
+        console.error('Error fetching activities:', error);
+        setError('Failed to load activity data. Please try again later.');
+        setEmpty(true);
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchActivities();
   }, [currentUser]);
-  
+
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'Unknown time';
-    
+
     let date;
     if (typeof timestamp === 'string') {
       date = new Date(timestamp);
@@ -84,13 +66,13 @@ const ActivityTab = () => {
     } else {
       date = new Date(timestamp);
     }
-    
+
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.round(diffMs / (1000 * 60));
     const diffHours = Math.round(diffMs / (1000 * 60 * 60));
     const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffMins < 60) {
       return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
     } else if (diffHours < 24) {
@@ -99,7 +81,7 @@ const ActivityTab = () => {
       return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
     }
   };
-  
+
   const getActivityIcon = (type) => {
     switch (type) {
       case 'login':
@@ -116,12 +98,21 @@ const ActivityTab = () => {
         return <i className="fas fa-history"></i>;
     }
   };
-  
+
+  const renderEmptyState = () => (
+    <div className="empty-state">
+      <i className="fas fa-history empty-icon"></i>
+      <h3>No Activity Yet</h3>
+      <p>Your activity history will appear here as you use the application.</p>
+      <p>Try tracking projects, viewing project details, or updating your preferences.</p>
+    </div>
+  );
+
   return (
     <div className="activity-tab">
       <h2>Account Activity</h2>
       <p className="section-description">Review your recent account activity and security events</p>
-      
+
       {loading ? (
         <div className="loading-indicator">
           <i className="fas fa-spinner fa-spin"></i>
@@ -132,11 +123,8 @@ const ActivityTab = () => {
           <i className="fas fa-exclamation-triangle"></i>
           <p>{error}</p>
         </div>
-      ) : activities.length === 0 ? (
-        <div className="empty-state">
-          <i className="fas fa-history"></i>
-          <p>No activity recorded yet</p>
-        </div>
+      ) : empty ? (
+        renderEmptyState()
       ) : (
         <div className="activity-timeline">
           {activities.map(activity => (
@@ -166,7 +154,7 @@ const ActivityTab = () => {
           ))}
         </div>
       )}
-      
+
       <div className="activity-stats">
         <h3>Usage Statistics</h3>
         <p>Coming soon: Track your app usage patterns and interactions</p>
