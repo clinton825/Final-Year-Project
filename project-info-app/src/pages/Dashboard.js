@@ -237,13 +237,13 @@ const Dashboard = () => {
           console.error('Error reading from localStorage:', localStorageError);
           
           // Fallback to Auth data if everything else fails
-          const emergencyUserData = {
+          const fallbackUserData = {
             firstName: currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User',
             email: currentUser.email,
             uid: currentUser.uid,
             role: 'standard'
           };
-          setUserData(emergencyUserData);
+          setUserData(fallbackUserData);
           setUserRole('standard');
         }
       }
@@ -507,7 +507,7 @@ const Dashboard = () => {
                 nestedData.planning_title || 
                 nestedData.planning_name || 
                 nestedData.title || 
-                (projectData.name ? `${projectData.name} Project` : 'New Project'),
+                'Unnamed Project',
               planning_description: 
                 projectData.planning_description || 
                 projectData.description || 
@@ -636,7 +636,7 @@ const Dashboard = () => {
               const processedProject = {
                 // Ensure all required fields exist
                 planning_id: projectId,
-                planning_name: data.planning_name || data.planning_title || data.title || (data.name ? `${data.name} Project` : 'New Project'),
+                planning_name: data.planning_name || data.planning_title || data.title || 'Unnamed Project',
                 planning_description: data.planning_description || data.description || 'No description available',
                 planning_value: parseFloat(data.planning_value || data.projectValue || data.value || 0),
                 planning_stage: data.planning_stage || data.status || 'Unknown',
@@ -687,91 +687,93 @@ const Dashboard = () => {
     }
   };
 
-  // Function to untrack a project from the dashboard
+  // Function to untrack a project - simplified version
   const untrackProject = async (projectId) => {
     if (!currentUser) {
-      console.log('No user logged in, cannot untrack project');
-      return;
+      console.error('Cannot untrack project: No user logged in');
+      return false;
     }
-    
+
     try {
       console.log('Untracking project with ID:', projectId);
       
-      // Get clean ID from possibly compound ID
-      let cleanProjectId = projectId;
-      if (typeof projectId === 'string' && projectId.includes('_')) {
-        cleanProjectId = projectId.split('_')[1];
-        console.log('Extracted clean ID for untracking:', cleanProjectId);
+      // First try the direct approach with compound ID
+      const compoundId = `${currentUser.uid}_${projectId}`;
+      try {
+        const docRef = doc(db, 'trackedProjects', compoundId);
+        await deleteDoc(docRef);
+        console.log('Successfully deleted project with compound ID');
+        
+        // Update local state
+        setTrackedProjects(prev => prev.filter(p => {
+          const id = p.projectId || p.planning_id || p.id;
+          return id !== projectId;
+        }));
+        
+        return true;
+      } catch (directError) {
+        console.error('Error with direct deletion, trying query approach:', directError);
       }
       
-      // First try the direct compound ID approach
-      const compoundId = `${currentUser.uid}_${cleanProjectId}`;
-      const docRef = doc(db, 'trackedProjects', compoundId);
+      // If direct approach fails, try query approach
+      const trackedRef = collection(db, 'trackedProjects');
+      const q = query(
+        trackedRef,
+        where('userId', '==', currentUser.uid),
+        where('projectId', '==', projectId)
+      );
       
-      // Check if document exists
-      const docSnap = await getDoc(docRef);
+      const querySnapshot = await getDocs(q);
       
-      if (docSnap.exists()) {
-        // Delete the document
-        await deleteDoc(docRef);
-        console.log('Successfully untracked project with compound ID');
-      } else {
-        // Try alternative query approach
-        console.log('Document not found with compound ID, trying query approach');
+      if (querySnapshot.empty) {
+        console.log('No matching documents found with query approach');
         
-        const q = query(
-          collection(db, 'trackedProjects'),
-          where('userId', '==', currentUser.uid),
-          where('projectId', '==', cleanProjectId)
+        // Try one more approach - query by any ID field
+        const allDocsQuery = query(
+          trackedRef,
+          where('userId', '==', currentUser.uid)
         );
         
-        const querySnapshot = await getDocs(q);
+        const allDocsSnapshot = await getDocs(allDocsQuery);
+        let deleted = false;
         
-        if (!querySnapshot.empty) {
-          // Delete all matching documents (should be only one)
-          const deletePromises = [];
-          querySnapshot.forEach((doc) => {
-            deletePromises.push(deleteDoc(doc.ref));
-          });
+        allDocsSnapshot.forEach(doc => {
+          const data = doc.data();
+          const possibleIds = [
+            data.projectId,
+            data.planning_id,
+            data.id,
+            data._id
+          ];
           
-          await Promise.all(deletePromises);
-          console.log('Successfully untracked project via query');
-        } else {
-          console.log('No document found to untrack');
+          if (possibleIds.includes(projectId)) {
+            deleteDoc(doc.ref);
+            deleted = true;
+            console.log('Found and deleted document with ID:', doc.id);
+          }
+        });
+        
+        if (!deleted) {
+          console.error('Could not find project to untrack with any method');
           return false;
         }
+      } else {
+        // Delete all matching documents
+        const deletePromises = [];
+        querySnapshot.forEach(doc => {
+          console.log('Deleting document with ID:', doc.id);
+          deletePromises.push(deleteDoc(doc.ref));
+        });
+        
+        await Promise.all(deletePromises);
+        console.log('Deleted all matching documents with query approach');
       }
       
-      // Update cached tracked projects
-      const cachedProjects = JSON.parse(localStorage.getItem('trackedProjectsCache') || '[]');
-      if (cachedProjects.length > 0) {
-        // Remove the untracked project from the cache
-        const updatedCache = cachedProjects.filter(
-          project => project.projectId !== cleanProjectId && 
-                    project.planning_id !== cleanProjectId
-        );
-        
-        // Update the cache in localStorage
-        localStorage.setItem('trackedProjectsCache', JSON.stringify(updatedCache));
-        
-        // Update state
-        setTrackedProjects(prevTrackedProjects => 
-          prevTrackedProjects.filter(
-            project => project.projectId !== cleanProjectId && 
-                      project.planning_id !== cleanProjectId
-          )
-        );
-      }
-      
-      // Log the untrack activity
-      await addDoc(collection(db, 'userActivity'), {
-        userId: currentUser.uid,
-        type: 'untrack',
-        projectId: cleanProjectId,
-        timestamp: serverTimestamp()
-      });
-      
-      console.log('Project successfully untracked');
+      // Update local state
+      setTrackedProjects(prev => prev.filter(p => {
+        const id = p.projectId || p.planning_id || p.id;
+        return id !== projectId;
+      }));
       
       return true;
     } catch (error) {
@@ -1076,21 +1078,120 @@ const Dashboard = () => {
     }
   };
 
-  // Get initial unread count
-  const getUnreadCount = async () => {
-    if (currentUser) {
+  // Function to test notifications by creating a simulated project update (for backend testing only)
+  const testNotificationSystem = async () => {
+    try {
+      if (!currentUser) return;
+      
+      console.log('Testing notification system...');
+      
+      // Get a random tracked project to update
+      const trackedRef = collection(db, 'trackedProjects');
+      const trackedQuery = query(trackedRef, where('userId', '==', currentUser.uid));
+      const querySnapshot = await getDocs(trackedQuery);
+      
+      if (querySnapshot.empty) {
+        console.log('You need to track at least one project to test notifications.');
+        return;
+      }
+      
+      // Pick a random project from the tracked projects
+      const projects = [];
+      querySnapshot.forEach(doc => projects.push({ id: doc.id, ...doc.data() }));
+      const randomProject = projects[Math.floor(Math.random() * projects.length)];
+      
+      // Create a simulated update in the project
+      const projectId = randomProject.projectId || randomProject.planning_id;
+      const projectTitle = randomProject.planning_title || randomProject.planning_name || 'Project';
+      
+      // Create different types of notifications to test the system
+      await Promise.all([
+        // Status change notification
+        ProjectUpdateService.createStatusChangeNotification(
+          currentUser.uid,
+          projectId,
+          projectTitle,
+          'Testing Phase'
+        ),
+        
+        // Value change notification
+        ProjectUpdateService.createValueChangeNotification(
+          currentUser.uid,
+          projectId,
+          projectTitle,
+          1000000
+        ),
+        
+        // Document update notification
+        ProjectUpdateService.createDocumentUpdateNotification(
+          currentUser.uid,
+          projectId,
+          projectTitle
+        )
+      ]);
+      
+      // Update the unread notifications count
       const count = await ProjectUpdateService.getUnreadNotificationsCount(currentUser.uid);
       setUnreadNotificationsCount(count);
+      
+      console.log(`Created test notifications for project "${projectTitle}". Check your notifications!`);
+    } catch (error) {
+      console.error('Error testing notification system:', error);
     }
   };
 
-  // Mark notification as read
-  const onNotificationRead = async (notificationId) => {
-    await ProjectUpdateService.markNotificationAsRead(notificationId);
-    // Update unread count
-    const count = await ProjectUpdateService.getUnreadNotificationsCount(currentUser.uid);
-    setUnreadNotificationsCount(count);
+  // Function to test the backend with a direct API URL and different time periods
+  const testBackendWithDirectUrl = async (timePeriod = '3') => {
+    try {
+      if (!currentUser) {
+        console.error('You must be logged in to test the backend');
+        return;
+      }
+      
+      console.log(`Testing backend with time period: ${timePeriod}`);
+      
+      // Use environment variables for API credentials
+      const apiKey = process.env.REACT_APP_BUILDINGINFO_API_KEY;
+      const uKey = process.env.REACT_APP_BUILDINGINFO_UKEY;
+      
+      if (!apiKey || !uKey) {
+        console.error('API credentials not configured. Please set environment variables.');
+        return;
+      }
+      
+      const url = `https://api12.buildinginfo.com/api/v2/bi/projects/t-projects?api_key=${apiKey}&ukey=${uKey}&more=limit%200,1000&_apion=${timePeriod}`;
+      
+      console.log('Using URL:', url);
+      
+      // Call the test function with the direct URL
+      const newNotificationsCount = await ProjectUpdateService.testWithDirectUrl(currentUser.uid, url);
+      
+      // Update the unread notifications count
+      const count = await ProjectUpdateService.getUnreadNotificationsCount(currentUser.uid);
+      setUnreadNotificationsCount(count);
+      
+      console.log(`Backend test complete. Created ${newNotificationsCount} new notifications.`);
+      
+      if (newNotificationsCount === 0) {
+        console.log('No notifications were created. This could be because:');
+        console.log('1. There are no updated projects in the selected time period');
+        console.log('2. You are not tracking any of the updated projects');
+        console.log('3. Try a different time period by calling testBackendWithDirectUrl("1") for past 30 days');
+      } else {
+        console.log('You can check the notifications in the notifications widget.');
+      }
+      
+      return newNotificationsCount;
+    } catch (error) {
+      console.error('Error testing backend with direct URL:', error);
+      return 0;
+    }
   };
+  
+  // Make the test function available globally for console testing
+  if (typeof window !== 'undefined') {
+    window.testBackendWithDirectUrl = testBackendWithDirectUrl;
+  }
 
   // Main initialization effect
   useEffect(() => {
@@ -1120,6 +1221,16 @@ const Dashboard = () => {
   // Add effect to update unread notifications count periodically
   useEffect(() => {
     if (!currentUser) return;
+    
+    // Get initial unread count
+    const getUnreadCount = async () => {
+      try {
+        const count = await ProjectUpdateService.getUnreadNotificationsCount(currentUser.uid);
+        setUnreadNotificationsCount(count);
+      } catch (error) {
+        console.error('Error getting unread notifications count:', error);
+      }
+    };
     
     getUnreadCount();
     
@@ -1477,7 +1588,12 @@ const Dashboard = () => {
               data={{
                 userId: currentUser?.uid,
                 limit: 5,
-                onNotificationRead: onNotificationRead,
+                onNotificationRead: async (notificationId) => {
+                  await ProjectUpdateService.markNotificationAsRead(notificationId);
+                  // Update unread count
+                  const count = await ProjectUpdateService.getUnreadNotificationsCount(currentUser.uid);
+                  setUnreadNotificationsCount(count);
+                },
                 onCheckForUpdates: checkForProjectUpdates,
                 checkingForUpdates: checkingForUpdates
               }}
