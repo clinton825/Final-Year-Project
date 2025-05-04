@@ -138,53 +138,66 @@ const ProjectDetails = () => {
           // Try to get project from trackedProjects collection
           const docId = `${currentUser.uid}_${idToUse}`;
           const trackedProjectRef = doc(db, 'trackedProjects', docId);
-          const trackedProjectDoc = await getDoc(trackedProjectRef);
           
-          if (trackedProjectDoc.exists()) {
-            console.log('✅ Found project in trackedProjects collection');
-            const data = trackedProjectDoc.data();
+          try {
+            const trackedProjectDoc = await getDoc(trackedProjectRef);
             
-            // If we have complete project data stored, use it
-            if (data.projectData) {
-              firestoreData = data.projectData;
-              isProjectTracked = true;
-              console.log('Using complete project data from trackedProjects');
-            } else {
-              console.log('Project found in trackedProjects but missing complete data');
-            }
-          } else {
-            console.log('No matching project found in trackedProjects by ID:', docId);
-            
-            // Second try: projects collection
-            try {
-              const projectRef = doc(db, 'projects', idToUse);
-              const projectDoc = await getDoc(projectRef);
+            if (trackedProjectDoc.exists()) {
+              console.log('✅ Found project in trackedProjects collection');
+              const data = trackedProjectDoc.data();
               
-              if (projectDoc.exists()) {
-                console.log('✅ Found project in projects collection');
-                firestoreData = projectDoc.data();
+              // If we have complete project data stored, use it
+              if (data.projectData) {
+                firestoreData = data.projectData;
+                isProjectTracked = true;
+                console.log('Using complete project data from trackedProjects');
               } else {
-                console.log('No matching project found in Firestore');
+                console.log('Project found in trackedProjects but missing complete data');
               }
-            } catch (projectsError) {
-              console.error('Error querying projects collection:', projectsError);
+            } else {
+              console.log('No matching project found in trackedProjects by ID:', docId);
+              
+              // Second try: projects collection
+              try {
+                const projectRef = doc(db, 'projects', idToUse);
+                const projectDoc = await getDoc(projectRef);
+                
+                if (projectDoc.exists()) {
+                  console.log('✅ Found project in projects collection');
+                  firestoreData = projectDoc.data();
+                } else {
+                  console.log('No matching project found in Firestore');
+                }
+              } catch (projectsError) {
+                console.error('Error querying projects collection:', projectsError);
+                // Continue to API fetch regardless
+              }
             }
+          } catch (firestoreDocError) {
+            // Don't let Firestore errors block the whole process
+            console.error('Error accessing Firestore document:', firestoreDocError);
+            // Continue to API fetch
           }
         } else {
           // If user is not logged in, try to get from projects collection directly
-          const projectRef = doc(db, 'projects', idToUse);
-          const projectDoc = await getDoc(projectRef);
-          
-          if (projectDoc.exists()) {
-            console.log('✅ Found project in projects collection (anonymous user)');
-            firestoreData = projectDoc.data();
-          } else {
-            console.log('No matching project found in Firestore (anonymous user)');
+          try {
+            const projectRef = doc(db, 'projects', idToUse);
+            const projectDoc = await getDoc(projectRef);
+            
+            if (projectDoc.exists()) {
+              console.log('✅ Found project in projects collection (anonymous user)');
+              firestoreData = projectDoc.data();
+            } else {
+              console.log('No matching project found in Firestore (anonymous user)');
+            }
+          } catch (anonError) {
+            console.error('Error accessing Firestore for anonymous user:', anonError);
+            // Continue to API fetch
           }
         }
       } catch (firestoreError) {
         console.error('Error fetching from Firestore:', firestoreError);
-        // We'll continue and try the API
+        // We'll continue and try the API - don't let Firestore errors block everything
       }
       
       // STEP 2: Try to fetch from the configured API (even if we already have Firestore data)
@@ -238,6 +251,15 @@ const ProjectDetails = () => {
       } catch (apiError) {
         console.error('Error fetching from API:', apiError);
       }
+      
+      // Make sure we set loading to false even if there are errors below
+      // This ensures the loading state resolves even if Firebase is offline
+      setTimeout(() => {
+        if (loading) {
+          console.log('Forcing loading state to resolve after timeout');
+          setLoading(false);
+        }
+      }, 5000);
       
       // Update the tracked state
       setIsTracked(isProjectTracked);
@@ -299,6 +321,9 @@ const ProjectDetails = () => {
         ]);
       }
       
+      // Always make sure loading is set to false when we have data
+      setLoading(false);
+      
       // Log the view activity
       if (currentUser) {
         try {
@@ -308,25 +333,20 @@ const ProjectDetails = () => {
             projectId: idToUse,
             projectTitle: finalData.planning_title || finalData.planning_name || 'Unnamed Project',
             timestamp: serverTimestamp()
+          }).catch(err => {
+            // Don't let activity logging failures block the UI
+            console.warn('Failed to log view activity but continuing:', err);
           });
         } catch (activityError) {
-          console.error('Error logging activity:', activityError);
+          // Don't let activity logging failures block rendering
+          console.warn('Error logging activity but continuing:', activityError);
         }
       }
     } catch (error) {
-      console.error('Error in fetchProjectDetails:', error);
-      setError(`Error loading project: ${error.message}`);
-      
-      // Set minimal fallback data
-      setProject({
-        planning_id: idToUse,
-        planning_title: 'Error Loading Project',
-        planning_description: 'Failed to load project details. Please try again later.',
-        planning_category: 'Not Available',
-        planning_stage: 'Not Available',
-        planning_value: 'Not Available'
-      });
+      console.error('Error fetching project details:', error);
+      setError(`Failed to load project: ${error.message}`);
     } finally {
+      // Ensure loading is always set to false, even if there are errors
       setLoading(false);
     }
   };
