@@ -94,16 +94,23 @@ try {
   
   if (isProduction) {
     console.log('Using production Firestore configuration with performance optimizations');
-    // In production, use a more conservative cache size and simpler configuration
+    // In production, use a more standard configuration without experimental flags
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
         // Use a defined cache size in production to avoid memory issues
-        cacheSizeBytes: 100 * 1024 * 1024 // Increased to 100MB for better offline support
-      }),
-      experimentalForceLongPolling: true, // Add long polling for better connection stability
-      experimentalAutoDetectLongPolling: true // Auto-detect best connection method
+        cacheSizeBytes: 100 * 1024 * 1024 // 100MB for better offline support
+      })
+      // Removed experimental flags that might cause connection issues
     });
+    
+    // Force enable network after a short delay to ensure connection is established
+    setTimeout(() => {
+      console.log('Forcing Firestore network connection...');
+      enableNetwork(db)
+        .then(() => console.log('Firestore network connection forced successfully'))
+        .catch(err => console.error('Failed to force Firestore network connection:', err));
+    }, 2000);
   } else {
     // In development, use unlimited cache for better debugging
     console.log('Using development Firestore configuration with unlimited cache');
