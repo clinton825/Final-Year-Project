@@ -77,11 +77,12 @@ export const updateDashboardCache = async (currentUser, trackedProjects, setDash
       totalTrackedProjects: trackedProjects.length,
       projectsByStatus,
       valueByCategory,
-      lastUpdated: serverTimestamp()
+      lastUpdated: new Date().toISOString() // Use ISO string for localStorage compatibility
     };
     
     console.log('Updating dashboard cache with data:', cacheData);
     
+    // Always update state cache even if Firestore update fails
     if (setDashboardCache) {
       setDashboardCache({
         ...cacheData,
@@ -89,16 +90,31 @@ export const updateDashboardCache = async (currentUser, trackedProjects, setDash
       });
     }
     
-    // Store in Firestore
+    // Store in localStorage as fallback
+    try {
+      localStorage.setItem(`dashboardCache_${currentUser.uid}`, JSON.stringify({
+        ...cacheData,
+        lastUpdated: new Date().toISOString()
+      }));
+      console.log('Dashboard cache saved to localStorage');
+    } catch (localStorageError) {
+      console.warn('Could not save to localStorage:', localStorageError);
+    }
+    
+    // Try to store in Firestore (but don't let failure break the app)
     try {
       const cacheDocRef = doc(db, 'dashboardCache', currentUser.uid);
-      await setDoc(cacheDocRef, cacheData);
+      await setDoc(cacheDocRef, {
+        ...cacheData,
+        lastUpdated: serverTimestamp() // Use server timestamp for Firestore
+      });
       
-      console.log('Dashboard cache updated successfully');
+      console.log('Dashboard cache updated successfully in Firestore');
       return true;
-    } catch (error) {
-      console.error('Error updating dashboard cache in Firestore:', error);
-      return false;
+    } catch (firestoreError) {
+      console.warn('Error updating dashboard cache in Firestore (continuing with localStorage only):', firestoreError);
+      // We still return true since the cache was updated in localStorage and state
+      return true;
     }
   } catch (error) {
     console.error('Error in updateDashboardCache:', error);

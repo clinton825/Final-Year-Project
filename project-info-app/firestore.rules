@@ -1,18 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access with authentication
+    // Allow read/write access to user's own data
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Make public data accessible to authenticated users
+    // Allow users to manage their own tracked projects
+    match /trackedProjects/{docId} {
+      allow read, write: if request.auth != null && (
+        docId.startsWith(request.auth.uid) || 
+        request.resource.data.userId == request.auth.uid
+      );
+    }
+    
+    // Allow users to manage their dashboard cache
+    match /dashboardCache/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Make project data accessible to authenticated users
     match /projects/{projectId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
     }
     
-    // Make all other data accessible to authenticated users by default
+    // Allow users to access and modify their own project notes
+    match /projectNotes/{noteId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        noteId.startsWith(request.auth.uid) || 
+        request.resource.data.userId == request.auth.uid
+      );
+    }
+    
+    // Allow users to access their own activity
+    match /userActivity/{docId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        (request.resource.data.userId == request.auth.uid || 
+         resource.data.userId == request.auth.uid);
+    }
+    
+    // Allow public read access to general activity
+    match /activity/{activityId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Default rule for other collections
     match /{document=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
