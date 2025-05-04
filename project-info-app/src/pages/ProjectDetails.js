@@ -339,34 +339,67 @@ const ProjectDetails = () => {
       const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
       console.log('Checking document with ID:', compoundId);
       
-      const trackedProjectDoc = await getDoc(trackedProjectRef);
-      
-      if (trackedProjectDoc.exists()) {
-        console.log('Project is tracked (found by compound ID)');
-        setIsTracked(true);
-        return;
-      }
-      
-      // If not found by compound ID, try query
-      console.log('Project not found by compound ID, trying query...');
-      const trackedProjectsQuery = query(
-        collection(db, 'trackedProjects'),
-        where('userId', '==', currentUser.uid),
-        where('projectId', '==', projectId)
-      );
-      
-      const querySnapshot = await getDocs(trackedProjectsQuery);
-      
-      if (!querySnapshot.empty) {
-        console.log('Project is tracked (found by query)');
-        setIsTracked(true);
-      } else {
-        console.log('Project is not tracked');
-        setIsTracked(false);
+      try {
+        const trackedProjectDoc = await getDoc(trackedProjectRef);
+        
+        if (trackedProjectDoc.exists()) {
+          console.log('Project is tracked (found by compound ID)');
+          setIsTracked(true);
+          return;
+        }
+        
+        // If not found by compound ID, try query
+        console.log('Project not found by compound ID, trying query...');
+        try {
+          const trackedProjectsQuery = query(
+            collection(db, 'trackedProjects'),
+            where('userId', '==', currentUser.uid),
+            where('projectId', '==', projectId)
+          );
+          
+          const querySnapshot = await getDocs(trackedProjectsQuery);
+          
+          if (!querySnapshot.empty) {
+            console.log('Project is tracked (found by query)');
+            setIsTracked(true);
+          } else {
+            console.log('Project is not tracked');
+            setIsTracked(false);
+          }
+        } catch (queryError) {
+          console.error('Error querying tracked projects:', queryError);
+          // Default to untracked on query error
+          setIsTracked(false);
+        }
+      } catch (docError) {
+        console.error('Error getting document:', docError);
+        // Try fallback query if direct document access fails
+        try {
+          console.log('Trying fallback query after document error...');
+          const trackedProjectsQuery = query(
+            collection(db, 'trackedProjects'),
+            where('userId', '==', currentUser.uid),
+            where('projectId', '==', projectId)
+          );
+          
+          const querySnapshot = await getDocs(trackedProjectsQuery);
+          
+          if (!querySnapshot.empty) {
+            console.log('Project is tracked (found by fallback query)');
+            setIsTracked(true);
+          } else {
+            console.log('Project is not tracked (from fallback query)');
+            setIsTracked(false);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+          setIsTracked(false);
+        }
       }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
-      // Don't change tracking state on error
+      // Default to untracked on any error for safer operation
+      setIsTracked(false);
     }
   };
 
@@ -383,6 +416,10 @@ const ProjectDetails = () => {
       if (!navigator.onLine) {
         throw new Error('You appear to be offline. Please check your internet connection and try again.');
       }
+
+      // Debug information for troubleshooting in Vercel environment
+      console.log('Current user ID:', currentUser.uid);
+      console.log('Auth state:', currentUser ? 'Logged in' : 'Not logged in');
 
       const projectToStore = { ...project };
       
@@ -416,19 +453,28 @@ const ProjectDetails = () => {
         try {
           await deleteDoc(trackedProjectRef);
           
-          // Create activity entry for untracking
-          await addDoc(collection(db, 'userActivity'), {
-            userId: currentUser.uid,
-            type: 'untrack',
-            projectId: planningIdToUse,
-            projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
-            timestamp: serverTimestamp()
-          });
+          try {
+            // Create activity entry for untracking
+            await addDoc(collection(db, 'userActivity'), {
+              userId: currentUser.uid,
+              type: 'untrack',
+              projectId: planningIdToUse,
+              projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+              timestamp: serverTimestamp()
+            });
+          } catch (activityError) {
+            // Don't fail the whole operation if activity logging fails
+            console.warn('Could not log activity, but untracking succeeded:', activityError);
+          }
 
           console.log('Project untracked successfully');
           setSuccess('Project removed from tracked projects.');
         } catch (error) {
           console.error('Error untracking project:', error);
+          // Detailed error logging for Vercel troubleshooting
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          
           // Revert optimistic update on failure
           setIsTracked(true);
           throw error;
@@ -441,7 +487,8 @@ const ProjectDetails = () => {
         setIsTracked(true);
         
         try {
-          await setDoc(trackedProjectRef, {
+          // Normalize the project data to avoid undefined fields
+          const normalizedProject = {
             userId: currentUser.uid,
             projectId: planningIdToUse,
             dateTracked: serverTimestamp(),
@@ -453,24 +500,44 @@ const ProjectDetails = () => {
             location: project.planning_county || project.county || project.location || '',
             category: project.planning_category || project.category || project.type || 'Uncategorized',
             date: project.planning_date || project.date || serverTimestamp(),
-            
-            // Store complete project data as well
-            projectData: projectToStore,
+          };
+          
+          // First ensure the project data is clean - remove any undefined or problematic values
+          const cleanProjectData = {};
+          Object.keys(projectToStore).forEach(key => {
+            if (projectToStore[key] !== undefined && projectToStore[key] !== null) {
+              cleanProjectData[key] = projectToStore[key];
+            }
           });
+          
+          // Add the cleaned project data
+          normalizedProject.projectData = cleanProjectData;
+          
+          // Store in Firestore
+          await setDoc(trackedProjectRef, normalizedProject);
 
-          // Create activity entry for tracking
-          await addDoc(collection(db, 'userActivity'), {
-            userId: currentUser.uid,
-            type: 'track',
-            projectId: planningIdToUse,
-            projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
-            timestamp: serverTimestamp()
-          });
+          try {
+            // Create activity entry for tracking
+            await addDoc(collection(db, 'userActivity'), {
+              userId: currentUser.uid,
+              type: 'track',
+              projectId: planningIdToUse,
+              projectTitle: project.planning_title || project.planning_name || 'Unnamed Project',
+              timestamp: serverTimestamp()
+            });
+          } catch (activityError) {
+            // Don't fail the whole operation if activity logging fails
+            console.warn('Could not log activity, but tracking succeeded:', activityError);
+          }
 
           console.log('Project tracked successfully');
           setSuccess('Project added to tracked projects.');
         } catch (error) {
           console.error('Error tracking project:', error);
+          // Detailed error logging for Vercel troubleshooting
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          
           // Revert optimistic update on failure
           setIsTracked(false);
           throw error;
@@ -478,12 +545,15 @@ const ProjectDetails = () => {
       }
     } catch (error) {
       console.error('Error updating project tracking status:', error);
+      console.error('Error stack:', error.stack);
       
       // Provide more specific error messages based on error type
       if (error.code === 'permission-denied') {
         setError('You do not have permission to perform this action. Please check your account status.');
-      } else if (error.code === 'unavailable' || error.message.includes('offline')) {
+      } else if (error.code === 'unavailable' || error.message?.includes('offline')) {
         setError('Network error: Please check your internet connection and try again.');
+      } else if (error.code === 'not-found') {
+        setError('The project could not be found. It may have been deleted.');
       } else {
         setError(`Failed to update tracking status: ${error.message || 'Please try again.'}`);
       }
