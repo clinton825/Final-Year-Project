@@ -93,23 +93,23 @@ try {
   const isProduction = window.location.hostname !== 'localhost';
   
   if (isProduction) {
-    console.log('Using production Firestore configuration with performance optimizations');
-    // In production, use a more standard configuration without experimental flags
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-        // Use a defined cache size in production to avoid memory issues
-        cacheSizeBytes: 100 * 1024 * 1024 // 100MB for better offline support
-      })
-      // Removed experimental flags that might cause connection issues
-    });
+    console.log('Using production Firestore configuration with simplified settings');
+    
+    // Try to detect the hosting environment for better debugging
+    const hostEnvironment = window.location.hostname.includes('vercel') ? 'Vercel' : 
+                           window.location.hostname.includes('netlify') ? 'Netlify' : 
+                           'Unknown production';
+    console.log(`Detected hosting environment: ${hostEnvironment}`);
+    
+    // Use the most basic configuration for production - no experimental flags
+    db = getFirestore(app);
     
     // Force enable network after a short delay to ensure connection is established
     setTimeout(() => {
-      console.log('Forcing Firestore network connection...');
+      console.log('Ensuring Firestore network connection...');
       enableNetwork(db)
-        .then(() => console.log('Firestore network connection forced successfully'))
-        .catch(err => console.error('Failed to force Firestore network connection:', err));
+        .then(() => console.log('✅ Firestore network connection confirmed'))
+        .catch(err => console.error('Failed to ensure Firestore network connection:', err));
     }, 2000);
   } else {
     // In development, use unlimited cache for better debugging

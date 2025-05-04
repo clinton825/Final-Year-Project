@@ -331,6 +331,48 @@ const ProjectDetails = () => {
     }
   };
   
+  // Add helper functions for localStorage fallback
+  const storeTrackedProjectLocally = (projectId, isTracked) => {
+    try {
+      if (!currentUser) return;
+      
+      const userId = currentUser.uid;
+      const trackedProjects = JSON.parse(localStorage.getItem('trackedProjects') || '{}');
+      
+      if (!trackedProjects[userId]) {
+        trackedProjects[userId] = {};
+      }
+      
+      if (isTracked) {
+        trackedProjects[userId][projectId] = {
+          tracked: true,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        delete trackedProjects[userId][projectId];
+      }
+      
+      localStorage.setItem('trackedProjects', JSON.stringify(trackedProjects));
+      console.log(`Project ${projectId} tracking status stored locally: ${isTracked}`);
+    } catch (error) {
+      console.error('Error storing tracked project in localStorage:', error);
+    }
+  };
+  
+  const getLocalTrackedStatus = (projectId) => {
+    try {
+      if (!currentUser) return false;
+      
+      const userId = currentUser.uid;
+      const trackedProjects = JSON.parse(localStorage.getItem('trackedProjects') || '{}');
+      
+      return trackedProjects[userId]?.[projectId]?.tracked || false;
+    } catch (error) {
+      console.error('Error getting tracked status from localStorage:', error);
+      return false;
+    }
+  };
+
   const checkIfProjectIsTracked = async (projectId) => {
     if (!currentUser) {
       console.log('No authenticated user, project cannot be tracked');
@@ -350,6 +392,13 @@ const ProjectDetails = () => {
         return;
       }
       
+      // First check localStorage for immediate response (especially useful in production)
+      const locallyTracked = getLocalTrackedStatus(projectId);
+      console.log('LocalStorage tracking status:', locallyTracked ? 'Tracked' : 'Not tracked');
+      
+      // Set initial state from localStorage while we check Firestore
+      setIsTracked(locallyTracked);
+      
       // Try query approach first - more reliable across environments
       try {
         console.log('Checking with query approach first...');
@@ -364,6 +413,8 @@ const ProjectDetails = () => {
         if (!querySnapshot.empty) {
           console.log('Project is tracked (found by query)');
           setIsTracked(true);
+          // Update localStorage to match Firestore
+          storeTrackedProjectLocally(projectId, true);
           return;
         }
         
@@ -378,41 +429,58 @@ const ProjectDetails = () => {
         if (trackedProjectDoc.exists()) {
           console.log('Project is tracked (found by compound ID)');
           setIsTracked(true);
+          // Update localStorage to match Firestore
+          storeTrackedProjectLocally(projectId, true);
         } else {
           console.log('Project is not tracked (not found by either method)');
           setIsTracked(false);
+          // Update localStorage to match Firestore
+          storeTrackedProjectLocally(projectId, false);
         }
       } catch (queryError) {
         console.error('Error querying tracked projects:', queryError);
         console.log('Query error details:', queryError.code, queryError.message);
         
-        // Try direct document access as last resort
-        try {
-          console.log('Query failed, trying direct document access...');
-          const compoundId = `${currentUser.uid}_${projectId}`;
-          const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
-          
-          const trackedProjectDoc = await getDoc(trackedProjectRef);
-          
-          if (trackedProjectDoc.exists()) {
-            console.log('Project is tracked (found by direct document access)');
-            setIsTracked(true);
-          } else {
-            console.log('Project is not tracked (confirmed by direct document access)');
-            setIsTracked(false);
+        // If Firestore is unavailable, rely on localStorage data
+        if (queryError.code === 'unavailable' || queryError.message?.includes('offline')) {
+          console.log('Firebase unavailable, using localStorage tracking status:', locallyTracked);
+          setIsTracked(locallyTracked);
+        } else {
+          // For other errors, try direct document access
+          try {
+            console.log('Query failed, trying direct document access...');
+            const compoundId = `${currentUser.uid}_${projectId}`;
+            const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
+            
+            const trackedProjectDoc = await getDoc(trackedProjectRef);
+            
+            if (trackedProjectDoc.exists()) {
+              console.log('Project is tracked (found by direct document access)');
+              setIsTracked(true);
+              storeTrackedProjectLocally(projectId, true);
+            } else {
+              console.log('Project is not tracked (confirmed by direct document access)');
+              setIsTracked(false);
+              storeTrackedProjectLocally(projectId, false);
+            }
+          } catch (docError) {
+            console.error('Direct document access also failed:', docError);
+            console.log('Document error details:', docError.code, docError.message);
+            
+            // Use localStorage as final fallback for all errors
+            console.log('Using localStorage as final fallback, status:', locallyTracked);
+            setIsTracked(locallyTracked);
           }
-        } catch (docError) {
-          console.error('Direct document access also failed:', docError);
-          console.log('Document error details:', docError.code, docError.message);
-          // Default to untracked on all errors
-          setIsTracked(false);
         }
       }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
       console.log('Error details:', error.code, error.message);
-      // Default to untracked on any error for safer operation
-      setIsTracked(false);
+      
+      // Use localStorage as fallback for any error
+      const locallyTracked = getLocalTrackedStatus(projectId);
+      console.log('Using localStorage as error fallback, status:', locallyTracked);
+      setIsTracked(locallyTracked);
     }
   };
 
@@ -464,6 +532,9 @@ const ProjectDetails = () => {
         // Optimistic UI update - update state before the operation completes
         setIsTracked(false);
         
+        // Update localStorage immediately for offline support
+        storeTrackedProjectLocally(planningIdToUse, false);
+        
         try {
           // First try to find the document by query to handle different ID formats
           const trackedProjectsQuery = query(
@@ -511,9 +582,17 @@ const ProjectDetails = () => {
           console.error('Error code:', error.code);
           console.error('Error message:', error.message);
           
-          // Revert optimistic update on failure
-          setIsTracked(true);
-          throw error;
+          if (error.code === 'unavailable' || error.message?.includes('offline')) {
+            // If Firestore is unavailable but we updated localStorage, consider it a success
+            console.log('Firestore unavailable, but localStorage updated successfully');
+            setSuccess('Project removed from tracked projects (offline mode).');
+          } else {
+            // Only revert optimistic update for non-connectivity errors
+            setIsTracked(true);
+            // Revert localStorage too
+            storeTrackedProjectLocally(planningIdToUse, true);
+            throw error;
+          }
         }
       } else {
         // User is tracking the project - store complete project data
@@ -521,6 +600,9 @@ const ProjectDetails = () => {
         
         // Optimistic UI update - update state before the operation completes
         setIsTracked(true);
+        
+        // Update localStorage immediately for offline support
+        storeTrackedProjectLocally(planningIdToUse, true);
         
         try {
           // Normalize the project data to avoid undefined fields
@@ -574,9 +656,17 @@ const ProjectDetails = () => {
           console.error('Error code:', error.code);
           console.error('Error message:', error.message);
           
-          // Revert optimistic update on failure
-          setIsTracked(false);
-          throw error;
+          if (error.code === 'unavailable' || error.message?.includes('offline')) {
+            // If Firestore is unavailable but we updated localStorage, consider it a success
+            console.log('Firestore unavailable, but localStorage updated successfully');
+            setSuccess('Project added to tracked projects (offline mode).');
+          } else {
+            // Only revert optimistic update for non-connectivity errors
+            setIsTracked(false);
+            // Revert localStorage too
+            storeTrackedProjectLocally(planningIdToUse, false);
+            throw error;
+          }
         }
       }
     } catch (error) {
