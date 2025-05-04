@@ -56,7 +56,13 @@ const ProjectDetails = () => {
     if (project?.planning_id) {
       const projectId = project.planning_id;
       console.log('Project data loaded with planning_id:', projectId);
-      checkIfProjectIsTracked(projectId);
+      
+      // Add a small delay to ensure auth is fully initialized in production
+      const timer = setTimeout(() => {
+        checkIfProjectIsTracked(projectId);
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
   }, [project, currentUser]);
   
@@ -327,77 +333,84 @@ const ProjectDetails = () => {
   
   const checkIfProjectIsTracked = async (projectId) => {
     if (!currentUser) {
+      console.log('No authenticated user, project cannot be tracked');
       setIsTracked(false);
       return;
     }
 
     try {
       console.log('Checking if project is tracked:', projectId);
+      console.log('Current user UID:', currentUser.uid);
+      console.log('Environment:', window.location.hostname === 'localhost' ? 'Development' : 'Production');
       
-      // First try with compound ID
-      const compoundId = `${currentUser.uid}_${projectId}`;
-      const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
-      console.log('Checking document with ID:', compoundId);
+      // Verify authentication state is fully initialized
+      if (!currentUser.uid) {
+        console.error('User UID is not available, cannot check tracked status');
+        setIsTracked(false);
+        return;
+      }
       
+      // Try query approach first - more reliable across environments
       try {
+        console.log('Checking with query approach first...');
+        const trackedProjectsQuery = query(
+          collection(db, 'trackedProjects'),
+          where('userId', '==', currentUser.uid),
+          where('projectId', '==', projectId)
+        );
+        
+        const querySnapshot = await getDocs(trackedProjectsQuery);
+        
+        if (!querySnapshot.empty) {
+          console.log('Project is tracked (found by query)');
+          setIsTracked(true);
+          return;
+        }
+        
+        // If not found by query, try with compound ID as fallback
+        console.log('Project not found by query, trying compound ID...');
+        const compoundId = `${currentUser.uid}_${projectId}`;
+        const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
+        console.log('Checking document with ID:', compoundId);
+        
         const trackedProjectDoc = await getDoc(trackedProjectRef);
         
         if (trackedProjectDoc.exists()) {
           console.log('Project is tracked (found by compound ID)');
           setIsTracked(true);
-          return;
-        }
-        
-        // If not found by compound ID, try query
-        console.log('Project not found by compound ID, trying query...');
-        try {
-          const trackedProjectsQuery = query(
-            collection(db, 'trackedProjects'),
-            where('userId', '==', currentUser.uid),
-            where('projectId', '==', projectId)
-          );
-          
-          const querySnapshot = await getDocs(trackedProjectsQuery);
-          
-          if (!querySnapshot.empty) {
-            console.log('Project is tracked (found by query)');
-            setIsTracked(true);
-          } else {
-            console.log('Project is not tracked');
-            setIsTracked(false);
-          }
-        } catch (queryError) {
-          console.error('Error querying tracked projects:', queryError);
-          // Default to untracked on query error
+        } else {
+          console.log('Project is not tracked (not found by either method)');
           setIsTracked(false);
         }
-      } catch (docError) {
-        console.error('Error getting document:', docError);
-        // Try fallback query if direct document access fails
+      } catch (queryError) {
+        console.error('Error querying tracked projects:', queryError);
+        console.log('Query error details:', queryError.code, queryError.message);
+        
+        // Try direct document access as last resort
         try {
-          console.log('Trying fallback query after document error...');
-          const trackedProjectsQuery = query(
-            collection(db, 'trackedProjects'),
-            where('userId', '==', currentUser.uid),
-            where('projectId', '==', projectId)
-          );
+          console.log('Query failed, trying direct document access...');
+          const compoundId = `${currentUser.uid}_${projectId}`;
+          const trackedProjectRef = doc(db, 'trackedProjects', compoundId);
           
-          const querySnapshot = await getDocs(trackedProjectsQuery);
+          const trackedProjectDoc = await getDoc(trackedProjectRef);
           
-          if (!querySnapshot.empty) {
-            console.log('Project is tracked (found by fallback query)');
+          if (trackedProjectDoc.exists()) {
+            console.log('Project is tracked (found by direct document access)');
             setIsTracked(true);
           } else {
-            console.log('Project is not tracked (from fallback query)');
+            console.log('Project is not tracked (confirmed by direct document access)');
             setIsTracked(false);
           }
-        } catch (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
+        } catch (docError) {
+          console.error('Direct document access also failed:', docError);
+          console.log('Document error details:', docError.code, docError.message);
+          // Default to untracked on all errors
           setIsTracked(false);
         }
       }
     } catch (error) {
       console.error('Error checking if project is tracked:', error);
+      console.log('Error details:', error.code, error.message);
       // Default to untracked on any error for safer operation
       setIsTracked(false);
     }
@@ -420,6 +433,7 @@ const ProjectDetails = () => {
       // Debug information for troubleshooting in Vercel environment
       console.log('Current user ID:', currentUser.uid);
       console.log('Auth state:', currentUser ? 'Logged in' : 'Not logged in');
+      console.log('Environment:', window.location.hostname === 'localhost' ? 'Development' : 'Production');
 
       const projectToStore = { ...project };
       
@@ -451,7 +465,29 @@ const ProjectDetails = () => {
         setIsTracked(false);
         
         try {
-          await deleteDoc(trackedProjectRef);
+          // First try to find the document by query to handle different ID formats
+          const trackedProjectsQuery = query(
+            collection(db, 'trackedProjects'),
+            where('userId', '==', currentUser.uid),
+            where('projectId', '==', planningIdToUse)
+          );
+          
+          const querySnapshot = await getDocs(trackedProjectsQuery);
+          
+          if (!querySnapshot.empty) {
+            // Delete all matching documents (should be just one)
+            const deletePromises = [];
+            querySnapshot.forEach(doc => {
+              console.log('Deleting document with ID:', doc.id);
+              deletePromises.push(deleteDoc(doc.ref));
+            });
+            
+            await Promise.all(deletePromises);
+          } else {
+            // Fallback to direct document delete if query finds nothing
+            console.log('No documents found by query, trying direct delete...');
+            await deleteDoc(trackedProjectRef);
+          }
           
           try {
             // Create activity entry for untracking
