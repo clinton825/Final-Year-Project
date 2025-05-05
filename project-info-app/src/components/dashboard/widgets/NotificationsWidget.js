@@ -361,28 +361,39 @@ const NotificationsWidget = ({ data }) => {
   return (
     <div className="notifications-widget">
       <div className="notifications-header">
-        <h3>
-          <FaBell /> Notifications
-          {offlineMode && <span className="offline-badge">Offline</span>}
-        </h3>
-        <div className="notifications-controls">
+        {!showSettings && (
+          <div className="notifications-actions">
+            <button 
+              className="settings-button" 
+              onClick={() => setShowSettings(true)}
+              title="Notification Settings"
+            >
+              <FaCog />
+            </button>
+            
+            <button 
+              className="refresh-button" 
+              onClick={() => {
+                setRefreshing(true);
+                fetchProjectNotifications().finally(() => setRefreshing(false));
+              }}
+              disabled={refreshing}
+              title="Refresh Notifications"
+            >
+              <FaSync className={refreshing ? 'spinning' : ''} />
+            </button>
+          </div>
+        )}
+        
+        {showSettings && (
           <button 
-            className="refresh-button" 
-            onClick={() => {
-              setRefreshing(true);
-              fetchProjectNotifications().finally(() => setRefreshing(false));
-            }}
-            disabled={refreshing}
+            className="back-button" 
+            onClick={() => setShowSettings(false)}
+            title="Back to Notifications"
           >
-            <FaSync className={refreshing ? 'spinning' : ''} />
+            <FaTimes /> Close Settings
           </button>
-          <button 
-            className="settings-button" 
-            onClick={() => setShowSettings(!showSettings)}
-          >
-            <FaCog />
-          </button>
-        </div>
+        )}
       </div>
       
       {error && (

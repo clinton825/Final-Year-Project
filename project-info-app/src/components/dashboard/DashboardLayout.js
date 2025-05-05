@@ -4,6 +4,7 @@ import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
 import { FaPlus, FaTimes, FaSave, FaUndo, FaChartBar, FaClock, FaTable, FaThLarge, FaChartPie, FaHistory, FaEdit } from 'react-icons/fa';
 import './DashboardLayout.css';
+import { updateDashboardCache } from '../../pages/Dashboard';
 
 // Widget components
 import SummaryStatsWidget from './widgets/SummaryStatsWidget';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   collection, 
@@ -24,6 +24,9 @@ import {
   LineElement
 } from 'chart.js';
 import { Pie, Bar, Line, Chart } from 'react-chartjs-2';
+import { FaFilePdf, FaDownload, FaFilter, FaCog } from 'react-icons/fa';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import config from '../config';
 import './Analytics.css';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -124,7 +127,7 @@ const Analytics = () => {
   const [countyChartData, setCountyChartData] = useState(null);
   const [countyProjectsData, setCountyProjectsData] = useState(null);
   const [subcategoryChartData, setSubcategoryChartData] = useState(null);
-  const [chartReady, setChartReady] = useState(false); // Track if charts are ready to display
+  const [chartReady, setChartReady] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
   const [pageReady, setPageReady] = useState(false); // Track if the page structure is ready
   const [activeFilters, setActiveFilters] = useState([]); // Track active filters for display
@@ -134,6 +137,17 @@ const Analytics = () => {
   const [topCountyValue, setTopCountyValue] = useState(0);
   const [topProjectsCounty, setTopProjectsCounty] = useState('');
   const [topProjectsCount, setTopProjectsCount] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  
+  // Refs for PDF export
+  const analyticsRef = useRef(null);
+  const topMetricsRef = useRef(null);
+  const categoryChartRef = useRef(null);
+  const stagesChartRef = useRef(null);
+  const countyDistributionRef = useRef(null);
+  const subcategoryChartRef = useRef(null);
+  const countyAnalysisRef = useRef(null);
 
   // Color palette for charts
   const colorPalette = [
@@ -1096,14 +1110,167 @@ const Analytics = () => {
     }
   };
 
+  // PDF export functionality
+  const exportAnalyticsToPDF = async () => {
+    // Show we're starting the export process
+    console.log('Starting PDF export process...');
+    
+    if (!analyticsRef.current) {
+      console.error('Analytics container ref not found');
+      setError('Cannot export: Analytics container not found');
+      return;
+    }
+    
+    if (isExporting) {
+      console.log('Export already in progress');
+      return;
+    }
+    
+    try {
+      setIsExporting(true);
+      setExportProgress(5);
+      console.log('Export progress: 5%');
+      
+      // Set up PDF document (A4 landscape)
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pageWidth = 297; // A4 landscape width in mm
+      const pageHeight = 210; // A4 landscape height in mm
+      const margin = 10;
+      const contentWidth = pageWidth - (margin * 2);
+      
+      // Add title and header
+      pdf.setFontSize(22);
+      pdf.setTextColor(44, 62, 80);
+      pdf.text('Infrastructure Projects Analytics', margin, margin + 10);
+      
+      // Add date and user info
+      const date = new Date().toLocaleDateString();
+      pdf.setFontSize(10);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Generated on: ${date}`, margin, margin + 18);
+      
+      if (currentUser?.email) {
+        pdf.text(`User: ${currentUser.email}`, pageWidth - margin - 60, margin + 18);
+      }
+      
+      // Add filter information
+      let filterText = 'Filters: ';
+      if (selectedTimeRange) {
+        const timeOption = timeRangeOptions.find(o => o.value === selectedTimeRange);
+        filterText += timeOption ? timeOption.label : '';
+      }
+      if (selectedCategory) filterText += `, Category: ${selectedCategory}`;
+      if (selectedSubcategory) filterText += `, Subcategory: ${selectedSubcategory}`;
+      if (selectedCounty) filterText += `, County: ${selectedCounty}`;
+      
+      if (filterText !== 'Filters: ') {
+        pdf.setFontSize(9);
+        pdf.text(filterText, margin, margin + 25);
+      }
+      
+      setExportProgress(15);
+      console.log('Export progress: 15% - Capturing analytics container');
+      
+      // First, let's just try capturing the entire analytics container
+      try {
+        const canvas = await html2canvas(analyticsRef.current, {
+          scale: 1.5,
+          useCORS: true,
+          logging: true,
+          allowTaint: true,
+          backgroundColor: '#FFFFFF'
+        });
+        
+        console.log('Analytics container captured successfully');
+        setExportProgress(50);
+        
+        // Get the image data
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Calculate aspect ratio and dimensions
+        const aspectRatio = canvas.width / canvas.height;
+        let imgWidth = contentWidth;
+        let imgHeight = imgWidth / aspectRatio;
+        
+        // Check if it fits on the current page, otherwise scale it down
+        if (imgHeight > pageHeight - 2 * margin) {
+          imgHeight = pageHeight - 2 * margin;
+          imgWidth = imgHeight * aspectRatio;
+        }
+        
+        // Add the image
+        pdf.addImage(imgData, 'PNG', margin, margin + 30, imgWidth, imgHeight);
+        
+        setExportProgress(90);
+        console.log('Export progress: 90% - Adding image to PDF');
+        
+        // Add footer
+        pdf.setFontSize(8);
+        pdf.setTextColor(128, 128, 128);
+        const footerText = 'Infrastructure Project Analytics - Generated by Infrastructure Tracking System';
+        pdf.text(footerText, pageWidth / 2, pageHeight - 5, { align: 'center' });
+        
+        // Save the PDF
+        const filename = `infrastructure-analytics-${date.replace(/\//g, '-')}.pdf`;
+        pdf.save(filename);
+        console.log('PDF saved as:', filename);
+        
+        setExportProgress(100);
+        console.log('Export completed successfully');
+        
+        // Reset export state after a delay
+        setTimeout(() => {
+          setIsExporting(false);
+          setExportProgress(0);
+        }, 1000);
+        
+      } catch (captureError) {
+        console.error('Error capturing analytics container:', captureError);
+        throw new Error(`Error capturing analytics: ${captureError.message}`);
+      }
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setIsExporting(false);
+      setExportProgress(0);
+      setError('Failed to export analytics to PDF: ' + error.message);
+    }
+  };
+
   return (
     <ErrorBoundary
       fallbackTitle="Analytics Issue"
       fallbackMessage="We're having trouble displaying the analytics. Please try again later."
       retryButton={true}
     >
-      <div className="analytics-dashboard">
-        <h1>Analytics Dashboard</h1>
+      <div className="analytics-dashboard" ref={analyticsRef}>
+        <div className="analytics-header">
+          <h1>Analytics Dashboard</h1>
+          
+          <div className="analytics-actions">
+            {chartReady && (
+              <button 
+                className={`export-pdf-button ${isExporting ? 'exporting' : ''}`}
+                onClick={exportAnalyticsToPDF}
+                disabled={isExporting || loading}
+                title="Export as PDF"
+              >
+                <FaFilePdf /> {isExporting ? `Exporting (${exportProgress}%)` : 'Export as PDF'}
+              </button>
+            )}
+            
+            {isExporting && (
+              <div className="export-progress">
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${exportProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         
         {loading ? (
           <div className="loading-state">
@@ -1250,10 +1417,10 @@ const Analytics = () => {
               {activeTab === 'charts' ? (
                 <div className="charts-view">
                   {/* Category & Value Analysis - First row */}
-                  <div className="chart-section">
+                  <div className="chart-section" ref={topMetricsRef}>
                     <h3 className="section-header">Category & Value Analysis</h3>
                     <div className="chart-grid">
-                      <div className="chart-container pie-container">
+                      <div className="chart-container pie-container" ref={categoryChartRef}>
                         <h3>Category Value Distribution</h3>
                         <div className="chart-content">
                           <ChartWrapper chartType="Pie" title="Category Distribution">
@@ -1264,7 +1431,7 @@ const Analytics = () => {
                           </ChartWrapper>
                         </div>
                       </div>
-                      <div className="chart-container">
+                      <div className="chart-container" ref={stagesChartRef}>
                         <h3>Value by Project Stage</h3>
                         <div className="chart-content">
                           <ChartWrapper chartType="Bar" title="Project Stages">
@@ -1298,7 +1465,7 @@ const Analytics = () => {
                   <div className="chart-section">
                     <h3 className="section-header">Subcategory & County Analysis</h3>
                     <div className="chart-grid">
-                      <div className="chart-container pie-container">
+                      <div className="chart-container pie-container" ref={subcategoryChartRef}>
                         <h3>Subcategory Spending Distribution</h3>
                         <div className="chart-content">
                           <ChartWrapper chartType="Pie" title="Subcategory Spending">
@@ -1309,8 +1476,8 @@ const Analytics = () => {
                           </ChartWrapper>
                         </div>
                       </div>
-                      <div className="chart-container">
-                        <h3>Project Value by County</h3>
+                      <div className="chart-container" ref={countyDistributionRef}>
+                        <h3>Project Distribution by County</h3>
                         <div className="chart-content">
                           <ChartWrapper chartType="Bar" title="County Values">
                             <Bar 
@@ -1387,9 +1554,9 @@ const Analytics = () => {
                   </div>
                 </div>
               ) : (
-                <div className="metrics-view">
+                <div className="metrics-view" ref={countyAnalysisRef}>
                   <div className="county-metrics-section">
-                    <h3 className="section-header">County Metrics</h3>
+                    <h3 className="section-header">County-level Analysis</h3>
                     <div className="metrics-table-container">
                       <table className="metrics-table">
                         <thead>

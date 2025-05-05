@@ -38,6 +38,26 @@ The **Infrastructure Project Tracking Web Application** is a React-based web app
 - **LocalStorage fallback** for offline support
 - Enhanced authentication with **error handling & retry mechanisms**
 
+## Recent Updates *(May 2025)*
+### **Analytics Enhancements**
+- Added **PDF Export** functionality for Analytics page to enable sharing of insights and reports
+- Improved chart rendering and display for better visualization
+- Enhanced filtering capabilities with clearer UI feedback
+
+### **Dashboard & Project Tracking Improvements**
+- Fixed critical issues with **untracking functionality**
+- Ensured tracked projects are properly removed from both UI and Firestore
+- Improved state management to maintain correct dashboard statistics
+- Enhanced localStorage caching to prevent untracked projects from reappearing after refresh
+- Fixed duplicate notifications issue in dashboard layout
+- Improved error handling for missing Firestore indexes
+
+### **Performance & Reliability Enhancements**
+- Added comprehensive error handling for project notes
+- Improved asynchronous initialization sequence for dashboard components
+- Enhanced offline support with better caching mechanisms
+- Fixed critical initialization errors in component lifecycles
+
 ## Recent Updates *(April 2025)*
 ### **Project Updates Feature**
 - Implemented **Project Updates Page** to display recently updated projects

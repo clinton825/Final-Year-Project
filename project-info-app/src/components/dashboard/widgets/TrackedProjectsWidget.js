@@ -42,15 +42,28 @@ const TrackedProjectsWidget = ({ data }) => {
       if (typeof parentUntrackProject === 'function') {
         try {
           // Pass the document ID if available in the project data
-          const docId = project._firebaseDocId || project.docId;
-          console.log('Using document ID for untracking:', docId || projectId);
+          console.log('Using parentUntrackProject for untracking:', projectId);
           
           const result = await parentUntrackProject(projectId);
           
           if (result) {
-            console.log('Successfully untracked project');
-            // Don't reset loading state here as the component will be removed from the DOM
-            return;
+            console.log('Successfully untracked project using parent function');
+            // Reset loading state
+            setUntrackingProjects(prev => ({ ...prev, [projectId]: false }));
+            
+            // Fade out the project card for smoother UX
+            const projectElement = document.getElementById(`project-card-${projectId}`);
+            if (projectElement) {
+              projectElement.style.transition = 'opacity 0.3s, max-height 0.5s ease-out';
+              projectElement.style.opacity = '0';
+              projectElement.style.maxHeight = '0';
+              projectElement.style.overflow = 'hidden';
+              projectElement.style.marginBottom = '0';
+              projectElement.style.padding = '0';
+              projectElement.style.border = 'none';
+            }
+            
+            return true;
           } else {
             console.log('Untrack operation returned false, falling back to local implementation');
           }
@@ -79,10 +92,13 @@ const TrackedProjectsWidget = ({ data }) => {
         // Remove this project from the DOM
         const projectElement = document.getElementById(`project-card-${projectId}`);
         if (projectElement) {
+          projectElement.style.transition = 'opacity 0.3s, max-height 0.5s ease-out';
           projectElement.style.opacity = '0';
-          setTimeout(() => {
-            projectElement.style.display = 'none';
-          }, 300);
+          projectElement.style.maxHeight = '0';
+          projectElement.style.overflow = 'hidden';
+          projectElement.style.marginBottom = '0';
+          projectElement.style.padding = '0';
+          projectElement.style.border = 'none';
         }
         
         return;
@@ -120,10 +136,13 @@ const TrackedProjectsWidget = ({ data }) => {
           // Remove this project from the DOM
           const projectElement = document.getElementById(`project-card-${projectId}`);
           if (projectElement) {
+            projectElement.style.transition = 'opacity 0.3s, max-height 0.5s ease-out';
             projectElement.style.opacity = '0';
-            setTimeout(() => {
-              projectElement.style.display = 'none';
-            }, 300);
+            projectElement.style.maxHeight = '0';
+            projectElement.style.overflow = 'hidden';
+            projectElement.style.marginBottom = '0';
+            projectElement.style.padding = '0';
+            projectElement.style.border = 'none';
           }
           
           return;

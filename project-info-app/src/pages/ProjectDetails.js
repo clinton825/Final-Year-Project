@@ -16,6 +16,7 @@ import {
 import { db } from '../firebase/config';
 import config from '../config';
 import './ProjectDetails.css';
+import { generatePDFFromElement, generateProjectPDF } from '../utils/pdfExport';
 
 const API_BASE_URL = config.API_URL || 'http://localhost:8080';
 const API_URL = process.env.REACT_APP_BACKEND_API_URL || 'http://localhost:5001/api';
@@ -33,6 +34,7 @@ const ProjectDetails = () => {
   const [debugInfo, setDebugInfo] = useState({});
   const [stakeholders, setStakeholders] = useState([]);
   const [isUpdatingTrackStatus, setIsUpdatingTrackStatus] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
 
   useEffect(() => {
     console.log('ProjectDetails mounted with planning_id:', planning_id);
@@ -786,6 +788,55 @@ const ProjectDetails = () => {
           <i className={`fas ${isTracked ? 'fa-bell-slash' : 'fa-bell'}`}></i>
           {isTracked ? 'Untrack Project' : 'Track Project'}
         </button>
+        <div className="export-pdf-container" style={{ marginLeft: '10px' }}>
+          <button 
+            variant="outline-primary" 
+            onClick={() => setShowExportOptions(!showExportOptions)}
+            className="export-btn"
+          >
+            <i className="fas fa-file-pdf mr-1"></i> Export PDF
+          </button>
+          {showExportOptions && (
+            <div 
+              className="export-options" 
+              style={{ 
+                position: 'absolute', 
+                backgroundColor: 'white', 
+                border: '1px solid #ccc', 
+                borderRadius: '4px',
+                padding: '10px',
+                zIndex: 100,
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+              }}
+            >
+              <button 
+                variant="link" 
+                onClick={() => {
+                  generateProjectPDF(project);
+                  setShowExportOptions(false);
+                }}
+                className="export-option"
+              >
+                <i className="fas fa-file-alt mr-1"></i> Simple Report
+              </button>
+              <div className="dropdown-divider"></div>
+              <button 
+                variant="link" 
+                onClick={() => {
+                  const contentElement = document.getElementById('project-details-content');
+                  generatePDFFromElement(
+                    'project-details-content', 
+                    `project_${planning_id || project.planning_id || 'details'}`
+                  );
+                  setShowExportOptions(false);
+                }}
+                className="export-option"
+              >
+                <i className="fas fa-file-pdf mr-1"></i> Full Page Export
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="tabs">
@@ -803,9 +854,22 @@ const ProjectDetails = () => {
         </button>
       </div>
 
-      <div className="tab-content">
+      <div id="project-details-content" className="tab-content">
         {activeTab === 'overview' ? renderOverviewTab() : renderStakeholdersTab()}
       </div>
+      {showExportOptions && (
+        <div 
+          onClick={() => setShowExportOptions(false)} 
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 90 
+          }}
+        />
+      )}
     </div>
   );
 };

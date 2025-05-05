@@ -3,18 +3,15 @@ import { FaProjectDiagram, FaEuroSign, FaCheckCircle, FaClipboardList } from 're
 import './WidgetStyles.css';
 
 const SummaryStatsWidget = ({ data }) => {
-  const { trackedProjects, valueByCategory } = data;
+  const { trackedProjects = [], valueByCategory = {}, totalTrackedProjects, totalValue } = data;
 
-  // Calculate total project value
-  const totalValue = Object.values(valueByCategory || {}).reduce((sum, value) => sum + value, 0);
-  
   // Format currency
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-IE', {
       style: 'currency',
       currency: 'EUR',
       maximumFractionDigits: 0
-    }).format(value);
+    }).format(value || 0);
   };
   
   // Count completed projects
@@ -29,13 +26,17 @@ const SummaryStatsWidget = ({ data }) => {
   // Count active projects
   const activeProjects = trackedProjects ? trackedProjects.length - completedProjects : 0;
 
+  // Use the provided totals or calculate from data
+  const displayTotalProjects = totalTrackedProjects ?? trackedProjects.length ?? 0;
+  const displayTotalValue = totalValue ?? Object.values(valueByCategory).reduce((sum, value) => sum + value, 0) ?? 0;
+
   return (
     <div className="summary-stats-container">
       <div className="summary-stat-card">
         <div className="stat-icon">
           <FaProjectDiagram />
         </div>
-        <div className="stat-value">{trackedProjects?.length || 0}</div>
+        <div className="stat-value">{displayTotalProjects}</div>
         <div className="stat-label">Tracked Projects</div>
       </div>
       
@@ -43,7 +44,7 @@ const SummaryStatsWidget = ({ data }) => {
         <div className="stat-icon">
           <FaEuroSign />
         </div>
-        <div className="stat-value">{formatCurrency(totalValue)}</div>
+        <div className="stat-value">{formatCurrency(displayTotalValue)}</div>
         <div className="stat-label">Total Value</div>
       </div>
         
