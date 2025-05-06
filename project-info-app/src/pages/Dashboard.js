@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, limit, getDocs, onSnapshot, doc, getDoc, setDoc, deleteDoc, serverTimestamp, addDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -136,6 +136,15 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState('standard');
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [checkingForUpdates, setCheckingForUpdates] = useState(false);
+  
+  // In-memory cache for faster data retrieval
+  const inMemoryCache = useRef({
+    trackedProjects: {},
+    projectNotes: {},
+    dashboardSettings: {},
+    userData: {}
+  });
+  
   const [dashboardCache, setDashboardCache] = useState({
     isLoading: true,
     totalTrackedProjects: 0,
@@ -168,20 +177,60 @@ const Dashboard = () => {
     try {
       console.log('Fetching tracked projects for user:', currentUser.uid);
       
-      // First try to get from localStorage for immediate display
-      const cachedData = localStorage.getItem(`trackedProjects_${currentUser.uid}`);
-      if (cachedData) {
-        const { projects, timestamp } = JSON.parse(cachedData);
+      // Check in-memory cache first for fastest response
+      if (inMemoryCache.current.trackedProjects[currentUser.uid]) {
+        const { projects, timestamp } = inMemoryCache.current.trackedProjects[currentUser.uid];
         const cacheAge = new Date() - new Date(timestamp);
         
-        if (cacheAge < 5 * 60 * 1000) { // Cache valid for 5 minutes
-          console.log('Using cached tracked projects');
+        if (cacheAge < 2 * 60 * 1000) { // Cache valid for 2 minutes (reduced from 5)
+          console.log('Using in-memory cached tracked projects');
           setTrackedProjects(projects);
           return projects;
         }
       }
       
-      // Fetch from Firestore
+      // Then try localStorage for offline support
+      const cachedData = localStorage.getItem(`trackedProjects_${currentUser.uid}`);
+      if (cachedData) {
+        try {
+          const { projects, timestamp } = JSON.parse(cachedData);
+          const cacheAge = new Date() - new Date(timestamp);
+          
+          if (cacheAge < 5 * 60 * 1000) { // Cache valid for 5 minutes
+            console.log('Using localStorage cached tracked projects');
+            setTrackedProjects(projects);
+            
+            // Update in-memory cache
+            inMemoryCache.current.trackedProjects[currentUser.uid] = {
+              projects,
+              timestamp
+            };
+            
+            // Still proceed with Firestore fetch in background, but don't wait
+            setTimeout(() => {
+              fetchFromFirestore().catch(err => 
+                console.error('Background tracked projects fetch failed:', err)
+              );
+            }, 100);
+            
+            return projects;
+          }
+        } catch (cacheError) {
+          console.warn('Error reading projects from cache:', cacheError);
+        }
+      }
+      
+      // Fetch from Firestore if cache not available or expired
+      return await fetchFromFirestore();
+      
+    } catch (error) {
+      console.error('Error fetching tracked projects:', error);
+      setError('Failed to load tracked projects');
+      return [];
+    }
+    
+    // Inner function for Firestore fetch
+    async function fetchFromFirestore() {
       const trackedRef = collection(db, 'trackedProjects');
       const trackedQuery = query(
         trackedRef,
@@ -200,21 +249,27 @@ const Dashboard = () => {
       });
       
       // Update localStorage cache
-      localStorage.setItem(
-        `trackedProjects_${currentUser.uid}`,
-        JSON.stringify({
-          projects,
-          timestamp: new Date().toISOString()
-        })
-      );
+      try {
+        localStorage.setItem(
+          `trackedProjects_${currentUser.uid}`,
+          JSON.stringify({
+            projects,
+            timestamp: new Date().toISOString()
+          })
+        );
+      } catch (cacheError) {
+        console.warn('Error saving projects to localStorage:', cacheError);
+      }
+      
+      // Update in-memory cache
+      inMemoryCache.current.trackedProjects[currentUser.uid] = {
+        projects,
+        timestamp: new Date().toISOString()
+      };
       
       console.log(`Found ${projects.length} tracked projects`);
       setTrackedProjects(projects);
       return projects;
-    } catch (error) {
-      console.error('Error fetching tracked projects:', error);
-      setError('Failed to load tracked projects');
-      return [];
     }
   }, [currentUser]);
 
@@ -251,106 +306,165 @@ const Dashboard = () => {
     return stats;
   }, []);
 
-  // Function to load user data with enhanced error handling
+  // Function to load user data with enhanced error handling and caching
   const loadUserData = useCallback(async () => {
     if (!currentUser) {
       console.log('No user logged in');
-      return;
+      return null;
     }
 
     try {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setUserRole(userData.role || 'user');
-      } else {
-        console.log('No user document found, creating one...');
-        await setDoc(userDocRef, {
-          email: currentUser.email,
-          role: 'user',
-          createdAt: serverTimestamp()
-        });
-        setUserRole('user');
+      // Check in-memory cache first (fastest)
+      if (inMemoryCache.current.userData[currentUser.uid]) {
+        const { data, timestamp } = inMemoryCache.current.userData[currentUser.uid];
+        const cacheAge = new Date() - new Date(timestamp);
+        
+        if (cacheAge < 5 * 60 * 1000) { // Cache valid for 5 minutes
+          console.log('Using in-memory cached user data');
+          setUserRole(data.role || 'user');
+          setUserData(data);
+          return data;
+        }
       }
+      
+      // Try localStorage next
+      try {
+        const cachedData = localStorage.getItem(`userData_${currentUser.uid}`);
+        if (cachedData) {
+          const { data, timestamp } = JSON.parse(cachedData);
+          const cacheAge = new Date() - new Date(timestamp);
+          
+          if (cacheAge < 15 * 60 * 1000) { // Cache valid for 15 minutes
+            console.log('Using localStorage cached user data');
+            setUserRole(data.role || 'user');
+            setUserData(data);
+            
+            // Update in-memory cache
+            inMemoryCache.current.userData[currentUser.uid] = {
+              data,
+              timestamp
+            };
+            
+            // Continue with Firestore fetch in background
+            setTimeout(() => {
+              fetchFromFirestore().catch(err => 
+                console.error('Background user data fetch failed:', err)
+              );
+            }, 100);
+            
+            return data;
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Error reading user data from cache:', cacheError);
+      }
+      
+      // Fetch from Firestore if cache not available or expired
+      return await fetchFromFirestore();
+      
     } catch (error) {
       console.error('Error loading user data:', error);
       setError('Failed to load user data');
+      return null;
+    }
+    
+    // Inner function for Firestore fetch
+    async function fetchFromFirestore() {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      let userData;
+      if (userDoc.exists()) {
+        userData = userDoc.data();
+        setUserRole(userData.role || 'user');
+        setUserData(userData);
+      } else {
+        console.log('No user document found, creating one...');
+        userData = {
+          email: currentUser.email,
+          role: 'user',
+          createdAt: serverTimestamp()
+        };
+        
+        await setDoc(userDocRef, userData);
+        setUserRole('user');
+        setUserData(userData);
+      }
+      
+      // Update caches
+      try {
+        // Update localStorage
+        localStorage.setItem(`userData_${currentUser.uid}`, JSON.stringify({
+          data: userData,
+          timestamp: new Date().toISOString()
+        }));
+        
+        // Update in-memory cache
+        inMemoryCache.current.userData[currentUser.uid] = {
+          data: userData,
+          timestamp: new Date().toISOString()
+        };
+      } catch (cacheError) {
+        console.warn('Error caching user data:', cacheError);
+      }
+      
+      return userData;
     }
   }, [currentUser]);
 
-  // Function to check for project updates
+  // Function to check for project updates with optimized performance
   const checkForProjectUpdates = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || checkingForUpdates) return;
     
     setCheckingForUpdates(true);
     
     try {
-      // Get all tracked projects
-      const trackedRef = collection(db, 'trackedProjects');
-      const q = query(
-        trackedRef,
-        where('userId', '==', currentUser.uid)
-      );
+      // Get unread count even if the full update check isn't complete
+      const unreadCount = await ProjectUpdateService.getUnreadNotificationsCount(currentUser.uid);
+      setUnreadNotificationsCount(unreadCount);
       
-      const querySnapshot = await getDocs(q);
-      const updates = [];
-      
-      // Check each project for updates
-      for (const doc of querySnapshot.docs) {
-        const projectData = doc.data();
-        const projectId = projectData.projectId || projectData.planning_id;
-        
-        if (!projectId) continue;
-        
-        // Compare last update time
-        const lastChecked = projectData.lastChecked?.toDate() || new Date(0);
-        const now = new Date();
-        const hoursSinceLastCheck = (now - lastChecked) / (1000 * 60 * 60);
-        
-        if (hoursSinceLastCheck >= 24) {
-          updates.push({
-            docId: doc.id,
-            projectId,
-            title: projectData.planning_title || projectData.title || 'Unnamed Project'
-          });
+      // Run the heavy update check in the background
+      setTimeout(async () => {
+        try {
+          await ProjectUpdateService.checkForProjectUpdates(currentUser.uid);
+          // Update unread count again after the check
+          const updatedCount = await ProjectUpdateService.getUnreadNotificationsCount(currentUser.uid);
+          setUnreadNotificationsCount(updatedCount);
+        } catch (backgroundError) {
+          console.error('Background update check failed:', backgroundError);
+        } finally {
+          setCheckingForUpdates(false);
         }
-      }
+      }, 100);
       
-      if (updates.length > 0) {
-        console.log(`Found ${updates.length} projects that need updating`);
-        
-        // Update lastChecked timestamp for all projects
-        const updatePromises = updates.map(update => {
-          const docRef = doc(db, 'trackedProjects', update.docId);
-          return updateDoc(docRef, {
-            lastChecked: serverTimestamp()
-          });
-        });
-        
-        await Promise.all(updatePromises);
-        console.log('Updated lastChecked timestamps');
-      } else {
-        console.log('No projects need updating');
-      }
     } catch (error) {
       console.error('Error checking for project updates:', error);
-    } finally {
       setCheckingForUpdates(false);
     }
-  }, [currentUser]);
+  }, [currentUser, checkingForUpdates]);
 
-  // Function to fetch project notes
+  // Function to fetch project notes with improved caching
   const fetchAllProjectNotes = useCallback(async () => {
     if (!currentUser) {
       console.log('No user logged in, cannot fetch project notes');
       setProjectNotes({});
-      return;
+      return {};
     }
 
     try {
       console.log('Fetching project notes for user:', currentUser.uid);
+      
+      // Check in-memory cache first (fastest)
+      if (inMemoryCache.current.projectNotes[currentUser.uid]) {
+        const { notes, timestamp } = inMemoryCache.current.projectNotes[currentUser.uid];
+        const cacheAge = new Date() - new Date(timestamp);
+        
+        if (cacheAge < 2 * 60 * 1000) { // Cache valid for 2 minutes
+          console.log('Using in-memory cached project notes');
+          setProjectNotes(notes);
+          return notes;
+        }
+      }
       
       // Try to get from localStorage first for immediate display
       const cachedNotes = localStorage.getItem(`projectNotes_${currentUser.uid}`);
@@ -360,15 +474,51 @@ const Dashboard = () => {
           const cacheAge = new Date() - new Date(timestamp);
           
           if (cacheAge < 30 * 60 * 1000) { // Cache valid for 30 minutes
-            console.log('Using cached project notes');
+            console.log('Using localStorage cached project notes');
             setProjectNotes(notes);
-            return;
+            
+            // Update in-memory cache
+            inMemoryCache.current.projectNotes[currentUser.uid] = {
+              notes,
+              timestamp
+            };
+            
+            // Still proceed with Firestore fetch in background, but don't wait
+            setTimeout(() => {
+              fetchFromFirestore().catch(err => 
+                console.error('Background project notes fetch failed:', err)
+              );
+            }, 150);
+            
+            return notes;
           }
         } catch (cacheError) {
           console.warn('Error reading notes from cache:', cacheError);
         }
       }
       
+      // Fetch from Firestore if cache not available or expired
+      return await fetchFromFirestore();
+      
+    } catch (error) {
+      console.error('Error fetching project notes:', error);
+      // Try to use any cached notes if available
+      try {
+        const cachedNotes = localStorage.getItem(`projectNotes_${currentUser.uid}`);
+        if (cachedNotes) {
+          const { notes } = JSON.parse(cachedNotes);
+          console.log('Using previously cached project notes as fallback');
+          setProjectNotes(notes);
+          return notes;
+        }
+      } catch (e) {
+        console.warn('No usable cached notes found');
+      }
+      return {};
+    }
+    
+    // Inner function for Firestore fetch
+    async function fetchFromFirestore() {
       // Fetch from Firestore - without orderBy to avoid index requirement
       const notesRef = collection(db, 'projectNotes');
       const q = query(
@@ -383,7 +533,7 @@ const Dashboard = () => {
       if (querySnapshot.empty) {
         console.log('No project notes found in Firestore');
         setProjectNotes({});
-        return;
+        return {};
       }
       
       const notes = {};
@@ -425,79 +575,112 @@ const Dashboard = () => {
           notes,
           timestamp: new Date().toISOString()
         }));
+        
+        // Update in-memory cache
+        inMemoryCache.current.projectNotes[currentUser.uid] = {
+          notes,
+          timestamp: new Date().toISOString()
+        };
       } catch (cacheError) {
         console.warn('Error saving notes to cache:', cacheError);
       }
       
       setProjectNotes(notes);
-    } catch (error) {
-      console.error('Error fetching project notes:', error);
-      // Don't set the error in the UI, just log it
-      console.log('Project notes will be skipped for now');
-      
-      // Try to use any cached notes if available
-      try {
-        const cachedNotes = localStorage.getItem(`projectNotes_${currentUser.uid}`);
-        if (cachedNotes) {
-          const { notes } = JSON.parse(cachedNotes);
-          console.log('Using previously cached project notes as fallback');
-          setProjectNotes(notes);
-        }
-      } catch (e) {
-        console.warn('No usable cached notes found');
-      }
+      return notes;
     }
   }, [currentUser]);
   
-  // Error display component with dismiss capability
-  const ErrorDisplay = ({ message, onDismiss }) => {
-    if (!message) return null;
-    
-    return (
-      <div className="error-banner" style={{
-        backgroundColor: '#f8d7da',
-        color: '#721c24',
-        padding: '10px 15px',
-        marginBottom: '20px',
-        borderRadius: '4px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <span>{message}</span>
-        <button 
-          onClick={onDismiss}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#721c24',
-            fontSize: '16px',
-            cursor: 'pointer'
-          }}
-        >
-          ×
-        </button>
-      </div>
-    );
-  };
-
   // Function to fetch dashboard settings
   const fetchDashboardSettings = useCallback(async () => {
     if (!currentUser) return;
     
     try {
+      // Check in-memory cache first
+      if (inMemoryCache.current.dashboardSettings[currentUser.uid]) {
+        const { settings, timestamp } = inMemoryCache.current.dashboardSettings[currentUser.uid];
+        const cacheAge = new Date() - new Date(timestamp);
+        
+        if (cacheAge < 10 * 60 * 1000) { // Cache valid for 10 minutes
+          console.log('Using in-memory cached dashboard settings');
+          setDashboardSettings(prevSettings => ({
+            ...prevSettings,
+            ...settings
+          }));
+          return settings;
+        }
+      }
+      
+      // Check localStorage cache
+      const cachedSettings = localStorage.getItem(`dashboardSettings_${currentUser.uid}`);
+      if (cachedSettings) {
+        try {
+          const { settings, timestamp } = JSON.parse(cachedSettings);
+          const cacheAge = new Date() - new Date(timestamp);
+          
+          if (cacheAge < 60 * 60 * 1000) { // Cache valid for 1 hour
+            console.log('Using localStorage cached dashboard settings');
+            setDashboardSettings(prevSettings => ({
+              ...prevSettings,
+              ...settings
+            }));
+            
+            // Update in-memory cache
+            inMemoryCache.current.dashboardSettings[currentUser.uid] = {
+              settings,
+              timestamp
+            };
+            
+            // Continue Firestore fetch in background
+            setTimeout(() => {
+              fetchFromFirestore().catch(err => 
+                console.error('Background settings fetch failed:', err)
+              );
+            }, 200);
+            
+            return settings;
+          }
+        } catch (error) {
+          console.warn('Error parsing cached settings:', error);
+        }
+      }
+      
+      return await fetchFromFirestore();
+    } catch (error) {
+      console.error('Error fetching dashboard settings:', error);
+    }
+    
+    async function fetchFromFirestore() {
       const settingsRef = doc(db, 'userSettings', currentUser.uid);
       const settingsSnap = await getDoc(settingsRef);
       
       if (settingsSnap.exists()) {
-        const data = settingsSnap.data();
+        const settings = settingsSnap.data();
         setDashboardSettings(prevSettings => ({
           ...prevSettings,
-          ...data
+          ...settings
         }));
+        
+        // Update caches
+        try {
+          // Update localStorage
+          localStorage.setItem(`dashboardSettings_${currentUser.uid}`, JSON.stringify({
+            settings,
+            timestamp: new Date().toISOString()
+          }));
+          
+          // Update in-memory cache
+          inMemoryCache.current.dashboardSettings[currentUser.uid] = {
+            settings,
+            timestamp: new Date().toISOString()
+          };
+        } catch (error) {
+          console.warn('Error caching settings:', error);
+        }
+        
+        return settings;
       }
-    } catch (error) {
-      console.error('Error fetching dashboard settings:', error);
+      
+      return null;
     }
   }, [currentUser]);
 
@@ -509,19 +692,52 @@ const Dashboard = () => {
     setError(null);
     
     try {
-      // Load user data first
-      await loadUserData();
+      // Load cached data for immediate display first
+      let cachedProjects = null;
       
-      // Fetch tracked projects and notes
-      const projects = await fetchTrackedProjects();
-      await fetchAllProjectNotes();
-      await fetchDashboardSettings();
+      try {
+        // Try to get from localStorage for immediate display
+        const cachedData = localStorage.getItem(`trackedProjects_${currentUser.uid}`);
+        if (cachedData) {
+          const { projects, timestamp } = JSON.parse(cachedData);
+          const cacheAge = new Date() - new Date(timestamp);
+          
+          if (cacheAge < 5 * 60 * 1000) { // Cache valid for 5 minutes
+            console.log('Using cached tracked projects for initial display');
+            setTrackedProjects(projects);
+            updateDashboardStats(projects);
+            cachedProjects = projects;
+            
+            // Show the UI faster - progressively load
+            setLoading(false);
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Error reading from cache:', cacheError);
+      }
+      
+      // Prepare all data fetching promises to run in parallel
+      const fetchPromises = [
+        loadUserData(),
+        fetchTrackedProjects(),
+        fetchAllProjectNotes(),
+        fetchDashboardSettings()
+      ];
+      
+      // Execute all fetches in parallel instead of sequentially
+      const [userData, projects, notes, settings] = await Promise.all(fetchPromises);
       
       // Update dashboard stats with fetched projects
-      updateDashboardStats(projects);
+      if (projects && projects.length > 0) {
+        updateDashboardStats(projects);
+      }
       
-      // Check for updates
-      await checkForProjectUpdates();
+      // Run update check in the background (non-blocking)
+      setTimeout(() => {
+        checkForProjectUpdates().catch(err => {
+          console.error('Background update check failed:', err);
+        });
+      }, 200);
       
       setLoading(false);
     } catch (error) {
@@ -538,30 +754,6 @@ const Dashboard = () => {
     updateDashboardStats,
     checkForProjectUpdates
   ]);
-
-  // Set up online/offline event handlers
-  const handleOnline = useCallback(() => {
-    setIsOnline(true);
-    initializeData();
-  }, [initializeData]);
-
-  const handleOffline = useCallback(() => {
-    setIsOnline(false);
-  }, []);
-
-  useEffect(() => {
-    // Set up event listeners
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    // Initialize dashboard data
-    initializeData();
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [handleOnline, handleOffline, initializeData]);
 
   // Function to toggle dashboard layout between grid and list
   const toggleDashboardLayout = async () => {
@@ -1004,7 +1196,11 @@ const Dashboard = () => {
       
       // Get a random tracked project to update
       const trackedRef = collection(db, 'trackedProjects');
-      const trackedQuery = query(trackedRef, where('userId', '==', currentUser.uid));
+      const trackedQuery = query(
+        trackedRef,
+        where('userId', '==', currentUser.uid)
+      );
+      
       const querySnapshot = await getDocs(trackedQuery);
       
       if (querySnapshot.empty) {
@@ -1195,6 +1391,38 @@ const Dashboard = () => {
     return () => clearTimeout(timer);
   }, [error]);
 
+  // Error display component with dismiss capability
+  const ErrorDisplay = ({ message, onDismiss }) => {
+    if (!message) return null;
+    
+    return (
+      <div className="error-banner" style={{
+        backgroundColor: '#f8d7da',
+        color: '#721c24',
+        padding: '10px 15px',
+        marginBottom: '20px',
+        borderRadius: '4px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <span>{message}</span>
+        <button 
+          onClick={onDismiss}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#721c24',
+            fontSize: '16px',
+            cursor: 'pointer'
+          }}
+        >
+          ×
+        </button>
+      </div>
+    );
+  };
+
   // Function to render connection status
   const renderConnectionStatus = () => {
     if (!isOnline) {
@@ -1232,6 +1460,30 @@ const Dashboard = () => {
     }
     return true;
   };
+
+  // Set up online/offline event handlers
+  const handleOnline = useCallback(() => {
+    setIsOnline(true);
+    initializeData();
+  }, [initializeData]);
+
+  const handleOffline = useCallback(() => {
+    setIsOnline(false);
+  }, []);
+
+  useEffect(() => {
+    // Set up event listeners
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Initialize dashboard data
+    initializeData();
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [handleOnline, handleOffline, initializeData]);
 
   return (
     <div style={{
